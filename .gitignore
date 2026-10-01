@@ -1,0 +1,15 @@
+.DS_Store
+*.log
+.env
+.env.local
+node_modules/
+geoffrey-mcp/node_modules/
+onboarding/recipients/
+
+# OAuth token-lifetime experiment: live credentials, never commit
+experiments/oauth-token-lifetime/tokens.json
+experiments/oauth-token-lifetime/results.log
+client_secret*.json
+accounts.json
+*.token
+*.secret

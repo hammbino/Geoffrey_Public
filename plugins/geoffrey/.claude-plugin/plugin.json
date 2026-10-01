@@ -1,0 +1,10 @@
+{
+  "name": "geoffrey",
+  "displayName": "Geoffrey",
+  "version": "1.4.0",
+  "description": "A plug-and-play Geoffrey assistant bundle for Claude. Geoffrey onboards busy recipients by asking a few practical questions, reducing load with one useful task, then quietly capturing current assistant baselines, access needs, approval rules, preferences, and next easiest wins. Includes core outcome ownership, execution verification, context handling, authority rules, recipient onboarding, and the business-owner OSLO pack.",
+  "author": {
+    "name": "Nerd Hero"
+  },
+  "skills": "./skills/"
+}

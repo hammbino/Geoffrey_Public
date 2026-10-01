@@ -1,0 +1,1163 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MCP_DIR="$ROOT/geoffrey-mcp"
+STORE_DIR="$HOME/.geoffrey"
+GEOFFREY_REPO="hammbino/Geoffrey_Public"
+INSTALLER_URL="https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh"
+
+usage() {
+  cat <<'USAGE'
+Geoffrey
+
+Usage:
+  ./bin/geoffrey bootstrap
+  ./bin/geoffrey setup
+  ./bin/geoffrey start
+  ./bin/geoffrey walkthrough
+  ./bin/geoffrey apps
+  ./bin/geoffrey connectors
+  ./bin/geoffrey demo
+  ./bin/geoffrey first-run
+  ./bin/geoffrey status
+  ./bin/geoffrey tools --memory PATH
+  ./bin/geoffrey add-email
+  ./bin/geoffrey list-email
+  ./bin/geoffrey memory --name "Person Name" [--business "Business Name"] [--github username] [--target PATH] [--push]
+  ./bin/geoffrey packet --name "Person Name" [--business "Business Name"]
+  ./bin/geoffrey share
+  ./bin/geoffrey doctor
+
+Commands:
+  bootstrap    One-command friend setup: checks tools, Claude Code, email, and memory.
+  setup        White-glove setup for Geoffrey and multi-account email.
+  start        Print the first prompt to paste into Claude, Codex, or ChatGPT.
+  walkthrough  Print the onboarding questions and app discovery flow.
+  apps         Print the chief-of-staff app/tool inventory.
+  connectors   Print the white-glove connector setup paths.
+  demo         Print the first useful action menu.
+  first-run    Print the exact first useful prompt to run after setup.
+  status       Show what is connected and what to do next.
+  tools        Fill the generated memory repo's app/tool checklist.
+  add-email    Guided Gmail or Outlook mailbox connection.
+  list-email   List connected Geoffrey mailbox ids.
+  memory       Create Geoffrey's Git/GitHub-backed memory and brain repo.
+  packet       Create a recipient onboarding packet.
+  share        Print the no-GitHub friend install command.
+  doctor       Check this local Geoffrey package.
+USAGE
+}
+
+say() {
+  printf '%s\n' "$1"
+}
+
+ask() {
+  prompt="$1"
+  default="${2:-}"
+  if [ -n "$default" ]; then
+    printf '%s [%s]: ' "$prompt" "$default" >&2
+  else
+    printf '%s: ' "$prompt" >&2
+  fi
+  read -r answer
+  if [ -z "$answer" ]; then
+    printf '%s' "$default"
+  else
+    printf '%s' "$answer"
+  fi
+}
+
+yes_no() {
+  prompt="$1"
+  default="${2:-yes}"
+  answer="$(ask "$prompt" "$default")"
+  case "$answer" in
+    y|yes|Y|YES) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+slugify() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
+}
+
+ensure_git() {
+  if command -v git >/dev/null 2>&1; then
+    say "OK  Git installed"
+    return 0
+  fi
+
+  say "Git is not installed."
+  say "On a Mac, running git for the first time may open Apple's Command Line Tools installer."
+  say "After Git installs, run the Geoffrey command again."
+  return 1
+}
+
+load_homebrew_path() {
+  if command -v brew >/dev/null 2>&1; then
+    return 0
+  fi
+  if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+}
+
+ensure_homebrew() {
+  load_homebrew_path
+  if command -v brew >/dev/null 2>&1; then
+    say "OK  Homebrew installed"
+    return 0
+  fi
+
+  if [ "$(uname -s)" != "Darwin" ]; then
+    say "Homebrew auto-install is only supported on Mac."
+    return 1
+  fi
+
+  say "Homebrew is not installed. Geoffrey can install it for you."
+  if ! yes_no "Install Homebrew now? yes/no" "yes"; then
+    say "Skipped Homebrew install."
+    return 1
+  fi
+
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  load_homebrew_path
+
+  if command -v brew >/dev/null 2>&1; then
+    say "OK  Homebrew installed"
+    return 0
+  fi
+
+  say "Homebrew installed, but this Terminal has not picked it up yet."
+  say "Close Terminal, reopen it, and run:"
+  say "./bin/geoffrey bootstrap"
+  return 1
+}
+
+ensure_node_runtime() {
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    say "OK  Node.js/npm installed"
+    return 0
+  fi
+
+  say "Node.js and npm are required for Geoffrey's local connector and Claude Code."
+
+  if ensure_homebrew; then
+    if yes_no "Install Node.js now? yes/no" "yes"; then
+      brew install node
+    else
+      say "Skipped Node.js install."
+      return 1
+    fi
+  else
+    say "Install Node.js from https://nodejs.org, then run:"
+    say "./bin/geoffrey bootstrap"
+    return 1
+  fi
+
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    say "OK  Node.js/npm installed"
+    return 0
+  fi
+
+  say "Node.js install finished, but node/npm are not available in this Terminal yet."
+  say "Close Terminal, reopen it, and run:"
+  say "./bin/geoffrey bootstrap"
+  return 1
+}
+
+ensure_claude_code() {
+  if command -v claude >/dev/null 2>&1; then
+    version="$(claude --version 2>/dev/null | head -n 1 || true)"
+    if [ -n "$version" ]; then
+      say "OK  Claude Code installed: $version"
+    else
+      say "OK  Claude Code installed"
+    fi
+    return 0
+  fi
+
+  say "Claude Code is not installed yet."
+  say "Geoffrey uses Claude Code so Claude can read CLAUDE.md, discover skills, and use the local email connector."
+
+  if ! command -v npm >/dev/null 2>&1; then
+    say "npm is not installed, so Geoffrey cannot install Claude Code automatically."
+    say "Install Node.js from https://nodejs.org, then run this again:"
+    say "./bin/geoffrey bootstrap"
+    return 1
+  fi
+
+  if yes_no "Install Claude Code now? yes/no" "yes"; then
+    say "Installing Claude Code with npm..."
+    say "If this asks for sudo, cancel it. Claude's docs recommend installing without sudo."
+    npm install -g @anthropic-ai/claude-code
+  else
+    say "Skipped Claude Code install."
+    say "Install it later with:"
+    say "npm install -g @anthropic-ai/claude-code"
+    return 1
+  fi
+
+  if command -v claude >/dev/null 2>&1; then
+    say "OK  Claude Code installed"
+  else
+    say "Claude Code install finished, but the claude command is not on PATH yet."
+    say "Close and reopen Terminal, then run:"
+    say "./bin/geoffrey bootstrap"
+    return 1
+  fi
+}
+
+ensure_github_cli() {
+  if command -v gh >/dev/null 2>&1; then
+    say "OK  GitHub CLI installed"
+    if gh auth status >/dev/null 2>&1; then
+      say "OK  GitHub CLI signed in"
+    else
+      say "GitHub CLI is installed but not signed in."
+      if yes_no "Sign in to GitHub now? yes/no" "yes"; then
+        gh auth login
+      else
+        say "Skipping GitHub sign-in. Geoffrey can still create memory locally."
+      fi
+    fi
+    return 0
+  fi
+
+  say "GitHub CLI is not installed."
+  if ensure_homebrew; then
+    if yes_no "Install GitHub CLI now? yes/no" "yes"; then
+      brew install gh
+      if command -v gh >/dev/null 2>&1 && yes_no "Sign in to GitHub now? yes/no" "yes"; then
+        gh auth login
+      fi
+    fi
+  else
+    say "Install GitHub CLI later from https://cli.github.com if you want Geoffrey memory pushed to GitHub."
+  fi
+}
+
+ensure_store() {
+  mkdir -p "$STORE_DIR"
+  chmod 700 "$STORE_DIR"
+}
+
+ensure_node_deps() {
+  if ! command -v node >/dev/null 2>&1; then
+    say "Node.js is not installed."
+    say "Run ./bin/geoffrey bootstrap so Geoffrey can install Node.js for you."
+    return 1
+  fi
+
+  if ! command -v npm >/dev/null 2>&1; then
+    say "npm is not installed."
+    say "Run ./bin/geoffrey bootstrap so Geoffrey can install Node.js for you."
+    return 1
+  fi
+
+  if [ ! -d "$MCP_DIR/node_modules/@modelcontextprotocol" ]; then
+    say "Installing Geoffrey's local email connector..."
+    (cd "$MCP_DIR" && npm install)
+  else
+    say "Geoffrey's local email connector is already installed."
+  fi
+}
+
+register_mcp() {
+  if ! command -v claude >/dev/null 2>&1; then
+    say "Claude CLI was not found, so I could not auto-register Geoffrey's email connector."
+    say "You can still install the Geoffrey Claude plugin from dist/Geoffrey-Claude-Plugin.zip."
+    say "After installing Claude Code, run this setup again."
+    return 0
+  fi
+
+  if claude mcp list 2>/dev/null | grep -q '^geoffrey\b'; then
+    say "Geoffrey's email connector is already registered with Claude."
+    return 0
+  fi
+
+  say "Registering Geoffrey's multi-account email connector with Claude..."
+  if claude mcp add --scope user geoffrey node "$MCP_DIR/src/index.js"; then
+    say "Geoffrey's email connector is registered."
+  else
+    say "Auto-registration did not complete. You can retry manually with:"
+    say "claude mcp add --scope user geoffrey node \"$MCP_DIR/src/index.js\""
+  fi
+}
+
+start_prompt() {
+  cat <<'PROMPT'
+Paste this into Claude, Codex, or ChatGPT with the generated Geoffrey memory
+repo open. If you have not created the memory repo yet, use this setup folder.
+
+Use Geoffrey.
+
+Onboard me with a white-glove setup.
+
+Ask me no more than three questions at a time. First learn what I do, what is on
+my plate, what applications I use, and which email/calendar accounts I want
+Geoffrey to see. Then take one useful task off my plate before showing me any
+detailed system map.
+PROMPT
+}
+
+walkthrough() {
+  cat <<'WALKTHROUGH'
+Geoffrey white-glove walkthrough
+
+Start with only these three questions:
+
+1. What do you do, and what kind of work do you wish Geoffrey would take off
+   your plate first?
+2. What is one real thing on your plate today that you would love not to carry?
+3. Which applications hold your work right now?
+
+Then ask only relevant follow-ups:
+
+- Email: Gmail, Outlook, Microsoft 365, Apple Mail, or another inbox?
+- Calendar: Google Calendar, Outlook, Apple Calendar, Calendly, or another calendar?
+- Chat: Slack, Teams, iMessage, WhatsApp, Discord, or another chat app?
+- Files/docs: Google Drive, OneDrive, Dropbox, Box, Notion, Confluence, or local folders?
+- Projects/tasks: Asana, ClickUp, Trello, Linear, Jira, Monday, Todoist, Reminders, or a notebook?
+- CRM/customers: HubSpot, Salesforce, Airtable, Pipedrive, GoHighLevel, or another CRM?
+- Money: Stripe, QuickBooks, Xero, Square, PayPal, Wave, or another billing tool?
+- Website/content: WordPress, Webflow, Wix, Squarespace, Shopify, Framer, Vercel, or another platform?
+- AI/automation: ChatGPT, Claude, Zapier, Make, n8n, Airtable automations, Shortcuts, or custom code?
+
+Readiness labels:
+
+- Ready now
+- Needs access
+- Needs example
+- Needs build
+- Too risky for now
+
+First useful tasks:
+
+- Draft a follow-up email, but do not send it.
+- Turn meeting notes into actions.
+- Summarize a messy idea into a plan.
+- Review open loops.
+- Create a project file.
+- Prepare today's briefing.
+
+GitHub memory:
+
+- Geoffrey's memory and brain live in a private GitHub-backed repo.
+- Run: ./bin/geoffrey memory --name "Your Name" --business "Your Business" --github your-github-name --push
+- Then open that generated repo and ask Geoffrey to read CLAUDE.md.
+WALKTHROUGH
+}
+
+demo_prompt() {
+  cat <<'DEMO'
+First Geoffrey demo
+
+After setup, choose one useful action:
+
+1. Inbox Rescue
+   Scan connected inboxes from the last 7 days. Find client, prospect, billing,
+   or scheduling messages that look important or unanswered. Group them by
+   urgency, draft replies for the top 3, and suggest what to handle today. Do
+   not send anything.
+
+2. Today’s Schedule
+   Review connected calendars and recent scheduling emails. Build a realistic
+   plan for today, including focus blocks, meetings, and follow-ups. Do not
+   create or move events without approval.
+
+3. Client Follow-Up Finder
+   Search recent mail for proposals, open client questions, stalled deals, and
+   people waiting on a reply. Create a follow-up list and draft messages. Do not
+   send anything.
+
+4. Open Loops List
+   Turn recent email, notes, and projects into a clean list of commitments,
+   waiting items, and next actions.
+
+Default prompt to paste:
+
+Geoffrey, run Inbox Rescue.
+
+Use every connected mailbox you can see. Look at the last 7 days. Find important
+or unanswered client, prospect, billing, or scheduling messages. Group them by
+urgency, draft replies for the top 3, and suggest a realistic plan for handling
+the rest today. Do not send anything.
+DEMO
+}
+
+first_run_prompt() {
+  cat <<'FIRST'
+Geoffrey first run
+
+Open the generated Geoffrey memory repo, then paste this:
+
+Read CLAUDE.md and memory/tools.md.
+
+Run Inbox Rescue.
+
+Use every connected mailbox you can see. Look at the last 7 days. Find important
+or unanswered client, prospect, billing, or scheduling messages. Group them by
+urgency, draft replies for the top 3, and suggest a realistic plan for handling
+the rest today. Do not send anything.
+
+After that, update memory/tools.md with what worked, what needs sign-in, and
+what app we should connect next.
+FIRST
+}
+
+apps_prompt() {
+  cat <<'APPS'
+Chief-of-staff app inventory
+
+Geoffrey should ask where the owner's work lives and mark each tool with a
+readiness label.
+
+Core tools to ask about:
+
+- Email: Gmail, Outlook, Microsoft 365, Apple Mail
+- Calendar: Google Calendar, Outlook, Apple Calendar, Calendly
+- Files/docs: Google Drive, OneDrive, Dropbox, Box, local folders
+- Knowledge: Notion, Confluence, Google Docs, SharePoint
+- Chat: Slack, Teams, iMessage, WhatsApp, Discord
+- Projects/tasks: Asana, ClickUp, Trello, Linear, Jira, Monday, Todoist, Reminders
+- CRM/customers: HubSpot, Salesforce, Airtable, Pipedrive, GoHighLevel
+- Money: Stripe, QuickBooks, Xero, Square, PayPal, Wave
+- Website/content: WordPress, Webflow, Wix, Squarespace, Shopify, Framer, Vercel
+- Marketing/socials: LinkedIn, Facebook, Instagram, TikTok, YouTube, X/Twitter,
+  Threads, Google Business Profile, Mailchimp, ConvertKit, beehiiv
+- Analytics/support: Google Analytics, Search Console, Sentry, PostHog, Intercom, Zendesk
+- AI/automation: ChatGPT, Claude, Zapier, Make, n8n, Airtable automations, Shortcuts
+
+Readiness labels:
+
+- Ready now: Geoffrey can help from current context or pasted/exported data.
+- Needs sign-in: user must authenticate in the app/browser/connector.
+- Needs example: Geoffrey needs one real sample before automating.
+- Needs setup: connector, repo, API key, or workflow must be created.
+- Too risky for now: delay until authority boundaries are clearer.
+
+Connection rule:
+
+Connect the owner's core operating stack in stages. Start with the tools needed
+for the first useful action, then continue through the rest of the tools they
+actually use. Do not connect random apps just because they exist.
+APPS
+}
+
+connectors_prompt() {
+  cat <<'CONNECTORS'
+Geoffrey connector setup paths
+
+Use this after the app inventory. The goal is to connect the owner's real
+operating stack, not just email.
+
+Core stack to connect during white-glove setup:
+
+1. Memory and GitHub
+   Run: ./bin/geoffrey memory --name "Name" --business "Business" --github username --push
+   Purpose: Geoffrey's private notebook and brain.
+
+2. Email and calendar
+   Run: ./bin/geoffrey add-email
+   Gmail: bundled Geoffrey OAuth app; user clicks through the Google warning.
+   Outlook/Microsoft 365: bundled Microsoft config if present, otherwise docs/outlook-setup.md.
+
+3. Files and documents
+   Connect: Google Drive, OneDrive, SharePoint, Dropbox, Box, or local folders.
+   First use: find key docs, summarize, draft proposals, organize templates.
+
+4. Tasks and projects
+   Connect: Asana, ClickUp, Trello, Linear, Jira, Monday, Todoist, Reminders.
+   First use: build the open-loops list and next-action dashboard.
+
+5. CRM and clients
+   Connect: HubSpot, Salesforce, Airtable, Pipedrive, GoHighLevel.
+   First use: find stalled deals, draft follow-ups, prep for calls.
+
+6. Billing and money
+   Connect: Stripe, QuickBooks, Xero, Square, PayPal, Wave.
+   First use: overdue invoice review, billing questions, payment links.
+
+7. Chat and meetings
+   Connect: Slack, Teams, iMessage/exports, WhatsApp/exports, Otter, Read AI, Granola.
+   First use: pull action items and draft follow-ups.
+
+8. Website, content, marketing, and socials
+   Connect: WordPress, Webflow, Wix, Squarespace, Shopify, Framer, Vercel,
+   LinkedIn, Facebook, Instagram, TikTok, YouTube, X/Twitter, Threads, Google
+   Business Profile, Mailchimp, ConvertKit, beehiiv, Google Analytics, Search Console.
+   First use: content calendar, social drafts, review response drafts, site update plan, campaign/report summary.
+
+Setup rule:
+
+- Ask what they use.
+- Mark each tool Ready now, Needs sign-in, Needs example, Needs setup, or Too risky for now.
+- Connect the owner's core stack, not every possible app.
+- Prove value with Inbox Rescue, Today’s Schedule, Client Follow-Up Finder, or Open Loops.
+CONNECTORS
+}
+
+add_email() {
+  ensure_store
+  ensure_node_deps
+
+  say ""
+  say "Geoffrey can connect multiple mailboxes."
+  say "Each mailbox gets a short id like personal, work, billing, sales, or old-work."
+  say ""
+
+  default_provider="google"
+  if [ ! -f "$MCP_DIR/config/google-oauth.json" ] && [ -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
+    default_provider="microsoft"
+  fi
+  provider="$(ask "Provider: google or microsoft" "$default_provider")"
+  id="$(ask "Short account id" "")"
+  purpose="$(ask "What is this account for?" "")"
+
+  if [ -z "$id" ]; then
+    say "Account id is required."
+    exit 1
+  fi
+
+  case "$provider" in
+    google|gmail)
+      say ""
+      say "Gmail uses Geoffrey's bundled OAuth app."
+      say "Google will show an unverified-app warning because this is a private friends-and-family tool."
+      say "Click Advanced, then Go to Geoffrey (unsafe), then approve."
+      if [ -f "$MCP_DIR/config/google-oauth.json" ]; then
+        (cd "$MCP_DIR" && npm run add-account -- --provider google --id "$id" --purpose "$purpose")
+      else
+        say "Bundled Gmail OAuth config is missing."
+        say "Fallback: use a Google Desktop OAuth client JSON file."
+        secrets="$(ask "Path to Google Desktop OAuth JSON" "")"
+        if [ -z "$secrets" ]; then
+          say "Skipped Gmail connection."
+          exit 0
+        fi
+        (cd "$MCP_DIR" && npm run add-account -- --provider google --secrets "$secrets" --id "$id" --purpose "$purpose")
+      fi
+      ;;
+    microsoft|outlook|office365)
+      say ""
+      if [ -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
+        say "Outlook uses Geoffrey's bundled Microsoft OAuth app."
+        say "Your browser will open to Microsoft. Sign in with the mailbox you want Geoffrey to see."
+        (cd "$MCP_DIR" && npm run add-account -- --provider microsoft --id "$id" --purpose "$purpose")
+      else
+        say "Outlook support is built, but this package does not yet include a bundled Microsoft client ID."
+        say "Fallback: use the one-time Microsoft Entra registration in docs/outlook-setup.md."
+        client_id="$(ask "Microsoft client ID" "")"
+        if [ -z "$client_id" ]; then
+          say "Skipped Outlook connection."
+          exit 0
+        fi
+        (cd "$MCP_DIR" && npm run add-account -- --provider microsoft --client-id "$client_id" --id "$id" --purpose "$purpose")
+      fi
+      ;;
+    *)
+      say "Unknown provider: $provider"
+      exit 1
+      ;;
+  esac
+}
+
+list_email() {
+  ensure_store
+  node --input-type=module -e "import { listAccounts } from '$MCP_DIR/src/store.js'; const accounts = listAccounts(); if (!accounts.length) { console.log('No Geoffrey mailboxes connected yet. Run: ./bin/geoffrey add-email'); } else { for (const a of accounts) console.log(a.id.padEnd(14) + a.provider.padEnd(12) + a.email + '  - ' + (a.purpose ?? '')); }"
+}
+
+connected_mailboxes_count() {
+  ensure_store
+  node --input-type=module -e "import { listAccounts } from '$MCP_DIR/src/store.js'; console.log(listAccounts().length);"
+}
+
+replace_memory_tokens() {
+  target="$1"
+  name="$2"
+  business="$3"
+  github="$4"
+  mailboxes="$5"
+  find "$target" -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
+    sed -i.bak \
+      -e "s/USER_NAME/$name/g" \
+      -e "s/BUSINESS_NAME/$business/g" \
+      -e "s/GITHUB_USER/$github/g" \
+      -e "s/MAILBOX_SUMMARY/$mailboxes/g" \
+      -e "s/SETUP_DATE/$(date +%F)/g" \
+      "$file"
+    rm -f "$file.bak"
+  done
+}
+
+mailbox_summary() {
+  ensure_store
+  node --input-type=module -e "import { listAccounts } from '$MCP_DIR/src/store.js'; const accounts = listAccounts(); console.log(accounts.length ? accounts.map(a => '\`' + a.id + '\` (' + a.email + ')').join(', ') : 'none connected yet');"
+}
+
+memory_repo() {
+  name=""
+  business="Personal"
+  github=""
+  target=""
+  repo=""
+  push="no"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --name)
+        name="${2:-}"
+        shift 2
+        ;;
+      --business)
+        business="${2:-}"
+        shift 2
+        ;;
+      --github)
+        github="${2:-}"
+        shift 2
+        ;;
+      --target)
+        target="${2:-}"
+        shift 2
+        ;;
+      --repo)
+        repo="${2:-}"
+        shift 2
+        ;;
+      --push)
+        push="yes"
+        shift
+        ;;
+      *)
+        say "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  if [ -z "$name" ]; then
+    name="$(ask "Person's name" "")"
+  fi
+  if [ -z "$name" ]; then
+    say "Name is required."
+    exit 1
+  fi
+
+  if [ "$business" = "Personal" ]; then
+    business="$(ask "Business or team" "$business")"
+  fi
+
+  if [ -z "$github" ]; then
+    github="$(ask "GitHub username, if known" "unknown")"
+  fi
+
+  slug="$(slugify "$name")"
+  if [ -z "$repo" ]; then
+    repo="geoffrey-$slug"
+  fi
+  if [ -z "$target" ]; then
+    target="$HOME/Repos/$repo"
+  fi
+
+  if [ -e "$target" ] && [ "$(find "$target" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" != "" ]; then
+    say "Target exists and is not empty: $target"
+    exit 1
+  fi
+
+  mkdir -p "$target"
+  cp -R "$ROOT/memory-template/." "$target/"
+
+  mailboxes="$(mailbox_summary)"
+  replace_memory_tokens "$target" "$name" "$business" "$github" "$mailboxes"
+  if [ -f "$target/memory/journal/SETUP_DATE.md" ]; then
+    mv "$target/memory/journal/SETUP_DATE.md" "$target/memory/journal/$(date +%F).md"
+  fi
+
+  git -C "$target" init >/dev/null
+  if ! git -C "$target" config user.name >/dev/null; then
+    git -C "$target" config user.name "Geoffrey"
+  fi
+  if ! git -C "$target" config user.email >/dev/null; then
+    git -C "$target" config user.email "geoffrey@local"
+  fi
+  git -C "$target" add .
+  git -C "$target" commit -m "Create Geoffrey memory" >/dev/null
+  git -C "$target" branch -M main
+
+  say "Created Geoffrey memory repo: $target"
+
+  if [ "$push" != "yes" ]; then
+    push_now="$(ask "Create a private GitHub repo and push it now? yes/no" "no")"
+    case "$push_now" in
+      y|yes|Y|YES) push="yes" ;;
+    esac
+  fi
+
+  if [ "$push" = "yes" ]; then
+    if ! command -v gh >/dev/null 2>&1; then
+      say "GitHub CLI is not installed. Install it, then run:"
+      say "cd \"$target\""
+      say "gh auth login"
+      say "gh repo create \"$repo\" --private --source . --remote origin --push"
+      exit 0
+    fi
+
+    if ! gh auth status >/dev/null 2>&1; then
+      say "Opening GitHub login..."
+      gh auth login
+    fi
+
+    if git -C "$target" remote get-url origin >/dev/null 2>&1; then
+      git -C "$target" push -u origin main
+    else
+      gh repo create "$repo" --private --source "$target" --remote origin --push
+    fi
+    say "Pushed Geoffrey memory to GitHub repo: $repo"
+  fi
+
+  say ""
+  say "Next prompt:"
+  say "Open $target in Claude Code or Codex and say: Read CLAUDE.md and onboard me with Geoffrey."
+}
+
+tools_checklist() {
+  memory_path=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --memory)
+        memory_path="${2:-}"
+        shift 2
+        ;;
+      *)
+        say "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  if [ -z "$memory_path" ]; then
+    memory_path="$(ask "Path to Geoffrey memory repo" "")"
+  fi
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "I need the path to a generated Geoffrey memory repo with a memory/ folder."
+    exit 1
+  fi
+
+  say "Answer with the tools they actually use. Leave blank if none or unknown."
+  email="$(ask "Email tools" "Gmail/Outlook")"
+  calendar="$(ask "Calendar tools" "")"
+  files="$(ask "Files/docs tools" "")"
+  knowledge="$(ask "Knowledge/wiki tools" "")"
+  chat="$(ask "Chat tools" "")"
+  projects="$(ask "Projects/tasks tools" "")"
+  crm="$(ask "CRM/customer tools" "")"
+  money="$(ask "Money/billing tools" "")"
+  website="$(ask "Website/content tools" "")"
+  socials="$(ask "Marketing/socials tools" "")"
+  analytics="$(ask "Analytics/support tools" "")"
+  automation="$(ask "AI/automation tools" "")"
+
+  cat > "$memory_path/memory/tools.md" <<EOF_TOOLS
+# Tools And Applications
+
+Use this as Geoffrey's chief-of-staff map of where work lives.
+
+| Area | Tools | Readiness | Notes |
+|---|---|---|---|
+| Email | $email | Ready now if connected | Geoffrey can draft, not send |
+| Calendar | $calendar | Needs sign-in |  |
+| Files/docs | $files | Needs sign-in or example |  |
+| Knowledge | $knowledge | Needs sign-in or example |  |
+| Chat | $chat | Needs sign-in or export |  |
+| Projects/tasks | $projects | Needs sign-in or example |  |
+| CRM/customers | $crm | Needs sign-in or example |  |
+| Money/billing | $money | Needs sign-in; approval before changes |  |
+| Website/content | $website | Needs sign-in; approval before publishing/deploying |  |
+| Marketing/socials | $socials | Needs sign-in; approval before posting/replying |  |
+| Analytics/support | $analytics | Needs sign-in or export |  |
+| AI/automation | $automation | Needs setup; approval before recurring automation |  |
+
+## Core Setup Stack
+
+- [ ] Memory/GitHub
+- [ ] Email
+- [ ] Calendar
+- [ ] Files/docs
+- [ ] Tasks/projects
+- [ ] CRM/customers
+- [ ] Money/billing
+- [ ] Chat/meetings
+- [ ] Website/content
+- [ ] Marketing/socials
+- [ ] AI/automation
+
+## Readiness Labels
+
+- Ready now
+- Needs sign-in
+- Needs example
+- Needs setup
+- Too risky for now
+
+## Next Connection
+
+Choose the next app based on the first useful action and the owner's real stack.
+EOF_TOOLS
+
+  if [ -d "$memory_path/.git" ]; then
+    git -C "$memory_path" add memory/tools.md
+    git -C "$memory_path" commit -m "Update Geoffrey tool map" >/dev/null || true
+  fi
+
+  say "Updated: $memory_path/memory/tools.md"
+}
+
+status_report() {
+  say "Geoffrey setup status"
+  say ""
+
+  if [ -x "$ROOT/Install Geoffrey.command" ]; then
+    say "OK  Mac installer is present"
+  else
+    say "NO  Mac installer is missing"
+  fi
+
+  if command -v node >/dev/null 2>&1; then
+    say "OK  Node.js installed"
+  else
+    say "NO  Node.js missing"
+  fi
+
+  if command -v claude >/dev/null 2>&1; then
+    say "OK  Claude Code installed"
+  else
+    say "TODO  Install Claude Code with ./bin/geoffrey bootstrap"
+  fi
+
+  if [ -d "$MCP_DIR/node_modules/@modelcontextprotocol" ]; then
+    say "OK  Email connector dependencies installed"
+  else
+    say "TODO  Run ./bin/geoffrey setup to install email connector dependencies"
+  fi
+
+  count="$(connected_mailboxes_count 2>/dev/null || echo 0)"
+  if [ "$count" -gt 0 ]; then
+    say "OK  Connected mailboxes: $count"
+    list_email
+  else
+    say "TODO  Connect at least one mailbox with ./bin/geoffrey add-email"
+  fi
+
+  if command -v gh >/dev/null 2>&1; then
+    if gh auth status >/dev/null 2>&1; then
+      say "OK  GitHub CLI signed in"
+    else
+      say "TODO  Run gh auth login for GitHub-backed memory"
+    fi
+  else
+    say "TODO  Install GitHub CLI, or create memory locally without pushing"
+  fi
+
+  if [ -f "$MCP_DIR/config/google-oauth.json" ]; then
+    say "OK  Bundled Gmail OAuth config present"
+  else
+    say "NOTE  Bundled Gmail OAuth config missing; Gmail needs a Google Desktop OAuth JSON file"
+  fi
+
+  if [ -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
+    say "OK  Bundled Microsoft OAuth config present"
+  else
+    say "TODO  Microsoft is available through docs/outlook-setup.md until bundled config is added"
+  fi
+
+  say ""
+  say "Next best action:"
+  if [ "$count" -gt 0 ]; then
+    say "./bin/geoffrey first-run"
+  else
+    say "./bin/geoffrey add-email"
+  fi
+}
+
+packet() {
+  name=""
+  business="Personal"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --name)
+        name="${2:-}"
+        shift 2
+        ;;
+      --business)
+        business="${2:-}"
+        shift 2
+        ;;
+      *)
+        say "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  if [ -z "$name" ]; then
+    say "packet requires --name."
+    exit 1
+  fi
+
+  mkdir -p "$ROOT/onboarding/recipients"
+  slug="$(slugify "$name")"
+  target="$ROOT/onboarding/recipients/$slug.md"
+
+  if [ -e "$target" ]; then
+    say "Packet already exists: $target"
+    exit 0
+  fi
+
+  cp "$ROOT/onboarding/recipient-packet-template.md" "$target"
+  sed -i.bak \
+    -e "s/^# Geoffrey Recipient Packet/# Geoffrey Recipient Packet: $name/" \
+    -e "s/^- Name:$/- Name: $name/" \
+    -e "s/^- Business\\/team:$/- Business\\/team: $business/" \
+    "$target"
+  rm -f "$target.bak"
+  say "Created packet: $target"
+}
+
+share() {
+  say "Geoffrey friend handoff"
+  say ""
+  say "They do not need a GitHub account to start."
+  say ""
+  say ""
+  say "Friend terminal command:"
+  say "/bin/bash -c \"\$(curl -fsSL $INSTALLER_URL)\""
+  say ""
+  say "This public installer downloads Geoffrey, then Geoffrey installs/checks Homebrew, Node.js, Claude Code, and the local email connector."
+  say ""
+  say "GitHub comes later. Geoffrey can help them create/sign into GitHub only if they want cloud memory sync."
+  say ""
+  say "Zip fallback:"
+  say "Use the Geoffrey zip if you are sharing by file instead of Terminal."
+}
+
+doctor() {
+  fail=0
+  say "Geoffrey package check"
+  say "Root: $ROOT"
+  say ""
+
+  for path in \
+    "$ROOT/README.md" \
+    "$ROOT/START_HERE.md" \
+    "$ROOT/HANDOFF.md" \
+    "$ROOT/CLAUDE.md" \
+    "$ROOT/bin/geoffrey" \
+    "$ROOT/Install Geoffrey.command" \
+    "$ROOT/docs/friend-setup.md" \
+    "$ROOT/docs/terminal-bootstrap.md" \
+    "$ROOT/docs/friend-test-script.md" \
+    "$ROOT/docs/chief-of-staff-tools.md" \
+    "$ROOT/docs/connector-playbook.md" \
+    "$ROOT/docs/first-use-demo.md" \
+    "$ROOT/docs/github-memory-setup.md" \
+    "$ROOT/docs/white-glove-walkthrough.md" \
+    "$ROOT/docs/multi-email-setup.md" \
+    "$ROOT/docs/outlook-setup.md" \
+    "$ROOT/dist/Geoffrey-Claude-Plugin.zip" \
+    "$ROOT/geoffrey-mcp/src/index.js" \
+    "$ROOT/geoffrey-mcp/bin/add-account.js" \
+    "$ROOT/memory-template/CLAUDE.md" \
+    "$ROOT/memory-template/memory/README.md" \
+    "$ROOT/onboarding/recipient-packet-template.md"; do
+    if [ -e "$path" ]; then
+      say "OK  ${path#$ROOT/}"
+    else
+      say "NO  ${path#$ROOT/}"
+      fail=1
+    fi
+  done
+
+  if command -v node >/dev/null 2>&1; then
+    say "OK  Node.js $(node --version)"
+  else
+    say "NO  Node.js not found"
+    fail=1
+  fi
+
+  if [ -d "$MCP_DIR/node_modules/@modelcontextprotocol" ]; then
+    say "OK  email connector dependencies installed"
+  else
+    say "NOTE  email connector dependencies not installed yet; run ./bin/geoffrey setup"
+  fi
+
+  ensure_store
+  say "OK  private Geoffrey account folder: $STORE_DIR"
+
+  if [ -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
+    say "OK  bundled Microsoft OAuth config present"
+  else
+    say "NOTE  bundled Microsoft OAuth config missing; Outlook uses docs/outlook-setup.md fallback"
+  fi
+
+  if [ -f "$MCP_DIR/config/google-oauth.json" ]; then
+    say "OK  bundled Gmail OAuth config present"
+  else
+    say "NOTE  bundled Gmail OAuth config not included in the public repo; use Outlook or provide a Google Desktop OAuth JSON file."
+  fi
+
+  if command -v gh >/dev/null 2>&1; then
+    say "OK  GitHub CLI $(gh --version | head -n 1)"
+  else
+    say "NOTE  GitHub CLI not found; memory repo can still be created locally."
+  fi
+
+  say ""
+  if [ "$fail" -eq 0 ]; then
+    say "Geoffrey package is ready."
+  else
+    say "Geoffrey package needs attention."
+  fi
+  exit "$fail"
+}
+
+bootstrap() {
+  say "Geoffrey terminal bootstrap"
+  say ""
+  say "This checks the basics, installs what Geoffrey can install safely, then starts the white-glove setup."
+  say ""
+
+  ensure_git || true
+
+  ensure_node_runtime || true
+
+  ensure_node_deps || true
+  ensure_claude_code || true
+  register_mcp
+
+  say ""
+  say "Core setup check:"
+  status_report
+  say ""
+
+  if yes_no "Continue into Geoffrey white-glove setup now? yes/no" "yes"; then
+    setup
+  else
+    say "Paused. Continue later with:"
+    say "./bin/geoffrey setup"
+  fi
+}
+
+setup() {
+  say "Welcome to Geoffrey."
+  say ""
+  say "This setup prepares Geoffrey, explains the white-glove walkthrough, and can connect multiple email/calendar accounts."
+  say ""
+
+  ensure_store
+  ensure_node_deps || true
+  register_mcp
+
+  say ""
+  say "Current Geoffrey mailboxes:"
+  list_email || true
+  say ""
+
+  connect_now="$(ask "Connect an email account now? yes/no" "yes")"
+  case "$connect_now" in
+    y|yes|Y|YES) add_email ;;
+    *) say "Skipping email connection. Run ./bin/geoffrey add-email when ready." ;;
+  esac
+
+  say ""
+  create_memory="$(ask "Create Geoffrey's Git/GitHub memory repo now? yes/no" "yes")"
+  case "$create_memory" in
+    y|yes|Y|YES) memory_repo ;;
+    *) say "Skipping memory repo. Run ./bin/geoffrey memory when ready." ;;
+  esac
+
+  say ""
+  start_prompt
+  say ""
+  status_report
+  say ""
+  say "To continue connecting the rest of the owner's tools, run:"
+  say "./bin/geoffrey connectors"
+  say ""
+  demo_prompt
+}
+
+case "${1:-}" in
+  bootstrap)
+    bootstrap
+    ;;
+  setup)
+    setup
+    ;;
+  start)
+    start_prompt
+    ;;
+  walkthrough)
+    walkthrough
+    ;;
+  apps)
+    apps_prompt
+    ;;
+  connectors)
+    connectors_prompt
+    ;;
+  demo)
+    demo_prompt
+    ;;
+  first-run)
+    first_run_prompt
+    ;;
+  status)
+    status_report
+    ;;
+  tools)
+    shift
+    tools_checklist "$@"
+    ;;
+  add-email)
+    add_email
+    ;;
+  list-email)
+    list_email
+    ;;
+  memory)
+    shift
+    memory_repo "$@"
+    ;;
+  packet)
+    shift
+    packet "$@"
+    ;;
+  share)
+    shift
+    share "$@"
+    ;;
+  doctor)
+    doctor
+    ;;
+  ""|-h|--help|help)
+    usage
+    ;;
+  *)
+    say "Unknown command: $1"
+    usage
+    exit 1
+    ;;
+esac
