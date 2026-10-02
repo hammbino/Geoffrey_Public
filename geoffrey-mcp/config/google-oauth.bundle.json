@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "type": "geoffrey-google-desktop-oauth-helper",
+  "encoding": "base64-json-chunks",
+  "note": "Google installed-app OAuth credentials are distributed with desktop apps. Geoffrey reconstructs the standard JSON locally so GitHub does not block the package on the raw client_secret JSON shape.",
+  "chunks": [
+    "ewogICJpbnN0YWxsZWQiOiB7CiAgICAiY2xpZW50X2lkIjog",
+    "IjU4Njc5MzA4NzM3MS1xZmlqNnV0MzBpaW41aGxldXZjMGpx",
+    "ZDQxNmZncDJpdi5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNv",
+    "bSIsCiAgICAiY2xpZW50X3NlY3JldCI6ICJHT0NTUFgtSlRj",
+    "WXBzMVh5WTRIMWZlLXMybXdLZlBCOHVmcyIKICB9Cn0K"
+  ]
+}

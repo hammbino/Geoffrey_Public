@@ -95,8 +95,8 @@ Geoffrey supports both:
 - Claude Code: open the local project folder so Claude reads `CLAUDE.md` and `.claude/skills/`.
 - Multi-account email/calendar: run `./bin/geoffrey setup`, then connect Gmail
   and Outlook accounts with short ids like `personal`, `work`, or `billing`.
-  Public copies include an encrypted Gmail helper, so friends enter the Geoffrey
-  Gmail setup code one time instead of creating a Google Cloud project.
+  Public copies include Geoffrey's Gmail sign-in helper, so friends do not need
+  to create a Google Cloud project.
 - GitHub-backed memory: run `./bin/geoffrey memory` to create the private repo
   that holds `CLAUDE.md` and `memory/`. Friends do not need GitHub to download
   Geoffrey, but GitHub is part of onboarding because Geoffrey's memory lives in

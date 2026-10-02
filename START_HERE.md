@@ -16,8 +16,7 @@ If you prefer Terminal:
 
 That bootstrap checks for Claude Code, installs it if npm is available and you
 approve, prepares Geoffrey's local email connector, offers to connect Gmail or
-Outlook accounts, and prints the first prompt. Gmail may ask for the Geoffrey
-Gmail setup code one time.
+Outlook accounts, and prints the first prompt.
 
 If Geoffrey is not downloaded yet, use the copy/paste terminal setup in
 [docs/terminal-bootstrap.md](docs/terminal-bootstrap.md).
@@ -38,10 +37,8 @@ Geoffrey also creates a private GitHub-backed memory repo. That repo holds the
 person's `CLAUDE.md` brain and `memory/` files, so Geoffrey can remember and
 continue work across devices.
 
-For Gmail, Geoffrey uses the bundled friends-and-family OAuth app. Public copies
-keep the Gmail helper encrypted, so Geoffrey may ask for the Geoffrey Gmail
-setup code one time. Google will show an unverified-app warning; click Advanced,
-then continue to Geoffrey.
+For Gmail, Geoffrey uses the bundled friends-and-family OAuth app. Google will
+show an unverified-app warning; click Advanced, then continue to Geoffrey.
 
 Outlook/Microsoft 365 is supported through Microsoft Graph. If this package
 includes Geoffrey's Microsoft OAuth config, the user just signs in. If not, use
