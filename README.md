@@ -93,11 +93,10 @@ Geoffrey supports both:
 
 - Claude Desktop: upload one plugin package from `dist/Geoffrey-Claude-Plugin.zip`.
 - Claude Code: open the local project folder so Claude reads `CLAUDE.md` and `.claude/skills/`.
-- Multi-account email/calendar: run `./bin/geoffrey setup`, then connect
-  Outlook accounts with short ids like `personal`, `work`, or `billing`.
-  Gmail support exists, but the public repo does not include Jeffrey's Google
-  OAuth file because GitHub blocks publishing it. Use the private zip/full
-  package when Gmail must be one-click.
+- Multi-account email/calendar: run `./bin/geoffrey setup`, then connect Gmail
+  and Outlook accounts with short ids like `personal`, `work`, or `billing`.
+  Public copies include an encrypted Gmail helper, so friends enter the Geoffrey
+  Gmail setup code one time instead of creating a Google Cloud project.
 - GitHub-backed memory: run `./bin/geoffrey memory` to create the private repo
   that holds `CLAUDE.md` and `memory/`. Friends do not need GitHub to download
   Geoffrey, but GitHub is part of onboarding because Geoffrey's memory lives in

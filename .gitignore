@@ -13,3 +13,4 @@ client_secret*.json
 accounts.json
 *.token
 *.secret
+geoffrey-mcp/config/google-oauth.json

@@ -6,6 +6,9 @@ MCP_DIR="$ROOT/geoffrey-mcp"
 STORE_DIR="$HOME/.geoffrey"
 GEOFFREY_REPO="hammbino/Geoffrey_Public"
 INSTALLER_URL="https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh"
+GMAIL_OAUTH_FILE="$MCP_DIR/config/google-oauth.json"
+GMAIL_OAUTH_ENCRYPTED_FILE="$MCP_DIR/config/google-oauth.enc.json"
+GMAIL_OAUTH_URL="${GEOFFREY_GMAIL_OAUTH_URL:-}"
 
 usage() {
   cat <<'USAGE'
@@ -77,6 +80,87 @@ yes_no() {
     y|yes|Y|YES) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+validate_gmail_oauth_file() {
+  path="$1"
+  node -e '
+    const fs = require("fs");
+    const path = process.argv[1];
+    try {
+      const raw = JSON.parse(fs.readFileSync(path, "utf8"));
+      if (!raw.installed?.client_id || !raw.installed?.client_secret) process.exit(2);
+    } catch {
+      process.exit(1);
+    }
+  ' "$path"
+}
+
+decrypt_gmail_oauth_file() {
+  encrypted="$1"
+  output="$2"
+  code="$3"
+  node -e '
+    const crypto = require("crypto");
+    const fs = require("fs");
+    const [encryptedPath, outputPath, code] = process.argv.slice(1);
+    const box = JSON.parse(fs.readFileSync(encryptedPath, "utf8"));
+    if (box.version !== 1 || box.algorithm !== "aes-256-gcm") process.exit(2);
+    const salt = Buffer.from(box.salt, "base64");
+    const iv = Buffer.from(box.iv, "base64");
+    const tag = Buffer.from(box.tag, "base64");
+    const ciphertext = Buffer.from(box.ciphertext, "base64");
+    const key = crypto.pbkdf2Sync(code, salt, box.iterations || 310000, 32, "sha256");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(tag);
+    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    const raw = JSON.parse(plaintext.toString("utf8"));
+    if (!raw.installed?.client_id || !raw.installed?.client_secret) process.exit(3);
+    fs.writeFileSync(outputPath, JSON.stringify(raw, null, 2) + "\n", { mode: 0o600 });
+  ' "$encrypted" "$output" "$code"
+}
+
+install_gmail_oauth_config() {
+  if [ -f "$GMAIL_OAUTH_FILE" ]; then
+    return 0
+  fi
+
+  mkdir -p "$MCP_DIR/config"
+
+  if [ -n "$GMAIL_OAUTH_URL" ]; then
+    say "Installing Geoffrey's Gmail sign-in helper..."
+    tmp="$(mktemp)"
+    if curl -fsSL "$GMAIL_OAUTH_URL" -o "$tmp" && validate_gmail_oauth_file "$tmp"; then
+      mv "$tmp" "$GMAIL_OAUTH_FILE"
+      chmod 600 "$GMAIL_OAUTH_FILE" || true
+      say "OK  Gmail sign-in helper installed"
+      return 0
+    fi
+    unlink "$tmp" 2>/dev/null || true
+    say "Could not download Geoffrey's Gmail helper from the configured URL."
+  fi
+
+  if [ -f "$GMAIL_OAUTH_ENCRYPTED_FILE" ]; then
+    say "Gmail needs Geoffrey's setup code one time."
+    say "Ask Jeffrey for the Geoffrey Gmail setup code. Nothing private from your Gmail is shared with Jeffrey."
+    code="$(ask "Geoffrey Gmail setup code" "")"
+    if [ -z "$code" ]; then
+      say "Skipped Gmail helper setup."
+      return 1
+    fi
+    tmp="$(mktemp)"
+    if decrypt_gmail_oauth_file "$GMAIL_OAUTH_ENCRYPTED_FILE" "$tmp" "$code"; then
+      mv "$tmp" "$GMAIL_OAUTH_FILE"
+      chmod 600 "$GMAIL_OAUTH_FILE" || true
+      say "OK  Gmail sign-in helper installed"
+      return 0
+    fi
+    unlink "$tmp" 2>/dev/null || true
+    say "That setup code did not work."
+    return 1
+  fi
+
+  return 1
 }
 
 slugify() {
@@ -533,7 +617,7 @@ add_email() {
   say ""
 
   default_provider="google"
-  if [ ! -f "$MCP_DIR/config/google-oauth.json" ] && [ -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
+  if [ ! -f "$GMAIL_OAUTH_FILE" ] && [ ! -f "$GMAIL_OAUTH_ENCRYPTED_FILE" ] && [ -z "$GMAIL_OAUTH_URL" ] && [ -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
     default_provider="microsoft"
   fi
   provider="$(ask "Provider: google or microsoft" "$default_provider")"
@@ -551,10 +635,11 @@ add_email() {
       say "Gmail uses Geoffrey's bundled OAuth app."
       say "Google will show an unverified-app warning because this is a private friends-and-family tool."
       say "Click Advanced, then Go to Geoffrey (unsafe), then approve."
-      if [ -f "$MCP_DIR/config/google-oauth.json" ]; then
+      install_gmail_oauth_config || true
+      if [ -f "$GMAIL_OAUTH_FILE" ]; then
         (cd "$MCP_DIR" && npm run add-account -- --provider google --id "$id" --purpose "$purpose")
       else
-        say "Bundled Gmail OAuth config is missing."
+        say "Geoffrey's Gmail sign-in helper is not installed."
         say "Fallback: use a Google Desktop OAuth client JSON file."
         secrets="$(ask "Path to Google Desktop OAuth JSON" "")"
         if [ -z "$secrets" ]; then
@@ -897,8 +982,12 @@ status_report() {
     say "TODO  Install GitHub CLI and sign in for Geoffrey memory"
   fi
 
-  if [ -f "$MCP_DIR/config/google-oauth.json" ]; then
+  if [ -f "$GMAIL_OAUTH_FILE" ]; then
     say "OK  Bundled Gmail OAuth config present"
+  elif [ -f "$GMAIL_OAUTH_ENCRYPTED_FILE" ]; then
+    say "OK  Gmail setup-code helper available"
+  elif [ -n "$GMAIL_OAUTH_URL" ]; then
+    say "OK  Gmail helper URL configured"
   else
     say "NOTE  Bundled Gmail OAuth config missing; Gmail needs a Google Desktop OAuth JSON file"
   fi
@@ -1040,10 +1129,14 @@ doctor() {
     say "NOTE  bundled Microsoft OAuth config missing; Outlook uses docs/outlook-setup.md fallback"
   fi
 
-  if [ -f "$MCP_DIR/config/google-oauth.json" ]; then
+  if [ -f "$GMAIL_OAUTH_FILE" ]; then
     say "OK  bundled Gmail OAuth config present"
+  elif [ -f "$GMAIL_OAUTH_ENCRYPTED_FILE" ]; then
+    say "OK  encrypted Gmail setup-code helper present"
+  elif [ -n "$GMAIL_OAUTH_URL" ]; then
+    say "OK  Gmail helper URL configured"
   else
-    say "NOTE  bundled Gmail OAuth config not included in the public repo; use Outlook or provide a Google Desktop OAuth JSON file."
+    say "NOTE  Gmail helper missing; Gmail uses Google Desktop OAuth JSON fallback"
   fi
 
   if command -v gh >/dev/null 2>&1; then

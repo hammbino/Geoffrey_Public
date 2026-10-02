@@ -24,6 +24,7 @@ Then Geoffrey checks for:
 - Claude Code
 - GitHub CLI and GitHub sign-in for memory
 - Geoffrey's local email connector
+- Gmail setup-code helper
 - Microsoft OAuth config
 
 If Homebrew is missing, the installer offers to install it.
@@ -47,6 +48,7 @@ accounts:
 - Signing in to Claude Code
 - Signing in to Gmail or Outlook
 - Approving Google or Microsoft permissions
+- Entering the Geoffrey Gmail setup code if they connect Gmail
 - Creating or signing into GitHub so Geoffrey can create the private memory repo
 
 If they do not already have GitHub, Geoffrey opens the free signup page and
@@ -77,6 +79,7 @@ Geoffrey should report:
 - Geoffrey registered with Claude
 - GitHub signed in
 - Private Geoffrey memory repo created
+- Gmail setup-code helper available, or Gmail already connected
 - Microsoft OAuth config present
 
 Then Geoffrey starts the white-glove setup.
