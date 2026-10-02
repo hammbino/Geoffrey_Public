@@ -28,6 +28,16 @@ Helpful checks:
 ./bin/geoffrey update
 ```
 
+Daily use after setup:
+
+```bash
+Jeffrey
+```
+
+This opens Claude Code in the user's Geoffrey memory repo, starts with the daily
+briefing and email/follow-up skills, and syncs new memory or skill changes with
+GitHub before and after the session.
+
 ## Terminal Path
 
 If Geoffrey is not downloaded yet, have them open Terminal and paste:

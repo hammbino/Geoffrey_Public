@@ -12,6 +12,8 @@ GMAIL_OAUTH_URL="${GEOFFREY_GMAIL_OAUTH_URL:-}"
 UPDATE_LABEL="com.geoffrey.update-check"
 UPDATE_PLIST="$HOME/Library/LaunchAgents/$UPDATE_LABEL.plist"
 UPDATE_INTERVAL_SECONDS=1209600
+LAUNCHER_DIR="$STORE_DIR/bin"
+CURRENT_MEMORY_FILE="$STORE_DIR/current-memory"
 
 usage() {
   cat <<'USAGE'
@@ -30,6 +32,8 @@ Usage:
   ./bin/geoffrey update
   ./bin/geoffrey update-check
   ./bin/geoffrey schedule-updates
+  ./bin/geoffrey install-launcher
+  ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
   ./bin/geoffrey add-email
@@ -53,6 +57,9 @@ Commands:
   update-check Check for a Geoffrey update and ask before installing.
   schedule-updates
                Install the biweekly Geoffrey update check.
+  install-launcher
+               Install the one-word Jeffrey/Geoffrey terminal launcher.
+  launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
   tools        Fill the generated memory repo's app/tool checklist.
@@ -853,8 +860,13 @@ memory_repo() {
   fi
 
   say ""
+  record_memory_path "$target"
+  ensure_launch_memory_files "$target"
+  install_launcher || true
+  say ""
   say "Next prompt:"
-  say "Open $target in Claude Code or Codex and say: Read CLAUDE.md and onboard me with Geoffrey."
+  say "Open a new Terminal and type: Jeffrey"
+  say "Or open $target in Claude Code or Codex and say: Read CLAUDE.md and onboard me with Geoffrey."
 }
 
 tools_checklist() {
@@ -1084,6 +1096,279 @@ creating recurring automations.
 EOF_SKILL
 }
 
+write_skill_file_if_missing() {
+  path="$1"
+  title="$2"
+  trigger="$3"
+  tools="$4"
+  output="$5"
+  if [ ! -f "$path" ]; then
+    write_skill_file "$path" "$title" "$trigger" "$tools" "$output"
+  fi
+}
+
+record_memory_path() {
+  memory_path="$1"
+  ensure_store
+  printf '%s\n' "$memory_path" > "$CURRENT_MEMORY_FILE"
+  chmod 600 "$CURRENT_MEMORY_FILE" || true
+}
+
+remembered_memory_path() {
+  if [ -f "$CURRENT_MEMORY_FILE" ]; then
+    path="$(sed -n '1p' "$CURRENT_MEMORY_FILE")"
+    if [ -n "$path" ] && [ -d "$path/memory" ]; then
+      printf '%s\n' "$path"
+      return 0
+    fi
+  fi
+
+  candidate="$(find "$HOME/Repos" -maxdepth 2 -type d -name memory 2>/dev/null \
+    | sed 's#/memory$##' \
+    | grep '/geoffrey-' \
+    | head -n 1 || true)"
+  if [ -n "$candidate" ] && [ -d "$candidate/memory" ]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  return 1
+}
+
+commit_memory_changes() {
+  memory_path="$1"
+  message="$2"
+
+  if [ ! -d "$memory_path/.git" ] || ! command -v git >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [ -n "$(git -C "$memory_path" status --porcelain 2>/dev/null || true)" ]; then
+    git -C "$memory_path" add .
+    git -C "$memory_path" commit -m "$message" >/dev/null || true
+  fi
+}
+
+sync_memory_repo() {
+  memory_path="$1"
+  phase="$2"
+
+  if [ ! -d "$memory_path/.git" ] || ! command -v git >/dev/null 2>&1; then
+    return 0
+  fi
+
+  commit_memory_changes "$memory_path" "Update Geoffrey memory"
+
+  if git -C "$memory_path" remote get-url origin >/dev/null 2>&1; then
+    say "Syncing Geoffrey memory with GitHub ($phase)..."
+    git -C "$memory_path" pull --rebase --autostash >/dev/null 2>&1 || {
+      say "NOTE  Geoffrey could not pull memory updates automatically."
+      say "Continue anyway, then ask Geoffrey to review Git sync."
+      return 0
+    }
+    git -C "$memory_path" push >/dev/null 2>&1 || {
+      say "NOTE  Geoffrey could not push memory updates automatically."
+      say "Continue anyway, then ask Geoffrey to review Git sync."
+      return 0
+    }
+  fi
+}
+
+ensure_launch_memory_files() {
+  memory_path="$1"
+  mkdir -p "$memory_path/memory/skills"
+
+  if [ ! -f "$memory_path/memory/chief-of-staff.md" ]; then
+    cat > "$memory_path/memory/chief-of-staff.md" <<'EOF_COS'
+# Chief Of Staff Operating Map
+
+## Operating Rhythm
+
+| Rhythm | Purpose | Default Output |
+|---|---|---|
+| Daily briefing | Start the day with priorities, schedule, open loops, and risks | concise plan for today |
+| Inbox rescue | Find important unanswered work across inboxes | urgency list plus draft replies |
+| Follow-up sweep | Find people waiting, stalled deals, proposals, and unanswered questions | follow-up list plus drafts |
+| Weekly review | Summarize wins, stuck items, money/client risks, and next week | owner-ready review |
+| Skill improvement | Turn repeated work into a reusable Geoffrey skill | updated memory/skills files |
+
+## Authority Boundaries
+
+- Retrieve/read: OK when connected.
+- Draft/summarize/organize: OK.
+- Notify/send/post/share/publish/deploy/spend/delete: ask every time.
+- Money, legal, HR, public channels, and recurring automation: explicit approval required.
+EOF_COS
+  fi
+
+  write_skill_file_if_missing \
+    "$memory_path/memory/skills/inbox-rescue.md" \
+    "Inbox Rescue" \
+    "Use when the owner wants Geoffrey to find important email, unanswered messages, client/prospect/billing/scheduling items, or hidden open loops." \
+    "Connected Gmail/Outlook accounts, recent messages, calendar context if available, and known customer/project names." \
+    "Urgency groups, top three draft replies, owner decisions needed, and a realistic plan for the rest."
+
+  write_skill_file_if_missing \
+    "$memory_path/memory/skills/daily-briefing.md" \
+    "Daily Briefing" \
+    "Use at the start of a day or when the owner asks what to focus on." \
+    "Calendar, email, project/task tools, waiting items, and current memory projects." \
+    "A short owner-ready briefing: meetings, priorities, risks, follow-ups, and suggested focus blocks."
+
+  write_skill_file_if_missing \
+    "$memory_path/memory/skills/follow-up-finder.md" \
+    "Client Follow-Up Finder" \
+    "Use when the owner wants stalled deals, client questions, proposals, or waiting replies surfaced." \
+    "Email, CRM, project tools, and waiting items." \
+    "A ranked follow-up list with draft messages and the reason each item matters."
+
+  write_skill_file_if_missing \
+    "$memory_path/memory/skills/skill-builder.md" \
+    "Skill Builder" \
+    "Use after Geoffrey completes repeated work twice or when the owner says a workflow should become repeatable." \
+    "The finished work, examples, tools touched, approval boundaries, and the owner correction history." \
+    "A new or updated memory/skills file with trigger, tools, work loop, output, and approval boundary."
+
+  commit_memory_changes "$memory_path" "Refresh Geoffrey launcher skills"
+}
+
+launcher_prompt() {
+  mailboxes="$(mailbox_summary 2>/dev/null || printf 'unknown')"
+  cat <<EOF_PROMPT
+Use Geoffrey.
+
+Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md if present, and every file in memory/skills.
+
+Start this session as my chief of staff:
+
+1. Run Daily Briefing.
+2. Check connected email skills and mailbox context. Connected mailboxes: $mailboxes.
+3. Surface today's priorities, calendar risks, waiting items, and important email follow-ups.
+4. Draft replies or next actions where useful, but do not send, post, publish, spend, delete, deploy, share access, or create recurring automations without asking.
+5. If I have added new preferences, tools, projects, or skills, update the relevant memory files and commit the change.
+
+Keep it practical. Start with the briefing, then ask what I want Geoffrey to handle first.
+EOF_PROMPT
+}
+
+install_launcher() {
+  ensure_store
+  mkdir -p "$LAUNCHER_DIR"
+
+  cat > "$LAUNCHER_DIR/Jeffrey" <<'EOF_LAUNCHER'
+#!/usr/bin/env bash
+set -euo pipefail
+GEOFFREY_HOME="${GEOFFREY_HOME:-$HOME/Geoffrey}"
+if [ ! -x "$GEOFFREY_HOME/bin/geoffrey" ]; then
+  printf '%s\n' "Geoffrey was not found at $GEOFFREY_HOME."
+  printf '%s\n' "Run the installer again:"
+  printf '%s\n' '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh)"'
+  exit 1
+fi
+exec "$GEOFFREY_HOME/bin/geoffrey" launch "$@"
+EOF_LAUNCHER
+  chmod +x "$LAUNCHER_DIR/Jeffrey"
+
+  for name in jeffrey Geoffrey geoffrey; do
+    alias_path="$LAUNCHER_DIR/$name"
+    if [ "$LAUNCHER_DIR/Jeffrey" -ef "$alias_path" ] 2>/dev/null; then
+      continue
+    fi
+    ln -sf "$LAUNCHER_DIR/Jeffrey" "$alias_path"
+  done
+
+  path_line='export PATH="$HOME/.geoffrey/bin:$PATH"'
+  for profile in "$HOME/.zshrc" "$HOME/.bash_profile"; do
+    if [ ! -f "$profile" ]; then
+      touch "$profile"
+    fi
+    if ! grep -Fq "$path_line" "$profile" 2>/dev/null; then
+      {
+        printf '\n'
+        printf '# Geoffrey one-word launcher\n'
+        printf '%s\n' "$path_line"
+      } >> "$profile"
+    fi
+  done
+
+  say "OK  One-word launcher installed"
+  say "Open a new Terminal and type: Jeffrey"
+}
+
+launch_geoffrey() {
+  memory_path=""
+  print_prompt="no"
+  sync="yes"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --memory)
+        memory_path="${2:-}"
+        shift 2
+        ;;
+      --print-prompt)
+        print_prompt="yes"
+        shift
+        ;;
+      --no-sync)
+        sync="no"
+        shift
+        ;;
+      *)
+        say "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  if [ -z "$memory_path" ]; then
+    memory_path="$(remembered_memory_path || true)"
+  fi
+
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "Geoffrey does not know where your memory repo is yet."
+    say "Run this once:"
+    say "cd ~/Geoffrey && ./bin/geoffrey setup"
+    exit 1
+  fi
+
+  record_memory_path "$memory_path"
+  ensure_launch_memory_files "$memory_path"
+
+  prompt="$(launcher_prompt)"
+  if [ "$print_prompt" = "yes" ]; then
+    printf '%s\n' "$prompt"
+    return 0
+  fi
+
+  if ! command -v claude >/dev/null 2>&1; then
+    say "Claude Code is not installed or is not available in this Terminal."
+    say "Run this once:"
+    say "cd ~/Geoffrey && ./bin/geoffrey bootstrap"
+    exit 1
+  fi
+
+  if [ "$sync" = "yes" ]; then
+    sync_memory_repo "$memory_path" "before launch"
+  fi
+
+  say "Opening Claude Code in:"
+  say "$memory_path"
+  say ""
+
+  set +e
+  (cd "$memory_path" && claude --name Geoffrey "$prompt")
+  status="$?"
+  set -e
+
+  if [ "$sync" = "yes" ]; then
+    sync_memory_repo "$memory_path" "after launch"
+  fi
+
+  return "$status"
+}
+
 chief_of_staff_setup() {
   memory_path=""
 
@@ -1265,6 +1550,8 @@ EOF_COS
     git -C "$memory_path" add memory/tools.md memory/chief-of-staff.md memory/skills
     git -C "$memory_path" commit -m "Add Geoffrey chief of staff operating map" >/dev/null || true
   fi
+  record_memory_path "$memory_path"
+  install_launcher || true
 
   say ""
   say "Updated Geoffrey chief-of-staff memory:"
@@ -1276,8 +1563,9 @@ EOF_COS
   say "- $memory_path/memory/skills/skill-builder.md"
   say ""
   say "Next prompt:"
-  say "Open $memory_path in Claude Code or Codex and say:"
-  say "Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/skills/skill-builder.md. Run the first proof of value, then tell me which plugin or connector should be connected next."
+  say "Open a new Terminal and type: Jeffrey"
+  say "Or open $memory_path in Claude Code or Codex and say:"
+  say "Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/skills/skill-builder.md. Run the daily briefing, then tell me which plugin or connector should be connected next."
 }
 
 status_report() {
@@ -1346,6 +1634,18 @@ status_report() {
     say "OK  Biweekly Geoffrey update check scheduled"
   else
     say "TODO  Schedule biweekly update checks with ./bin/geoffrey schedule-updates"
+  fi
+
+  if [ -x "$LAUNCHER_DIR/Jeffrey" ]; then
+    say "OK  One-word launcher installed: Jeffrey"
+  else
+    say "TODO  Install one-word launcher with ./bin/geoffrey install-launcher"
+  fi
+
+  if remembered="$(remembered_memory_path 2>/dev/null || true)" && [ -n "$remembered" ]; then
+    say "OK  Geoffrey memory home: $remembered"
+  else
+    say "TODO  Create Geoffrey memory with ./bin/geoffrey setup"
   fi
 
   say ""
@@ -1464,6 +1764,7 @@ update_geoffrey() {
   ensure_node_deps || true
   register_mcp
   schedule_update_checks || true
+  install_launcher || true
 
   say ""
   if [ "$before" = "$after" ]; then
@@ -1722,6 +2023,12 @@ doctor() {
     say "NOTE  biweekly update LaunchAgent not installed yet"
   fi
 
+  if [ -x "$LAUNCHER_DIR/Jeffrey" ]; then
+    say "OK  one-word Jeffrey launcher present"
+  else
+    say "NOTE  one-word Jeffrey launcher not installed yet"
+  fi
+
   say ""
   if [ "$fail" -eq 0 ]; then
     say "Geoffrey package is ready."
@@ -1747,6 +2054,7 @@ bootstrap() {
   ensure_github_cli || true
   register_mcp
   schedule_update_checks || true
+  install_launcher || true
 
   say ""
   say "Core setup check:"
@@ -1771,6 +2079,7 @@ setup() {
   ensure_node_deps || true
   register_mcp
   schedule_update_checks || true
+  install_launcher || true
 
   say ""
   say "Current Geoffrey mailboxes:"
@@ -1794,7 +2103,10 @@ setup() {
   say ""
   status_report
   say ""
-  say "To turn this into the owner's chief-of-staff system, run:"
+  say "Daily use:"
+  say "Open a new Terminal and type: Jeffrey"
+  say ""
+  say "To finish mapping the owner's full chief-of-staff system, run:"
   say "./bin/geoffrey chief-of-staff --memory \"$target\""
   say ""
   demo_prompt
@@ -1836,6 +2148,13 @@ case "${1:-}" in
     ;;
   schedule-updates)
     schedule_update_checks
+    ;;
+  install-launcher)
+    install_launcher
+    ;;
+  launch)
+    shift
+    launch_geoffrey "$@"
     ;;
   chief-of-staff)
     shift

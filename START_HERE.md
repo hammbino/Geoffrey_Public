@@ -33,6 +33,22 @@ in a private repo.
 Geoffrey asks whether they already have GitHub. If not, it opens the free signup
 page and waits while they create one.
 
+## Daily Use
+
+After setup, open a new Terminal and type:
+
+```bash
+Jeffrey
+```
+
+That starts Claude Code inside the private Geoffrey memory repo. Geoffrey reads
+the current tools, chief-of-staff map, daily briefing skill, inbox rescue skill,
+follow-up skill, and any new skills that were added.
+
+The launcher syncs the memory repo with GitHub before Claude opens and again
+after Claude closes, so added notes, preferences, projects, and skills travel
+with the user.
+
 Future Geoffrey updates are simple:
 
 ```bash
