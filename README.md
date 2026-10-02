@@ -51,6 +51,12 @@ To see setup status:
 ./bin/geoffrey status
 ```
 
+To turn Geoffrey into the owner's chief of staff after memory is created:
+
+```bash
+./bin/geoffrey chief-of-staff --memory /path/to/geoffrey-memory-repo
+```
+
 To print the exact first-run prompt:
 
 ```bash
@@ -63,7 +69,7 @@ To see the chief-of-staff tool inventory:
 ./bin/geoffrey apps
 ```
 
-To walk through connecting the broader operating stack:
+To view the broader connector playbook:
 
 ```bash
 ./bin/geoffrey connectors
@@ -101,8 +107,9 @@ Geoffrey supports both:
   that holds `CLAUDE.md` and `memory/`. Friends do not need GitHub to download
   Geoffrey, but GitHub is part of onboarding because Geoffrey's memory lives in
   a private repo.
-- Chief-of-staff tools: run `./bin/geoffrey apps` to map the user's calendar,
-  files, project tools, CRM, billing, website, marketing/socials, chat, and automations.
+- Chief-of-staff tools: run `./bin/geoffrey chief-of-staff --memory PATH` to map
+  the user's apps, plugin needs, operating rhythm, approval boundaries, and
+  first custom Geoffrey skills.
 
 For busy business users, Claude Desktop with the one-file plugin is the easiest path.
 

@@ -24,6 +24,7 @@ Usage:
   ./bin/geoffrey demo
   ./bin/geoffrey first-run
   ./bin/geoffrey status
+  ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
   ./bin/geoffrey add-email
   ./bin/geoffrey list-email
@@ -42,6 +43,8 @@ Commands:
   demo         Print the first useful action menu.
   first-run    Print the exact first useful prompt to run after setup.
   status       Show what is connected and what to do next.
+  chief-of-staff
+               Build the memory repo's tool map, plugin plan, rhythms, and first skills.
   tools        Fill the generated memory repo's app/tool checklist.
   add-email    Guided Gmail or Outlook mailbox connection.
   list-email   List connected Geoffrey mailbox ids.
@@ -921,6 +924,335 @@ EOF_TOOLS
   say "Updated: $memory_path/memory/tools.md"
 }
 
+plugin_plan_for_tools() {
+  tools_text="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  plans=""
+
+  add_plan() {
+    line="$1"
+    case "$plans" in
+      *"$line"*) ;;
+      *) plans="${plans}${line}
+" ;;
+    esac
+  }
+
+  case "$tools_text" in
+    *gmail*) add_plan "| Gmail | Local Geoffrey email connector | Ready after sign-in | Draft only; never send without approval |" ;;
+  esac
+  case "$tools_text" in
+    *outlook*|*microsoft*|*office*) add_plan "| Outlook / Microsoft 365 | Local Geoffrey email connector | Ready after sign-in | Draft only; never send without approval |" ;;
+  esac
+  case "$tools_text" in
+    *google\ calendar*) add_plan "| Google Calendar | Google Calendar plugin or Geoffrey Gmail calendar scope | Needs sign-in | Read first; event changes need approval |" ;;
+  esac
+  case "$tools_text" in
+    *outlook\ calendar*) add_plan "| Outlook Calendar | Outlook Calendar plugin or Geoffrey Microsoft connector | Needs sign-in | Read first; event changes need approval |" ;;
+  esac
+  case "$tools_text" in
+    *google\ drive*|*docs*|*sheets*|*slides*) add_plan "| Google Drive / Docs / Sheets / Slides | Google Drive plugin | Needs sign-in | Read and draft freely; sharing needs approval |" ;;
+  esac
+  case "$tools_text" in
+    *sharepoint*|*onedrive*) add_plan "| OneDrive / SharePoint | SharePoint plugin | Needs sign-in | Read and draft freely; sharing needs approval |" ;;
+  esac
+  case "$tools_text" in
+    *box*) add_plan "| Box | Box plugin | Needs sign-in | Read and organize with approval |" ;;
+  esac
+  case "$tools_text" in
+    *slack*) add_plan "| Slack | Slack plugin | Needs sign-in | Draft messages freely; posting needs approval |" ;;
+  esac
+  case "$tools_text" in
+    *teams*) add_plan "| Teams | Teams plugin | Needs sign-in | Draft messages freely; posting needs approval |" ;;
+  esac
+  case "$tools_text" in
+    *notion*) add_plan "| Notion | Notion plugin | Needs sign-in | Update pages only with clear destination |" ;;
+  esac
+  case "$tools_text" in
+    *asana*) add_plan "| Asana | Asana plugin | Needs sign-in | Create/update tasks after confirming project/list |" ;;
+  esac
+  case "$tools_text" in
+    *monday*) add_plan "| Monday.com | Monday.com plugin | Needs sign-in | Create/update items after confirming board |" ;;
+  esac
+  case "$tools_text" in
+    *linear*) add_plan "| Linear | Linear plugin | Needs sign-in | Create/update issues after confirming team/project |" ;;
+  esac
+  case "$tools_text" in
+    *jira*|*confluence*|*atlassian*) add_plan "| Jira / Confluence | Atlassian plugin | Needs sign-in | Project changes need clear ticket/page target |" ;;
+  esac
+  case "$tools_text" in
+    *hubspot*) add_plan "| HubSpot | HubSpot plugin | Needs sign-in | CRM writes need approval |" ;;
+  esac
+  case "$tools_text" in
+    *airtable*) add_plan "| Airtable | Airtable plugin | Needs sign-in | Schema/table changes need approval |" ;;
+  esac
+  case "$tools_text" in
+    *stripe*) add_plan "| Stripe | Stripe plugin | Needs sign-in | Money movement and customer changes need explicit approval |" ;;
+  esac
+  case "$tools_text" in
+    *quickbooks*|*xero*|*wave*) add_plan "| Accounting | Export or app-specific connector | Needs setup | Read reports first; money/accounting changes need approval |" ;;
+  esac
+  case "$tools_text" in
+    *wix*) add_plan "| Wix | Wix plugin | Needs sign-in | Publishing needs approval |" ;;
+  esac
+  case "$tools_text" in
+    *vercel*) add_plan "| Vercel | Vercel plugin | Needs sign-in | Deployments need approval |" ;;
+  esac
+  case "$tools_text" in
+    *cloudflare*) add_plan "| Cloudflare | Cloudflare plugin | Needs sign-in | DNS/routing changes need approval |" ;;
+  esac
+  case "$tools_text" in
+    *canva*) add_plan "| Canva | Canva plugin | Needs sign-in | Export/posting needs approval |" ;;
+  esac
+  case "$tools_text" in
+    *posthog*) add_plan "| PostHog | PostHog plugin | Needs sign-in | Read analytics freely |" ;;
+  esac
+  case "$tools_text" in
+    *sentry*) add_plan "| Sentry | Sentry plugin | Needs sign-in | Read issues freely; changes need approval |" ;;
+  esac
+  case "$tools_text" in
+    *zapier*|*make*|*n8n*) add_plan "| Automations | Native app/API or custom workflow | Needs setup | Recurring automations need approval |" ;;
+  esac
+
+  if [ -z "$plans" ]; then
+    add_plan "| None identified yet | Ask user for the exact app names | Needs example | Start from exported/pasted data |"
+  fi
+
+  printf '%s' "$plans"
+}
+
+write_skill_file() {
+  path="$1"
+  title="$2"
+  trigger="$3"
+  tools="$4"
+  output="$5"
+  cat > "$path" <<EOF_SKILL
+# $title
+
+## When To Use
+
+$trigger
+
+## Tools And Inputs
+
+$tools
+
+## Work Loop
+
+1. State the desired outcome.
+2. Gather only the context needed.
+3. Produce the smallest useful result.
+4. Mark what needs approval.
+5. Update memory with durable facts, decisions, or waiting items.
+
+## Output
+
+$output
+
+## Approval Boundary
+
+Geoffrey may read, summarize, organize, and draft. Geoffrey must ask before
+sending, posting, publishing, spending, deleting, deploying, sharing access, or
+creating recurring automations.
+EOF_SKILL
+}
+
+chief_of_staff_setup() {
+  memory_path=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --memory)
+        memory_path="${2:-}"
+        shift 2
+        ;;
+      *)
+        say "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
+  if [ -z "$memory_path" ]; then
+    memory_path="$(ask "Path to Geoffrey memory repo" "")"
+  fi
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "I need the path to a generated Geoffrey memory repo with a memory/ folder."
+    say "Create one first with ./bin/geoffrey memory"
+    exit 1
+  fi
+
+  say "Geoffrey chief-of-staff setup"
+  say "Answer with the tools they actually use. Leave blank if none or unknown."
+  say ""
+
+  business="$(ask "What kind of business or role is this for?" "")"
+  first_win="$(ask "First win to prove value: inbox, schedule, follow-up, open-loops, leads, content" "inbox")"
+  email="$(ask "Email tools" "Gmail/Outlook")"
+  calendar="$(ask "Calendar tools" "Google Calendar/Outlook Calendar")"
+  files="$(ask "Files/docs tools" "")"
+  knowledge="$(ask "Knowledge/wiki tools" "")"
+  chat="$(ask "Chat tools" "")"
+  projects="$(ask "Projects/tasks tools" "")"
+  crm="$(ask "CRM/customer tools" "")"
+  money="$(ask "Money/billing tools" "")"
+  website="$(ask "Website/content tools" "")"
+  socials="$(ask "Marketing/socials tools" "")"
+  analytics="$(ask "Analytics/support tools" "")"
+  automation="$(ask "AI/automation tools" "")"
+
+  all_tools="$email $calendar $files $knowledge $chat $projects $crm $money $website $socials $analytics $automation"
+  plugin_plan="$(plugin_plan_for_tools "$all_tools")"
+
+  mkdir -p "$memory_path/memory/skills"
+
+  cat > "$memory_path/memory/tools.md" <<EOF_TOOLS
+# Tools And Applications
+
+Use this as Geoffrey's chief-of-staff map of where work lives.
+
+| Area | Tools | Readiness | Notes |
+|---|---|---|---|
+| Email | $email | Ready now if connected | Geoffrey can draft, not send |
+| Calendar | $calendar | Needs sign-in | Event creation or moving needs approval |
+| Files/docs | $files | Needs sign-in or example | Sharing access needs approval |
+| Knowledge | $knowledge | Needs sign-in or example | Keep source links |
+| Chat | $chat | Needs sign-in or export | Draft messages; ask before posting |
+| Projects/tasks | $projects | Needs sign-in or example | Confirm project/list before writing |
+| CRM/customers | $crm | Needs sign-in or example | CRM writes need approval |
+| Money/billing | $money | Too risky until approved | Never spend, refund, charge, or alter books without approval |
+| Website/content | $website | Needs sign-in; approval before publishing/deploying |  |
+| Marketing/socials | $socials | Needs sign-in; approval before posting/replying |  |
+| Analytics/support | $analytics | Needs sign-in or export | Read-only first |
+| AI/automation | $automation | Needs setup; approval before recurring automation |  |
+
+## Plugin And Connector Plan
+
+| Tool | Plugin / Connector | Status | Boundary |
+|---|---|---|---|
+$plugin_plan
+
+## Core Setup Stack
+
+- [x] Memory/GitHub
+- [ ] Email
+- [ ] Calendar
+- [ ] Files/docs
+- [ ] Tasks/projects
+- [ ] CRM/customers
+- [ ] Money/billing
+- [ ] Chat/meetings
+- [ ] Website/content
+- [ ] Marketing/socials
+- [ ] AI/automation
+
+## Readiness Labels
+
+- Ready now
+- Needs sign-in
+- Needs example
+- Needs setup
+- Too risky for now
+
+## Next Connection
+
+Choose the next app based on the first useful action and the owner's real stack.
+EOF_TOOLS
+
+  cat > "$memory_path/memory/chief-of-staff.md" <<EOF_COS
+# Chief Of Staff Operating Map
+
+## Business Context
+
+- Business or role: ${business:-unknown}
+- First proof of value: $first_win
+
+## Operating Rhythm
+
+| Rhythm | Purpose | Default Output |
+|---|---|---|
+| Daily briefing | Start the day with priorities, schedule, open loops, and risks | concise plan for today |
+| Inbox rescue | Find important unanswered work across inboxes | urgency list plus draft replies |
+| Follow-up sweep | Find people waiting, stalled deals, proposals, and unanswered questions | follow-up list plus drafts |
+| Weekly review | Summarize wins, stuck items, money/client risks, and next week | owner-ready review |
+| Skill improvement | Turn repeated work into a reusable Geoffrey skill | updated memory/skills files |
+
+## Work Intake
+
+For every new task:
+
+1. Identify the outcome.
+2. Identify which tools hold the truth.
+3. Retrieve context before writing.
+4. Draft or organize the work.
+5. Ask before actions with risk.
+6. Update memory when a durable preference, decision, person, project, or waiting item changes.
+
+## Authority Boundaries
+
+- Retrieve/read: OK when connected.
+- Draft/summarize/organize: OK.
+- Write to private working docs/tasks: ask if destination is unclear.
+- Notify/send/post/share/publish/deploy/spend/delete: ask every time.
+- Money, legal, HR, public channels, and recurring automation: explicit approval required.
+
+## First Real Work Prompt
+
+Read CLAUDE.md, memory/tools.md, and memory/chief-of-staff.md.
+
+Run $first_win as the first proof of value. Use connected tools where available.
+If a tool is not connected, ask for the smallest useful export, paste, screenshot,
+or sign-in step. Produce a useful result before expanding the system map.
+EOF_COS
+
+  write_skill_file \
+    "$memory_path/memory/skills/inbox-rescue.md" \
+    "Inbox Rescue" \
+    "Use when the owner wants Geoffrey to find important email, unanswered messages, client/prospect/billing/scheduling items, or hidden open loops." \
+    "Connected Gmail/Outlook accounts, recent messages, calendar context if available, and known customer/project names." \
+    "Urgency groups, top three draft replies, owner decisions needed, and a realistic plan for the rest."
+
+  write_skill_file \
+    "$memory_path/memory/skills/daily-briefing.md" \
+    "Daily Briefing" \
+    "Use at the start of a day or when the owner asks what to focus on." \
+    "Calendar, email, project/task tools, waiting items, and current memory projects." \
+    "A short owner-ready briefing: meetings, priorities, risks, follow-ups, and suggested focus blocks."
+
+  write_skill_file \
+    "$memory_path/memory/skills/follow-up-finder.md" \
+    "Client Follow-Up Finder" \
+    "Use when the owner wants stalled deals, client questions, proposals, or waiting replies surfaced." \
+    "Email, CRM, project tools, and waiting items." \
+    "A ranked follow-up list with draft messages and the reason each item matters."
+
+  write_skill_file \
+    "$memory_path/memory/skills/skill-builder.md" \
+    "Skill Builder" \
+    "Use after Geoffrey completes repeated work twice or when the owner says a workflow should become repeatable." \
+    "The finished work, examples, tools touched, approval boundaries, and the owner correction history." \
+    "A new or updated memory/skills file with trigger, tools, work loop, output, and approval boundary."
+
+  if [ -d "$memory_path/.git" ]; then
+    git -C "$memory_path" add memory/tools.md memory/chief-of-staff.md memory/skills
+    git -C "$memory_path" commit -m "Add Geoffrey chief of staff operating map" >/dev/null || true
+  fi
+
+  say ""
+  say "Updated Geoffrey chief-of-staff memory:"
+  say "- $memory_path/memory/tools.md"
+  say "- $memory_path/memory/chief-of-staff.md"
+  say "- $memory_path/memory/skills/inbox-rescue.md"
+  say "- $memory_path/memory/skills/daily-briefing.md"
+  say "- $memory_path/memory/skills/follow-up-finder.md"
+  say "- $memory_path/memory/skills/skill-builder.md"
+  say ""
+  say "Next prompt:"
+  say "Open $memory_path in Claude Code or Codex and say:"
+  say "Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/skills/skill-builder.md. Run the first proof of value, then tell me which plugin or connector should be connected next."
+}
+
 status_report() {
   say "Geoffrey setup status"
   say ""
@@ -1200,8 +1532,8 @@ setup() {
   say ""
   status_report
   say ""
-  say "To continue connecting the rest of the owner's tools, run:"
-  say "./bin/geoffrey connectors"
+  say "To turn this into the owner's chief-of-staff system, run:"
+  say "./bin/geoffrey chief-of-staff --memory \"$target\""
   say ""
   demo_prompt
 }
@@ -1233,6 +1565,10 @@ case "${1:-}" in
     ;;
   status)
     status_report
+    ;;
+  chief-of-staff)
+    shift
+    chief_of_staff_setup "$@"
     ;;
   tools)
     shift

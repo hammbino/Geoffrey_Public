@@ -82,3 +82,14 @@ Geoffrey should report:
 - Microsoft OAuth config present
 
 Then Geoffrey starts the white-glove setup.
+
+## Chief Of Staff Setup
+
+After Geoffrey creates the private memory repo, run:
+
+```bash
+./bin/geoffrey chief-of-staff --memory /path/to/geoffrey-memory-repo
+```
+
+This asks what apps the owner uses, marks plugin and connector needs, writes the
+operating rhythm, creates starter skills, and prints the first real-work prompt.

@@ -112,8 +112,11 @@ project tools, CRM, money, website/content, marketing/socials, AI, and automatio
 For the broader tool setup, run:
 
 ```bash
-./bin/geoffrey connectors
+./bin/geoffrey chief-of-staff --memory /path/to/geoffrey-memory-repo
 ```
+
+That creates the owner's tool map, plugin plan, operating rhythm, and first
+custom Geoffrey skills inside the memory repo.
 
 ## Path A: Claude Desktop
 

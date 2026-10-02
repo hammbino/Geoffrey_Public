@@ -81,7 +81,7 @@ Run:
 
 ```bash
 ./bin/geoffrey tools --memory /path/to/their/geoffrey-memory-repo
-./bin/geoffrey connectors
+./bin/geoffrey chief-of-staff --memory /path/to/geoffrey-memory-repo
 ```
 
 Then connect the rest of their core operating stack in stages.

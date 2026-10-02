@@ -15,8 +15,9 @@
 7. Open Claude, Codex, or ChatGPT with the Geoffrey memory repo.
 8. Paste the first prompt printed by the setup.
 9. Run the first demo action, usually Inbox Rescue.
-10. Continue with `./bin/geoffrey connectors` to walk through the rest of the
-    business tools.
+10. Continue with `./bin/geoffrey chief-of-staff --memory /path/to/memory-repo`
+    to map the rest of the business tools, plugin needs, and first custom
+    Geoffrey skills.
 
 Helpful checks:
 
@@ -70,7 +71,7 @@ automations.
 Use this command for the broader chief-of-staff setup:
 
 ```bash
-./bin/geoffrey connectors
+./bin/geoffrey chief-of-staff --memory /path/to/geoffrey-memory-repo
 ```
 
 Run the installer, connect whichever email/calendar accounts you want Geoffrey

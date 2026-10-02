@@ -1,5 +1,14 @@
 # Chief-Of-Staff Tool Setup
 
+Fast setup:
+
+```bash
+./bin/geoffrey chief-of-staff --memory /path/to/geoffrey-memory-repo
+```
+
+This writes the owner's tool map, plugin plan, operating rhythm, and first
+custom Geoffrey skills into memory.
+
 ## Goal
 
 Geoffrey should become useful inside the owner's real operating world, not just
