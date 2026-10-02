@@ -783,7 +783,7 @@ memory_repo() {
     mv "$target/memory/journal/SETUP_DATE.md" "$target/memory/journal/$(date +%F).md"
   fi
 
-  git -C "$target" init >/dev/null
+  git -C "$target" -c init.defaultBranch=main init >/dev/null
   if ! git -C "$target" config user.name >/dev/null; then
     git -C "$target" config user.name "Geoffrey"
   fi
