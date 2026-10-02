@@ -9,6 +9,9 @@ INSTALLER_URL="https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/mai
 GMAIL_OAUTH_FILE="$MCP_DIR/config/google-oauth.json"
 GMAIL_OAUTH_BUNDLE_FILE="$MCP_DIR/config/google-oauth.bundle.json"
 GMAIL_OAUTH_URL="${GEOFFREY_GMAIL_OAUTH_URL:-}"
+UPDATE_LABEL="com.geoffrey.update-check"
+UPDATE_PLIST="$HOME/Library/LaunchAgents/$UPDATE_LABEL.plist"
+UPDATE_INTERVAL_SECONDS=1209600
 
 usage() {
   cat <<'USAGE'
@@ -25,6 +28,8 @@ Usage:
   ./bin/geoffrey first-run
   ./bin/geoffrey status
   ./bin/geoffrey update
+  ./bin/geoffrey update-check
+  ./bin/geoffrey schedule-updates
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
   ./bin/geoffrey add-email
@@ -45,6 +50,9 @@ Commands:
   first-run    Print the exact first useful prompt to run after setup.
   status       Show what is connected and what to do next.
   update       Pull the latest Geoffrey package and refresh local setup.
+  update-check Check for a Geoffrey update and ask before installing.
+  schedule-updates
+               Install the biweekly Geoffrey update check.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
   tools        Fill the generated memory repo's app/tool checklist.
@@ -85,6 +93,23 @@ yes_no() {
     y|yes|Y|YES) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+shell_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+applescript_escape() {
+  sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+xml_escape() {
+  sed \
+    -e 's/&/\&amp;/g' \
+    -e 's/</\&lt;/g' \
+    -e 's/>/\&gt;/g' \
+    -e 's/"/\&quot;/g' \
+    -e "s/'/\&apos;/g"
 }
 
 validate_gmail_oauth_file() {
@@ -1317,6 +1342,12 @@ status_report() {
     say "TODO  Microsoft sign-in helper missing; owner fallback is docs/outlook-setup.md"
   fi
 
+  if [ -f "$UPDATE_PLIST" ]; then
+    say "OK  Biweekly Geoffrey update check scheduled"
+  else
+    say "TODO  Schedule biweekly update checks with ./bin/geoffrey schedule-updates"
+  fi
+
   say ""
   say "Next best action:"
   if [ "$count" -gt 0 ]; then
@@ -1432,6 +1463,7 @@ update_geoffrey() {
 
   ensure_node_deps || true
   register_mcp
+  schedule_update_checks || true
 
   say ""
   if [ "$before" = "$after" ]; then
@@ -1442,6 +1474,171 @@ update_geoffrey() {
   say ""
   say "Your private account tokens and memory repo were not overwritten."
   say "Run ./bin/geoffrey status to check the setup."
+}
+
+open_update_terminal() {
+  quoted_root="$(shell_quote "$ROOT")"
+  cmd="cd $quoted_root && ./bin/geoffrey update"
+  escaped_cmd="$(printf '%s' "$cmd" | applescript_escape)"
+
+  if command -v osascript >/dev/null 2>&1; then
+    osascript <<OSA >/dev/null 2>&1 || {
+tell application "Terminal"
+  activate
+  do script "$escaped_cmd"
+end tell
+OSA
+      say "Run this to update Geoffrey:"
+      say "$cmd"
+    }
+  else
+    say "Run this to update Geoffrey:"
+    say "$cmd"
+  fi
+}
+
+update_check() {
+  if [ ! -d "$ROOT/.git" ]; then
+    say "Geoffrey update check skipped: this folder is not connected to GitHub."
+    say "To move to the update-ready install, run:"
+    say "/bin/bash -c \"\$(curl -fsSL $INSTALLER_URL)\""
+    return 0
+  fi
+
+  if ! command -v git >/dev/null 2>&1; then
+    say "Geoffrey update check skipped: Git is not installed yet."
+    return 0
+  fi
+
+  branch="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
+  if [ -z "$branch" ]; then
+    branch="main"
+  fi
+
+  if ! git -C "$ROOT" fetch origin "$branch" >/dev/null 2>&1; then
+    say "Geoffrey update check could not reach GitHub right now."
+    return 0
+  fi
+
+  local_rev="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
+  remote_rev="$(git -C "$ROOT" rev-parse "origin/$branch" 2>/dev/null || true)"
+  if [ -z "$local_rev" ] || [ -z "$remote_rev" ]; then
+    say "Geoffrey update check could not compare versions yet."
+    return 0
+  fi
+
+  if [ "$local_rev" = "$remote_rev" ]; then
+    say "Geoffrey is already up to date."
+    return 0
+  fi
+
+  if ! git -C "$ROOT" merge-base --is-ancestor "$local_rev" "$remote_rev" >/dev/null 2>&1; then
+    say "Geoffrey update check found a different Git history and will not auto-prompt."
+    say "Ask Jeffrey to review this Geoffrey folder:"
+    say "$ROOT"
+    return 0
+  fi
+
+  short_local="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf '%s' "${local_rev:0:7}")"
+  short_remote="$(git -C "$ROOT" rev-parse --short "origin/$branch" 2>/dev/null || printf '%s' "${remote_rev:0:7}")"
+  message="A Geoffrey update is available.
+
+Current: $short_local
+Latest: $short_remote
+
+Install it now?"
+
+  if [ "${GEOFFREY_UPDATE_CHECK_NO_DIALOG:-}" = "1" ] || ! command -v osascript >/dev/null 2>&1; then
+    say "$message"
+    say ""
+    say "Run this when ready:"
+    say "cd \"$ROOT\" && ./bin/geoffrey update"
+    return 0
+  fi
+
+  escaped_message="$(printf '%s' "$message" | applescript_escape)"
+  button="$(osascript <<OSA 2>/dev/null || true
+button returned of (display dialog "$escaped_message" buttons {"Later", "Install"} default button "Install" with title "Geoffrey Update")
+OSA
+)"
+
+  if [ "$button" = "Install" ]; then
+    open_update_terminal
+  else
+    say "Geoffrey update postponed."
+  fi
+}
+
+schedule_update_checks() {
+  if [ "$(uname -s)" != "Darwin" ]; then
+    say "Skipping biweekly update scheduler: automatic prompts are currently Mac-only."
+    return 0
+  fi
+
+  if [ ! -d "$ROOT/.git" ]; then
+    say "Skipping biweekly update scheduler: this Geoffrey folder is not connected to GitHub."
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$UPDATE_PLIST")" "$STORE_DIR"
+
+  program_arg="$(printf '%s' "$ROOT/bin/geoffrey" | xml_escape)"
+  stdout_path="$(printf '%s' "$STORE_DIR/update-check.log" | xml_escape)"
+  stderr_path="$(printf '%s' "$STORE_DIR/update-check.err" | xml_escape)"
+
+  cat > "$UPDATE_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$UPDATE_LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$program_arg</string>
+    <string>update-check</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>$UPDATE_INTERVAL_SECONDS</integer>
+  <key>StandardOutPath</key>
+  <string>$stdout_path</string>
+  <key>StandardErrorPath</key>
+  <string>$stderr_path</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>
+PLIST
+
+  if command -v plutil >/dev/null 2>&1; then
+    plutil -lint "$UPDATE_PLIST" >/dev/null
+  fi
+
+  if [ "${GEOFFREY_SKIP_LAUNCHCTL:-}" = "1" ]; then
+    say "OK  Biweekly Geoffrey update check file written"
+    return 0
+  fi
+
+  if command -v launchctl >/dev/null 2>&1; then
+    launchctl bootout "gui/$(id -u)" "$UPDATE_PLIST" >/dev/null 2>&1 || true
+    if launchctl bootstrap "gui/$(id -u)" "$UPDATE_PLIST" >/dev/null 2>&1; then
+      say "OK  Biweekly Geoffrey update check scheduled"
+      return 0
+    fi
+
+    launchctl unload "$UPDATE_PLIST" >/dev/null 2>&1 || true
+    if launchctl load "$UPDATE_PLIST" >/dev/null 2>&1; then
+      say "OK  Biweekly Geoffrey update check scheduled"
+      return 0
+    fi
+  fi
+
+  say "NOTE  Geoffrey wrote the biweekly update check, but macOS did not load it automatically."
+  say "You can still check manually with ./bin/geoffrey update-check"
+  return 0
 }
 
 doctor() {
@@ -1519,6 +1716,12 @@ doctor() {
     say "NOTE  GitHub CLI not found; memory repo can still be created locally."
   fi
 
+  if [ -f "$UPDATE_PLIST" ]; then
+    say "OK  biweekly update LaunchAgent present"
+  else
+    say "NOTE  biweekly update LaunchAgent not installed yet"
+  fi
+
   say ""
   if [ "$fail" -eq 0 ]; then
     say "Geoffrey package is ready."
@@ -1543,6 +1746,7 @@ bootstrap() {
   ensure_github_account_ready || true
   ensure_github_cli || true
   register_mcp
+  schedule_update_checks || true
 
   say ""
   say "Core setup check:"
@@ -1566,6 +1770,7 @@ setup() {
   ensure_store
   ensure_node_deps || true
   register_mcp
+  schedule_update_checks || true
 
   say ""
   say "Current Geoffrey mailboxes:"
@@ -1625,6 +1830,12 @@ case "${1:-}" in
     ;;
   update)
     update_geoffrey
+    ;;
+  update-check)
+    update_check
+    ;;
+  schedule-updates)
+    schedule_update_checks
     ;;
   chief-of-staff)
     shift

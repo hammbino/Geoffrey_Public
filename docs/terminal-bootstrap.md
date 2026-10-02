@@ -26,6 +26,7 @@ Then Geoffrey checks for:
 - Geoffrey's local email connector
 - Gmail sign-in helper
 - Microsoft OAuth config
+- Biweekly Geoffrey update check
 
 If Homebrew is missing, the installer offers to install it.
 
@@ -94,6 +95,16 @@ cd ~/Geoffrey
 ```
 
 This does not overwrite private email tokens or the person's memory repo.
+
+Geoffrey also schedules a Mac update check every other week. If a new Geoffrey
+version is available, it asks before installing it.
+
+To check manually:
+
+```bash
+cd ~/Geoffrey
+./bin/geoffrey update-check
+```
 
 ## Chief Of Staff Setup
 

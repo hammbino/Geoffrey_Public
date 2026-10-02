@@ -40,6 +40,17 @@ cd ~/Geoffrey
 ./bin/geoffrey update
 ```
 
+Geoffrey schedules a biweekly Mac update check during setup. Every other week
+it checks GitHub, and if a new Geoffrey version is available, it asks before it
+installs anything.
+
+To check sooner:
+
+```bash
+cd ~/Geoffrey
+./bin/geoffrey update-check
+```
+
 Geoffrey also creates a private GitHub-backed memory repo. That repo holds the
 person's `CLAUDE.md` brain and `memory/` files, so Geoffrey can remember and
 continue work across devices.

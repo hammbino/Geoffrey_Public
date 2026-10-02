@@ -57,6 +57,15 @@ To get future Geoffrey improvements:
 ./bin/geoffrey update
 ```
 
+Geoffrey also schedules a biweekly Mac update check during setup. Every other
+week it checks GitHub, and if an update exists, it asks before installing.
+
+To check manually:
+
+```bash
+./bin/geoffrey update-check
+```
+
 To turn Geoffrey into the owner's chief of staff after memory is created:
 
 ```bash
