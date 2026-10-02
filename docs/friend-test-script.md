@@ -58,9 +58,10 @@ Use this if they are comfortable opening Terminal and pasting one block.
 3. The public installer should download Geoffrey without a GitHub account.
 4. Geoffrey should check Homebrew, Node/npm, Claude Code, and email setup.
 5. If Homebrew, Node.js, or Claude Code is missing, the flow should offer to install it.
-6. Let Geoffrey continue into setup, connect email, and create local memory.
+6. Let Geoffrey continue into setup, connect email, ask whether they have GitHub,
+   help them create/sign into GitHub if needed, and create the GitHub-backed
+   memory repo.
 7. Run Inbox Rescue as the first useful action.
-8. After the first win, decide whether to create/sign into GitHub for cloud memory sync.
 
 ## Watch For Confusion
 

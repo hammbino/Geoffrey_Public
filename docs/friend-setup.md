@@ -42,8 +42,11 @@ cd /path/to/Geoffrey
 user approves, registers Geoffrey with Claude, then starts setup. If Homebrew or
 Node.js is missing, Geoffrey offers to install those too.
 
-They do not need a GitHub account to start. Geoffrey can help them create or
-sign into GitHub later if they want memory synced to a private repo.
+They do not need a GitHub account to download Geoffrey. During onboarding,
+Geoffrey will help them create or sign into GitHub because Geoffrey's memory
+lives in a private repo.
+Geoffrey asks whether they already have GitHub. If not, it opens the free signup
+page and waits while they create one.
 
 Create just the memory/GitHub repo:
 

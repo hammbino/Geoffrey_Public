@@ -99,8 +99,9 @@ Geoffrey supports both:
   OAuth file because GitHub blocks publishing it. Use the private zip/full
   package when Gmail must be one-click.
 - GitHub-backed memory: run `./bin/geoffrey memory` to create the private repo
-  that holds `CLAUDE.md` and `memory/`. GitHub is optional during first setup
-  and can be created later.
+  that holds `CLAUDE.md` and `memory/`. Friends do not need GitHub to download
+  Geoffrey, but GitHub is part of onboarding because Geoffrey's memory lives in
+  a private repo.
 - Chief-of-staff tools: run `./bin/geoffrey apps` to map the user's calendar,
   files, project tools, CRM, billing, website, marketing/socials, chat, and automations.
 

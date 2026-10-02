@@ -28,8 +28,11 @@ For a friend using Terminal, print the handoff command with:
 ./bin/geoffrey share
 ```
 
-They do not need a GitHub account to start. Geoffrey can help create/sign into
-GitHub later if they want cloud memory sync.
+They do not need a GitHub account to download Geoffrey. During onboarding,
+Geoffrey will help them create/sign into GitHub because Geoffrey's memory lives
+in a private repo.
+Geoffrey asks whether they already have GitHub. If not, it opens the free signup
+page and waits while they create one.
 
 Geoffrey also creates a private GitHub-backed memory repo. That repo holds the
 person's `CLAUDE.md` brain and `memory/` files, so Geoffrey can remember and

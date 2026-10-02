@@ -22,8 +22,10 @@ Primary terminal handoff:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh)"
 ```
 
-The friend does not need a GitHub account to start. Geoffrey creates local
-memory first and can help set up GitHub sync later.
+The friend does not need a GitHub account to download Geoffrey. During
+onboarding, Geoffrey helps them create/sign into GitHub because Geoffrey's
+memory lives in a private repo.
+Geoffrey asks whether they already have GitHub and opens signup if they do not.
 
 ## What Is Ready
 

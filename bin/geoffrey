@@ -221,26 +221,45 @@ ensure_github_cli() {
       say "OK  GitHub CLI signed in"
     else
       say "GitHub CLI is installed but not signed in."
-      if yes_no "Sign in to GitHub now? yes/no" "yes"; then
-        gh auth login
-      else
-        say "Skipping GitHub sign-in. Geoffrey can still create memory locally."
-      fi
+      say "GitHub is required for Geoffrey's private memory repo."
+      gh auth login
     fi
     return 0
   fi
 
-  say "GitHub CLI is not installed."
+  say "GitHub CLI is not installed. Geoffrey uses it to create your private memory repo."
   if ensure_homebrew; then
     if yes_no "Install GitHub CLI now? yes/no" "yes"; then
       brew install gh
-      if command -v gh >/dev/null 2>&1 && yes_no "Sign in to GitHub now? yes/no" "yes"; then
+      if command -v gh >/dev/null 2>&1; then
         gh auth login
       fi
     fi
   else
-    say "Install GitHub CLI later from https://cli.github.com if you want Geoffrey memory pushed to GitHub."
+    say "Install GitHub CLI from https://cli.github.com, then run ./bin/geoffrey bootstrap again."
   fi
+}
+
+ensure_github_account_ready() {
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    return 0
+  fi
+
+  has_github="$(ask "Do you already have a GitHub account? yes/no" "yes")"
+  case "$has_github" in
+    y|yes|Y|YES)
+      ;;
+    *)
+      say "Geoffrey memory lives in a private GitHub repo, so we will create a free GitHub account first."
+      if command -v open >/dev/null 2>&1; then
+        open "https://github.com/signup"
+      else
+        say "Open this page in your browser:"
+        say "https://github.com/signup"
+      fi
+      ask "Press Enter after the GitHub account is created" "" >/dev/null
+      ;;
+  esac
 }
 
 ensure_store() {
@@ -608,7 +627,7 @@ memory_repo() {
   github=""
   target=""
   repo=""
-  push="no"
+  push="yes"
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -657,7 +676,19 @@ memory_repo() {
   fi
 
   if [ -z "$github" ]; then
-    github="$(ask "GitHub username, if known" "unknown")"
+    say "GitHub is required for Geoffrey's private memory repo."
+    ensure_github_account_ready
+    ensure_github_cli
+    github="$(gh api user --jq .login 2>/dev/null || true)"
+  fi
+  if [ -z "$github" ]; then
+    github="$(ask "GitHub username" "")"
+  fi
+  if [ -z "$github" ]; then
+    say "GitHub username is required for Geoffrey memory sync."
+    say "Create a free account at https://github.com, then run:"
+    say "./bin/geoffrey memory"
+    exit 1
   fi
 
   slug="$(slugify "$name")"
@@ -695,24 +726,21 @@ memory_repo() {
 
   say "Created Geoffrey memory repo: $target"
 
-  if [ "$push" != "yes" ]; then
-    push_now="$(ask "Create a private GitHub repo and push it now? yes/no" "no")"
-    case "$push_now" in
-      y|yes|Y|YES) push="yes" ;;
-    esac
-  fi
-
   if [ "$push" = "yes" ]; then
     if ! command -v gh >/dev/null 2>&1; then
-      say "GitHub CLI is not installed. Install it, then run:"
-      say "cd \"$target\""
-      say "gh auth login"
-      say "gh repo create \"$repo\" --private --source . --remote origin --push"
-      exit 0
+      say "GitHub CLI is required for Geoffrey memory sync."
+      ensure_github_cli
+    fi
+
+    if ! command -v gh >/dev/null 2>&1; then
+      say "GitHub CLI is still not available."
+      say "Install it, then run:"
+      say "./bin/geoffrey memory --name \"$name\" --business \"$business\" --github \"$github\" --target \"$target\" --repo \"$repo\" --push"
+      exit 1
     fi
 
     if ! gh auth status >/dev/null 2>&1; then
-      say "Opening GitHub login..."
+      say "Opening GitHub login. Geoffrey needs GitHub so your memory can persist and travel with you."
       gh auth login
     fi
 
@@ -866,7 +894,7 @@ status_report() {
       say "TODO  Run gh auth login for GitHub-backed memory"
     fi
   else
-    say "TODO  Install GitHub CLI, or create memory locally without pushing"
+    say "TODO  Install GitHub CLI and sign in for Geoffrey memory"
   fi
 
   if [ -f "$MCP_DIR/config/google-oauth.json" ]; then
@@ -939,7 +967,7 @@ packet() {
 share() {
   say "Geoffrey friend handoff"
   say ""
-  say "They do not need a GitHub account to start."
+  say "They do not need a GitHub account to download Geoffrey."
   say ""
   say ""
   say "Friend terminal command:"
@@ -947,7 +975,7 @@ share() {
   say ""
   say "This public installer downloads Geoffrey, then Geoffrey installs/checks Homebrew, Node.js, Claude Code, and the local email connector."
   say ""
-  say "GitHub comes later. Geoffrey can help them create/sign into GitHub only if they want cloud memory sync."
+  say "GitHub happens during onboarding. Geoffrey will help them create/sign into GitHub because memory lives in a private repo."
   say ""
   say "Zip fallback:"
   say "Use the Geoffrey zip if you are sharing by file instead of Terminal."
@@ -1045,6 +1073,8 @@ bootstrap() {
 
   ensure_node_deps || true
   ensure_claude_code || true
+  ensure_github_account_ready || true
+  ensure_github_cli || true
   register_mcp
 
   say ""
@@ -1082,11 +1112,10 @@ setup() {
   esac
 
   say ""
-  create_memory="$(ask "Create Geoffrey's Git/GitHub memory repo now? yes/no" "yes")"
-  case "$create_memory" in
-    y|yes|Y|YES) memory_repo ;;
-    *) say "Skipping memory repo. Run ./bin/geoffrey memory when ready." ;;
-  esac
+  say "Now Geoffrey will create your private GitHub-backed memory."
+  say "This is Geoffrey's brain: preferences, projects, people, tools, decisions, and open loops."
+  say "If you do not have a GitHub account yet, create a free one when Geoffrey opens GitHub sign-in."
+  memory_repo
 
   say ""
   start_prompt

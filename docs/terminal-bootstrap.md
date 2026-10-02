@@ -22,6 +22,7 @@ Then Geoffrey checks for:
 
 - Node.js and npm
 - Claude Code
+- GitHub CLI and GitHub sign-in for memory
 - Geoffrey's local email connector
 - Microsoft OAuth config
 
@@ -46,8 +47,10 @@ accounts:
 - Signing in to Claude Code
 - Signing in to Gmail or Outlook
 - Approving Google or Microsoft permissions
-- Creating or signing into GitHub later if they want Geoffrey memory synced to a
-  private repo
+- Creating or signing into GitHub so Geoffrey can create the private memory repo
+
+If they do not already have GitHub, Geoffrey opens the free signup page and
+waits while they create the account.
 
 ## If The Download Fails
 
@@ -72,6 +75,8 @@ Geoffrey should report:
 - Claude Code installed
 - Email connector installed
 - Geoffrey registered with Claude
+- GitHub signed in
+- Private Geoffrey memory repo created
 - Microsoft OAuth config present
 
 Then Geoffrey starts the white-glove setup.
