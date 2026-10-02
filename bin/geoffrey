@@ -980,7 +980,7 @@ status_report() {
   if [ -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
     say "OK  Bundled Microsoft OAuth config present"
   else
-    say "TODO  Microsoft is available through docs/outlook-setup.md until bundled config is added"
+    say "TODO  Microsoft sign-in helper missing; owner fallback is docs/outlook-setup.md"
   fi
 
   say ""
@@ -1111,7 +1111,7 @@ doctor() {
   if [ -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
     say "OK  bundled Microsoft OAuth config present"
   else
-    say "NOTE  bundled Microsoft OAuth config missing; Outlook uses docs/outlook-setup.md fallback"
+    say "NOTE  bundled Microsoft OAuth config missing; owner fallback is docs/outlook-setup.md"
   fi
 
   if [ -f "$GMAIL_OAUTH_FILE" ]; then

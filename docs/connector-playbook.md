@@ -41,9 +41,8 @@ Command:
 Gmail uses Geoffrey's bundled OAuth app. The user clicks through Google's
 unverified-app warning.
 
-Outlook/Microsoft 365 is built through Microsoft Graph. If
-`geoffrey-mcp/config/microsoft-oauth.json` exists, the user just signs in. If
-not, use `docs/outlook-setup.md`.
+Outlook/Microsoft 365 is built through Microsoft Graph. Geoffrey includes the
+Microsoft sign-in helper, so the user just signs in.
 
 First wins:
 

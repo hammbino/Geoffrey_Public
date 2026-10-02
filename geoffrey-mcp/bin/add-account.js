@@ -4,8 +4,8 @@
 // Google:
 //   npm run add-account -- --secrets ~/Downloads/client_secret_XXX.json --id work
 //
-// Microsoft (Entra registration required — see docs/outlook-setup.md):
-//   npm run add-account -- --provider microsoft --client-id <app-id> --id outlook
+// Microsoft:
+//   npm run add-account -- --provider microsoft --id outlook
 
 import { createServer } from "node:http";
 import { createHash, randomBytes } from "node:crypto";

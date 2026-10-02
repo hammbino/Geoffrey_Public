@@ -112,16 +112,15 @@ hosted version.
 
 Tools: `list_accounts`, `search_messages`, `get_message`.
 
-Google first, since a working OAuth client and token already exist from the
-token-lifetime experiment. Microsoft needs an Entra app registration — a
-separate console session, deliberately not blocking slice 1.
+Google shipped first from the token-lifetime experiment. Microsoft is now wired
+through Graph with Geoffrey's bundled public-client config.
 
 **Done when:** Jeffrey adds it to his own Claude and reads across two Gmail
 accounts in one conversation. That is something Claude cannot do today.
 
 ### Slice 2 — Microsoft, calendars, drafts and labels
 
-Add the Entra registration, the Graph provider, calendar tools, `create_draft`,
+Graph provider, bundled Microsoft sign-in, calendar tools, `create_draft`, and
 `modify_labels`.
 
 ### Slice 3 — hosted (Tier 1 ships)

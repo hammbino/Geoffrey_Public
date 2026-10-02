@@ -10,8 +10,8 @@
 6. Connect email/calendar accounts if you want Geoffrey to see them. Gmail uses
    Geoffrey's bundled sign-in helper; continue through Google's unverified-app
    warning.
-   Outlook/Microsoft 365 is supported too. If the package includes Geoffrey's
-   Microsoft app config, they only sign in; otherwise use `docs/outlook-setup.md`.
+   Outlook/Microsoft 365 is supported too; they only sign in with the mailbox
+   they want Geoffrey to see.
 7. Open Claude, Codex, or ChatGPT with the Geoffrey memory repo.
 8. Paste the first prompt printed by the setup.
 9. Run the first demo action, usually Inbox Rescue.

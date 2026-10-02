@@ -40,9 +40,9 @@ continue work across devices.
 For Gmail, Geoffrey uses the bundled friends-and-family OAuth app. Google will
 show an unverified-app warning; click Advanced, then continue to Geoffrey.
 
-Outlook/Microsoft 365 is supported through Microsoft Graph. If this package
-includes Geoffrey's Microsoft OAuth config, the user just signs in. If not, use
-`docs/outlook-setup.md` for the one-time Microsoft app setup.
+Outlook/Microsoft 365 is supported through Microsoft Graph. Geoffrey includes
+the Microsoft sign-in helper, so the user just signs in with the mailbox they
+want Geoffrey to see.
 
 ## First Prompt
 

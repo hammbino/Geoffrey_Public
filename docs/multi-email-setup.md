@@ -84,13 +84,11 @@ missing, setup falls back to asking for a Google Desktop OAuth JSON file.
 Outlook/Microsoft 365 support is built into Geoffrey through Microsoft Graph.
 It can read mail, create drafts, read folders/categories, and read calendars.
 
-If this package includes `geoffrey-mcp/config/microsoft-oauth.json`, the setup
-uses Geoffrey's bundled Microsoft app and the user only signs in.
+Geoffrey includes `geoffrey-mcp/config/microsoft-oauth.json`, so setup uses the
+bundled Microsoft app and the user only signs in.
 
-If that file is missing, Outlook needs one Microsoft Entra app registration. One
-registration can connect many Outlook accounts.
-
-Read the detailed steps:
+The Entra setup guide is now an owner-maintenance fallback, not a normal friend
+step:
 
 ```text
 docs/outlook-setup.md

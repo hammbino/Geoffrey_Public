@@ -71,9 +71,9 @@ and a real message fetch.
 
 ## Status
 
-Slice 1: Google only. Microsoft needs an Entra app registration. The provider
-interface in `src/providers/` is where that goes, and `src/auth.js` already
-knows the Microsoft token endpoint.
+Geoffrey supports Gmail and Outlook/Microsoft 365. The public package includes
+the Microsoft public-client ID in `config/microsoft-oauth.json`, so Outlook
+users sign in through Microsoft's browser consent flow.
 
 This is a stdio server so it works locally today. Only the transport is
 throwaway — the account registry and provider code move to the hosted Cloudflare
