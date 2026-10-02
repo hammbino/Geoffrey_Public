@@ -24,6 +24,7 @@ Usage:
   ./bin/geoffrey demo
   ./bin/geoffrey first-run
   ./bin/geoffrey status
+  ./bin/geoffrey update
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
   ./bin/geoffrey add-email
@@ -43,6 +44,7 @@ Commands:
   demo         Print the first useful action menu.
   first-run    Print the exact first useful prompt to run after setup.
   status       Show what is connected and what to do next.
+  update       Pull the latest Geoffrey package and refresh local setup.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
   tools        Fill the generated memory repo's app/tool checklist.
@@ -1379,12 +1381,67 @@ share() {
   say "Friend terminal command:"
   say "/bin/bash -c \"\$(curl -fsSL $INSTALLER_URL)\""
   say ""
-  say "This public installer downloads Geoffrey, then Geoffrey installs/checks Homebrew, Node.js, Claude Code, and the local email connector."
+  say "This public installer clones Geoffrey into ~/Geoffrey, then Geoffrey installs/checks Homebrew, Node.js, Claude Code, and the local email connector."
+  say ""
+  say "Future updates:"
+  say "cd ~/Geoffrey && ./bin/geoffrey update"
   say ""
   say "GitHub happens during onboarding. Geoffrey will help them create/sign into GitHub because memory lives in a private repo."
   say ""
   say "Zip fallback:"
   say "Use the Geoffrey zip if you are sharing by file instead of Terminal."
+}
+
+update_geoffrey() {
+  say "Geoffrey update"
+  say ""
+
+  if [ ! -d "$ROOT/.git" ]; then
+    say "This Geoffrey folder is not a Git checkout."
+    say "For future updates, reinstall with:"
+    say "/bin/bash -c \"\$(curl -fsSL $INSTALLER_URL)\""
+    say ""
+    say "Your private accounts live in $STORE_DIR and your memory repo lives outside this folder, so reinstalling Geoffrey does not delete them."
+    return 1
+  fi
+
+  if ! command -v git >/dev/null 2>&1; then
+    say "Git is required to update Geoffrey."
+    return 1
+  fi
+
+  branch="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
+  if [ -z "$branch" ]; then
+    branch="main"
+  fi
+
+  say "Checking for Geoffrey updates..."
+  git -C "$ROOT" fetch origin "$branch"
+
+  local_changes="$(git -C "$ROOT" status --porcelain)"
+  if [ -n "$local_changes" ]; then
+    say "This Geoffrey folder has local changes, so I will not overwrite it automatically."
+    say "Ask Jeffrey or run git status in:"
+    say "$ROOT"
+    return 1
+  fi
+
+  before="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)"
+  git -C "$ROOT" pull --ff-only origin "$branch"
+  after="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)"
+
+  ensure_node_deps || true
+  register_mcp
+
+  say ""
+  if [ "$before" = "$after" ]; then
+    say "Geoffrey was already up to date at $after."
+  else
+    say "Updated Geoffrey: $before -> $after"
+  fi
+  say ""
+  say "Your private account tokens and memory repo were not overwritten."
+  say "Run ./bin/geoffrey status to check the setup."
 }
 
 doctor() {
@@ -1565,6 +1622,9 @@ case "${1:-}" in
     ;;
   status)
     status_report
+    ;;
+  update)
+    update_geoffrey
     ;;
   chief-of-staff)
     shift

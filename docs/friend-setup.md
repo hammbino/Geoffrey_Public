@@ -24,6 +24,7 @@ Helpful checks:
 ```bash
 ./bin/geoffrey status
 ./bin/geoffrey first-run
+./bin/geoffrey update
 ```
 
 ## Terminal Path
@@ -44,6 +45,13 @@ cd /path/to/Geoffrey
 `bootstrap` checks for Claude Code, installs it if npm is available and the
 user approves, registers Geoffrey with Claude, then starts setup. If Homebrew or
 Node.js is missing, Geoffrey offers to install those too.
+
+Future updates:
+
+```bash
+cd ~/Geoffrey
+./bin/geoffrey update
+```
 
 They do not need a GitHub account to download Geoffrey. During onboarding,
 Geoffrey will help them create or sign into GitHub because Geoffrey's memory

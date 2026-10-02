@@ -51,6 +51,12 @@ To see setup status:
 ./bin/geoffrey status
 ```
 
+To get future Geoffrey improvements:
+
+```bash
+./bin/geoffrey update
+```
+
 To turn Geoffrey into the owner's chief of staff after memory is created:
 
 ```bash
@@ -118,7 +124,7 @@ For busy business users, Claude Desktop with the one-file plugin is the easiest 
 - `START_HERE.md`: Desktop and Code setup instructions.
 - `Install Geoffrey.command`: Mac double-click setup.
 - `bin/geoffrey`: Terminal setup command.
-- `docs/terminal-bootstrap.md`: Copy/paste terminal install and Claude Code check.
+- `docs/terminal-bootstrap.md`: Copy/paste terminal install, update path, and Claude Code check.
 - `HANDOFF.md`: Handoff checklist and acceptance criteria.
 - `CLAUDE.md`: Claude Code project memory.
 - `docs/friend-setup.md`: Friend-ready setup instructions.

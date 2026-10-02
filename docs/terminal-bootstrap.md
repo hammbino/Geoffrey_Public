@@ -16,7 +16,7 @@ The public installer checks for:
 
 - Git
 - Homebrew
-- Public Geoffrey download
+- Public Geoffrey clone or update
 
 Then Geoffrey checks for:
 
@@ -82,6 +82,18 @@ Geoffrey should report:
 - Microsoft OAuth config present
 
 Then Geoffrey starts the white-glove setup.
+
+## Future Updates
+
+Because the installer uses a Git checkout when Git is available, later Geoffrey
+features can be pulled in with:
+
+```bash
+cd ~/Geoffrey
+./bin/geoffrey update
+```
+
+This does not overwrite private email tokens or the person's memory repo.
 
 ## Chief Of Staff Setup
 

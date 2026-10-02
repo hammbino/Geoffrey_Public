@@ -33,6 +33,13 @@ in a private repo.
 Geoffrey asks whether they already have GitHub. If not, it opens the free signup
 page and waits while they create one.
 
+Future Geoffrey updates are simple:
+
+```bash
+cd ~/Geoffrey
+./bin/geoffrey update
+```
+
 Geoffrey also creates a private GitHub-backed memory repo. That repo holds the
 person's `CLAUDE.md` brain and `memory/` files, so Geoffrey can remember and
 continue work across devices.
