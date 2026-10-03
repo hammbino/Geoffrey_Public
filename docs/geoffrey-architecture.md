@@ -106,7 +106,7 @@ an assistant mails a client list to an attacker. Draft and label, never send.
 
 ### Slice 1 — multi-account mail, local (now)
 
-A stdio MCP server on Jeffrey's Mac. Not the final form — the transport is the
+A stdio MCP server on the user's Mac. Not the final form — the transport is the
 only throwaway part; the account registry and provider code port directly to the
 hosted version.
 
@@ -115,7 +115,7 @@ Tools: `list_accounts`, `search_messages`, `get_message`.
 Google shipped first from the token-lifetime experiment. Microsoft is now wired
 through Graph with Geoffrey's bundled public-client config.
 
-**Done when:** Jeffrey adds it to his own Claude and reads across two Gmail
+**Done when:** the user adds it to Claude and reads across two Gmail
 accounts in one conversation. That is something Claude cannot do today.
 
 ### Slice 2 — Microsoft, calendars, drafts and labels

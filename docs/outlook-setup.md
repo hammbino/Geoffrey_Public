@@ -45,7 +45,7 @@ This part looks weird, but it is correct for a Mac/desktop setup.
 `localhost` means "this computer." During Microsoft sign-in, Geoffrey briefly
 listens on your own Mac at `http://localhost:8731` so Microsoft can hand the
 sign-in approval back to Geoffrey. It is not a public website, it is not a
-server Jeffrey runs, and it does not let anyone else into your computer.
+server Geoffrey runs, and it does not let anyone else into your computer.
 
 Use `localhost` only in the Microsoft app registration field below. Your friend
 does not need to visit that address directly.

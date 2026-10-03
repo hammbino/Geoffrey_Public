@@ -31,7 +31,7 @@ Helpful checks:
 Daily use after setup:
 
 ```bash
-Jeffrey
+Geoffrey
 ```
 
 This opens Claude Code in the user's Geoffrey memory repo, starts with the daily

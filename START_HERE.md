@@ -38,7 +38,7 @@ page and waits while they create one.
 After setup, open a new Terminal and type:
 
 ```bash
-Jeffrey
+Geoffrey
 ```
 
 That starts Claude Code inside the private Geoffrey memory repo. Geoffrey reads
@@ -265,7 +265,7 @@ If those are not true yet, Geoffrey should keep helping with the next useful tas
 
 ## Package Check
 
-This check is for Jeffrey or a developer helper:
+This check is for the owner or a developer helper:
 
 ```bash
 ./scripts/check-claude-setup.sh

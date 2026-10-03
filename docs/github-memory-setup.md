@@ -12,7 +12,7 @@ That repo is simple:
 - Git history records what Geoffrey learned and when.
 - GitHub lets Geoffrey continue across machines, cloud sessions, and phones.
 
-This is based on the `geoffrey-jeffrey` pattern.
+This is based on the `geoffrey-person-name` pattern.
 
 ## Fast Setup
 
@@ -88,4 +88,3 @@ Keep the GitHub repo private by default.
 
 Do not store passwords, one-time codes, API keys, private tokens, card numbers,
 or account recovery details in Geoffrey memory.
-

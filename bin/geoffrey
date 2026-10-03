@@ -58,7 +58,7 @@ Commands:
   schedule-updates
                Install the biweekly Geoffrey update check.
   install-launcher
-               Install the one-word Jeffrey/Geoffrey terminal launcher.
+               Install the one-word Geoffrey terminal launcher.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
@@ -865,7 +865,7 @@ memory_repo() {
   install_launcher || true
   say ""
   say "Next prompt:"
-  say "Open a new Terminal and type: Jeffrey"
+  say "Open a new Terminal and type: Geoffrey"
   say "Or open $target in Claude Code or Codex and say: Read CLAUDE.md and onboard me with Geoffrey."
 }
 
@@ -1255,7 +1255,14 @@ install_launcher() {
   ensure_store
   mkdir -p "$LAUNCHER_DIR"
 
-  cat > "$LAUNCHER_DIR/Jeffrey" <<'EOF_LAUNCHER'
+  for old_name in Jeffrey jeffrey; do
+    old_path="$LAUNCHER_DIR/$old_name"
+    if [ -e "$old_path" ] && grep -q 'GEOFFREY_HOME' "$old_path" 2>/dev/null; then
+      rm -f "$old_path"
+    fi
+  done
+
+  cat > "$LAUNCHER_DIR/Geoffrey" <<'EOF_LAUNCHER'
 #!/usr/bin/env bash
 set -euo pipefail
 GEOFFREY_HOME="${GEOFFREY_HOME:-$HOME/Geoffrey}"
@@ -1267,14 +1274,14 @@ if [ ! -x "$GEOFFREY_HOME/bin/geoffrey" ]; then
 fi
 exec "$GEOFFREY_HOME/bin/geoffrey" launch "$@"
 EOF_LAUNCHER
-  chmod +x "$LAUNCHER_DIR/Jeffrey"
+  chmod +x "$LAUNCHER_DIR/Geoffrey"
 
-  for name in jeffrey Geoffrey geoffrey; do
+  for name in geoffrey; do
     alias_path="$LAUNCHER_DIR/$name"
-    if [ "$LAUNCHER_DIR/Jeffrey" -ef "$alias_path" ] 2>/dev/null; then
+    if [ "$LAUNCHER_DIR/Geoffrey" -ef "$alias_path" ] 2>/dev/null; then
       continue
     fi
-    ln -sf "$LAUNCHER_DIR/Jeffrey" "$alias_path"
+    ln -sf "$LAUNCHER_DIR/Geoffrey" "$alias_path"
   done
 
   path_line='export PATH="$HOME/.geoffrey/bin:$PATH"'
@@ -1292,7 +1299,7 @@ EOF_LAUNCHER
   done
 
   say "OK  One-word launcher installed"
-  say "Open a new Terminal and type: Jeffrey"
+  say "Open a new Terminal and type: Geoffrey"
 }
 
 launch_geoffrey() {
@@ -1563,7 +1570,7 @@ EOF_COS
   say "- $memory_path/memory/skills/skill-builder.md"
   say ""
   say "Next prompt:"
-  say "Open a new Terminal and type: Jeffrey"
+  say "Open a new Terminal and type: Geoffrey"
   say "Or open $memory_path in Claude Code or Codex and say:"
   say "Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/skills/skill-builder.md. Run the daily briefing, then tell me which plugin or connector should be connected next."
 }
@@ -1636,8 +1643,8 @@ status_report() {
     say "TODO  Schedule biweekly update checks with ./bin/geoffrey schedule-updates"
   fi
 
-  if [ -x "$LAUNCHER_DIR/Jeffrey" ]; then
-    say "OK  One-word launcher installed: Jeffrey"
+  if [ -x "$LAUNCHER_DIR/Geoffrey" ]; then
+    say "OK  One-word launcher installed: Geoffrey"
   else
     say "TODO  Install one-word launcher with ./bin/geoffrey install-launcher"
   fi
@@ -1752,7 +1759,7 @@ update_geoffrey() {
   local_changes="$(git -C "$ROOT" status --porcelain)"
   if [ -n "$local_changes" ]; then
     say "This Geoffrey folder has local changes, so I will not overwrite it automatically."
-    say "Ask Jeffrey or run git status in:"
+    say "Ask the person who shared Geoffrey with you, or run git status in:"
     say "$ROOT"
     return 1
   fi
@@ -1835,7 +1842,7 @@ update_check() {
 
   if ! git -C "$ROOT" merge-base --is-ancestor "$local_rev" "$remote_rev" >/dev/null 2>&1; then
     say "Geoffrey update check found a different Git history and will not auto-prompt."
-    say "Ask Jeffrey to review this Geoffrey folder:"
+    say "Ask the person who shared Geoffrey with you to review this folder:"
     say "$ROOT"
     return 0
   fi
@@ -2023,10 +2030,10 @@ doctor() {
     say "NOTE  biweekly update LaunchAgent not installed yet"
   fi
 
-  if [ -x "$LAUNCHER_DIR/Jeffrey" ]; then
-    say "OK  one-word Jeffrey launcher present"
+  if [ -x "$LAUNCHER_DIR/Geoffrey" ]; then
+    say "OK  one-word Geoffrey launcher present"
   else
-    say "NOTE  one-word Jeffrey launcher not installed yet"
+    say "NOTE  one-word Geoffrey launcher not installed yet"
   fi
 
   say ""
@@ -2104,7 +2111,7 @@ setup() {
   status_report
   say ""
   say "Daily use:"
-  say "Open a new Terminal and type: Jeffrey"
+  say "Open a new Terminal and type: Geoffrey"
   say ""
   say "To finish mapping the owner's full chief-of-staff system, run:"
   say "./bin/geoffrey chief-of-staff --memory \"$target\""

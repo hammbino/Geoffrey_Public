@@ -27,7 +27,7 @@ Then Geoffrey checks for:
 - Gmail sign-in helper
 - Microsoft OAuth config
 - Biweekly Geoffrey update check
-- One-word `Jeffrey` launcher
+- One-word `Geoffrey` launcher
 
 If Homebrew is missing, the installer offers to install it.
 
@@ -90,7 +90,7 @@ Then Geoffrey starts the white-glove setup.
 After setup, open a new Terminal and type:
 
 ```bash
-Jeffrey
+Geoffrey
 ```
 
 That command opens Claude Code in the person's private Geoffrey memory repo,
