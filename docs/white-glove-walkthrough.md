@@ -86,6 +86,9 @@ Add another mailbox later:
 ./bin/geoffrey add-email
 ```
 
+Geoffrey will keep offering to add another mailbox until the user says no. If
+they make a mistake during email setup, type `back`; to stop, type `cancel`.
+
 ## GitHub Memory Setup
 
 Geoffrey's memory and brain live in a private GitHub-backed repo.

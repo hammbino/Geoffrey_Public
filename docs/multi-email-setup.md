@@ -50,6 +50,9 @@ The setup will:
 ./bin/geoffrey add-email
 ```
 
+The flow keeps going until the user says they are done. Type `back` to restart
+the current email step, or `cancel` to stop adding mailboxes.
+
 List connected mailboxes:
 
 ```bash

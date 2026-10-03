@@ -639,13 +639,14 @@ Setup rule:
 CONNECTORS
 }
 
-add_email() {
+add_email_once() {
   ensure_store
   ensure_node_deps
 
   say ""
   say "Geoffrey can connect multiple mailboxes."
   say "Each mailbox gets a short id like personal, work, billing, sales, or old-work."
+  say "Type back to restart this email step, or cancel to stop adding mailboxes."
   say ""
 
   default_provider="${GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER:-google}"
@@ -653,12 +654,26 @@ add_email() {
     default_provider="microsoft"
   fi
   provider="$(ask "Provider: google or microsoft" "$default_provider")"
+  case "$provider" in
+    back|Back|BACK) return 2 ;;
+    cancel|Cancel|CANCEL|done|Done|DONE|skip|Skip|SKIP|no|No|NO) return 1 ;;
+  esac
+
   id="$(ask "Short account id" "")"
+  case "$id" in
+    back|Back|BACK) return 2 ;;
+    cancel|Cancel|CANCEL|done|Done|DONE|skip|Skip|SKIP|no|No|NO) return 1 ;;
+  esac
+
   purpose="$(ask "What is this account for?" "")"
+  case "$purpose" in
+    back|Back|BACK) return 2 ;;
+    cancel|Cancel|CANCEL|done|Done|DONE|skip|Skip|SKIP|no|No|NO) return 1 ;;
+  esac
 
   if [ -z "$id" ]; then
-    say "Account id is required."
-    exit 1
+    say "Account id is required. Type back to restart, or cancel to stop."
+    return 2
   fi
 
   case "$provider" in
@@ -675,10 +690,12 @@ add_email() {
           say "You can retry, switch to Outlook/Microsoft, or skip and come back later."
           recovery="$(ask "retry, microsoft, or skip" "retry")"
           case "$recovery" in
-            retry) add_email ;;
-            microsoft|outlook) GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER=microsoft add_email ;;
-            *) say "Skipped email connection. Run ./bin/geoffrey add-email when ready." ;;
+            retry) return 2 ;;
+            microsoft|outlook) GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER=microsoft add_email_once ;;
+            *) say "Skipped this email connection."; return 1 ;;
           esac
+        else
+          return 0
         fi
       else
         say "Geoffrey's Gmail sign-in helper is not installed."
@@ -686,10 +703,13 @@ add_email() {
         secrets="$(ask "Path to Google Desktop OAuth JSON" "")"
         if [ -z "$secrets" ]; then
           say "Skipped Gmail connection."
-          exit 0
+          return 1
         fi
         if ! (cd "$MCP_DIR" && npm run add-account -- --provider google --secrets "$secrets" --id "$id" --purpose "$purpose"); then
-          say "Gmail did not finish connecting. Run ./bin/geoffrey add-email to try again."
+          say "Gmail did not finish connecting."
+          return 1
+        else
+          return 0
         fi
       fi
       ;;
@@ -704,10 +724,12 @@ add_email() {
           say "You can retry, switch to Gmail, or skip and come back later."
           recovery="$(ask "retry, google, or skip" "retry")"
           case "$recovery" in
-            retry) add_email ;;
-            google|gmail) GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER=google add_email ;;
-            *) say "Skipped email connection. Run ./bin/geoffrey add-email when ready." ;;
+            retry) return 2 ;;
+            google|gmail) GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER=google add_email_once ;;
+            *) say "Skipped this email connection."; return 1 ;;
           esac
+        else
+          return 0
         fi
       else
         say "Outlook support is built, but this package does not yet include a bundled Microsoft client ID."
@@ -715,18 +737,60 @@ add_email() {
         client_id="$(ask "Microsoft client ID" "")"
         if [ -z "$client_id" ]; then
           say "Skipped Outlook connection."
-          exit 0
+          return 1
         fi
         if ! (cd "$MCP_DIR" && npm run add-account -- --provider microsoft --client-id "$client_id" --id "$id" --purpose "$purpose"); then
-          say "Outlook did not finish connecting. Run ./bin/geoffrey add-email to try again."
+          say "Outlook did not finish connecting."
+          return 1
+        else
+          return 0
         fi
       fi
       ;;
+    back|Back|BACK)
+      return 2
+      ;;
+    cancel|Cancel|CANCEL|done|Done|DONE|skip|Skip|SKIP|no|No|NO)
+      return 1
+      ;;
     *)
       say "Unknown provider: $provider"
-      exit 1
+      say "Type back to restart, or cancel to stop."
+      return 2
       ;;
   esac
+}
+
+add_email() {
+  while true; do
+    set +e
+    add_email_once
+    result="$?"
+    set -e
+
+    case "$result" in
+      0)
+        say ""
+        say "Connected mailboxes:"
+        list_email || true
+        say ""
+        if yes_no "Add another email or calendar account? yes/no" "yes"; then
+          continue
+        fi
+        say "Email setup complete."
+        return 0
+        ;;
+      2)
+        say ""
+        say "Restarting the email step."
+        continue
+        ;;
+      *)
+        say "Stopped adding email accounts. Run ./bin/geoffrey add-email when ready."
+        return 0
+        ;;
+    esac
+  done
 }
 
 list_email() {

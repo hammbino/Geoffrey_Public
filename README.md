@@ -131,6 +131,9 @@ To connect another email account later:
 ./bin/geoffrey add-email
 ```
 
+Geoffrey keeps asking whether to add another mailbox until the user is done.
+At the email prompts, type `back` to restart the step or `cancel` to stop.
+
 To create Geoffrey's GitHub-backed memory and brain repo:
 
 ```bash

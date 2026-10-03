@@ -12,6 +12,8 @@
    warning.
    Outlook/Microsoft 365 is supported too; they only sign in with the mailbox
    they want Geoffrey to see.
+   Geoffrey keeps asking whether to add another mailbox until they are done.
+   If they make a mistake, they can type `back` or `cancel`.
 7. Open Claude, Codex, or ChatGPT with the Geoffrey memory repo.
 8. Paste the first prompt printed by the setup.
 9. Run the first demo action, usually Inbox Rescue.
