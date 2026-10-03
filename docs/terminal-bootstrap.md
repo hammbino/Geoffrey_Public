@@ -28,6 +28,7 @@ Then Geoffrey checks for:
 - Microsoft OAuth config
 - Biweekly Geoffrey update check
 - One-word `Geoffrey` launcher
+- Desktop `Geoffrey.command` button
 
 If Homebrew is missing, the installer offers to install it.
 
@@ -105,13 +106,19 @@ To connect another business tool after email/GitHub:
 
 ## Daily Use
 
-After setup, open a new Terminal and type:
+After setup, double-click this file on the Desktop:
+
+```text
+Geoffrey.command
+```
+
+Or open a new Terminal and type:
 
 ```bash
 Geoffrey
 ```
 
-That command opens Claude Code in the person's private Geoffrey memory repo,
+Either path opens Claude Code in the person's private Geoffrey memory repo,
 starts with the daily briefing and email/follow-up skills, and syncs memory
 changes with GitHub before and after the session.
 

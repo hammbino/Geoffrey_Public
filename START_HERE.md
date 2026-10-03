@@ -35,13 +35,19 @@ page and waits while they create one.
 
 ## Daily Use
 
-After setup, open a new Terminal and type:
+After setup, double-click this file on the Desktop:
+
+```text
+Geoffrey.command
+```
+
+Or open a new Terminal and type:
 
 ```bash
 Geoffrey
 ```
 
-That starts Claude Code inside the private Geoffrey memory repo. Geoffrey reads
+Both start Claude Code inside the private Geoffrey memory repo. Geoffrey reads
 the current tools, chief-of-staff map, daily briefing skill, inbox rescue skill,
 follow-up skill, and any new skills that were added.
 

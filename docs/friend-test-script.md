@@ -30,19 +30,20 @@ Success looks like:
 5. If they use Outlook and Microsoft is not bundled yet, skip Outlook unless
    they are comfortable with the setup.
 6. Let Geoffrey create the memory repo.
-7. Run:
+7. Confirm there is a `Geoffrey.command` button on the Desktop.
+8. Run:
 
    ```bash
    ./bin/geoffrey dashboard
    ```
 
-8. Run:
+9. Double-click `Geoffrey.command` once, or run:
 
    ```bash
    ./bin/geoffrey first-win
    ```
 
-9. Pick Daily Briefing or Inbox Rescue and let Geoffrey produce the first useful result.
+10. Pick Daily Briefing or Inbox Rescue and let Geoffrey produce the first useful result.
 
 ## Script B: Terminal Bootstrap
 
@@ -61,7 +62,8 @@ Use this if they are comfortable opening Terminal and pasting one block.
 6. Let Geoffrey continue into setup, connect email, ask whether they have GitHub,
    help them create/sign into GitHub if needed, and create the GitHub-backed
    memory repo.
-7. Let Geoffrey run `first-win` as the first useful action.
+7. Confirm there is a `Geoffrey.command` button on the Desktop.
+8. Let Geoffrey run `first-win` as the first useful action.
 
 ## Watch For Confusion
 

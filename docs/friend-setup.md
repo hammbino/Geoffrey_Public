@@ -32,6 +32,12 @@ Helpful checks:
 
 Daily use after setup:
 
+```text
+Double-click Geoffrey.command on the Desktop.
+```
+
+Or:
+
 ```bash
 Geoffrey
 ```

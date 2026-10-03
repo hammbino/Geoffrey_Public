@@ -14,6 +14,7 @@ UPDATE_PLIST="$HOME/Library/LaunchAgents/$UPDATE_LABEL.plist"
 UPDATE_INTERVAL_SECONDS=1209600
 LAUNCHER_DIR="$STORE_DIR/bin"
 CURRENT_MEMORY_FILE="$STORE_DIR/current-memory"
+DESKTOP_BUTTON="$HOME/Desktop/Geoffrey.command"
 
 usage() {
   cat <<'USAGE'
@@ -36,6 +37,7 @@ Usage:
   ./bin/geoffrey update-check [--quiet]
   ./bin/geoffrey schedule-updates
   ./bin/geoffrey install-launcher
+  ./bin/geoffrey install-desktop-button
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
@@ -65,6 +67,8 @@ Commands:
                Install the biweekly Geoffrey update check.
   install-launcher
                Install the one-word Geoffrey terminal launcher.
+  install-desktop-button
+               Install the double-click Geoffrey Desktop button.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
@@ -1433,6 +1437,65 @@ EOF_LAUNCHER
 
   say "OK  One-word launcher installed"
   say "Open a new Terminal and type: Geoffrey"
+  install_desktop_button || true
+}
+
+install_desktop_button() {
+  if [ "$(uname -s)" != "Darwin" ]; then
+    say "Skipping Desktop button: double-click launchers are currently Mac-only."
+    return 0
+  fi
+
+  ensure_store
+  mkdir -p "$HOME/Desktop"
+
+  old_button="$HOME/Desktop/Jeffrey.command"
+  if [ -e "$old_button" ] && grep -q 'Geoffrey generated desktop launcher\|GEOFFREY_HOME' "$old_button" 2>/dev/null; then
+    rm -f "$old_button"
+  fi
+
+  if [ -e "$DESKTOP_BUTTON" ] && ! grep -q 'Geoffrey generated desktop launcher' "$DESKTOP_BUTTON" 2>/dev/null; then
+    say "NOTE  Desktop already has Geoffrey.command, so I left it alone:"
+    say "$DESKTOP_BUTTON"
+    return 0
+  fi
+
+  cat > "$DESKTOP_BUTTON" <<'EOF_BUTTON'
+#!/usr/bin/env bash
+# Geoffrey generated desktop launcher
+set -euo pipefail
+
+clear 2>/dev/null || true
+printf '%s\n\n' "Starting Geoffrey..."
+
+GEOFFREY_HOME="${GEOFFREY_HOME:-$HOME/Geoffrey}"
+status=0
+
+if [ -x "$HOME/.geoffrey/bin/Geoffrey" ]; then
+  "$HOME/.geoffrey/bin/Geoffrey" || status="$?"
+elif [ -x "$GEOFFREY_HOME/bin/geoffrey" ]; then
+  "$GEOFFREY_HOME/bin/geoffrey" launch || status="$?"
+else
+  printf '%s\n' "Geoffrey was not found."
+  printf '%s\n' "Run the installer again:"
+  printf '%s\n' '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh)"'
+  status=1
+fi
+
+if [ "$status" -ne 0 ]; then
+  printf '\n%s\n' "Geoffrey stopped before finishing."
+fi
+
+if [ -t 0 ]; then
+  printf '\n%s' "Press Enter to close this window..."
+  read -r _ || true
+fi
+
+exit "$status"
+EOF_BUTTON
+
+  chmod +x "$DESKTOP_BUTTON"
+  say "OK  Desktop button installed: $DESKTOP_BUTTON"
 }
 
 launch_geoffrey() {
@@ -1833,6 +1896,12 @@ status_report() {
     say "TODO  Install one-word launcher with ./bin/geoffrey install-launcher"
   fi
 
+  if [ -x "$DESKTOP_BUTTON" ]; then
+    say "OK  Desktop button installed: $DESKTOP_BUTTON"
+  else
+    say "TODO  Install Desktop button with ./bin/geoffrey install-desktop-button"
+  fi
+
   if remembered="$(remembered_memory_path 2>/dev/null || true)" && [ -n "$remembered" ]; then
     say "OK  Geoffrey memory home: $remembered"
   else
@@ -1861,7 +1930,7 @@ dashboard() {
   say ""
 
   ready=0
-  total=7
+  total=8
 
   if command -v claude >/dev/null 2>&1; then
     dashboard_line "OK" "Claude Code" "Ready to run Geoffrey from Terminal."
@@ -1904,6 +1973,13 @@ dashboard() {
     ready=$((ready + 1))
   else
     dashboard_line "TODO" "One-word launch" "Run ./bin/geoffrey install-launcher."
+  fi
+
+  if [ -x "$DESKTOP_BUTTON" ]; then
+    dashboard_line "OK" "Desktop button" "Double-click Geoffrey.command on the Desktop."
+    ready=$((ready + 1))
+  else
+    dashboard_line "TODO" "Desktop button" "Run ./bin/geoffrey install-desktop-button."
   fi
 
   if [ -f "$UPDATE_PLIST" ]; then
@@ -2102,7 +2178,7 @@ share() {
   say "cd ~/Geoffrey && ./bin/geoffrey update"
   say ""
   say "Daily use after setup:"
-  say "Open Terminal and type: Geoffrey"
+  say "Double-click Geoffrey.command on the Desktop, or open Terminal and type: Geoffrey"
   say ""
   say "First proof of value:"
   say "cd ~/Geoffrey && ./bin/geoffrey first-win"
@@ -2450,6 +2526,12 @@ doctor() {
     say "NOTE  one-word Geoffrey launcher not installed yet"
   fi
 
+  if [ -x "$DESKTOP_BUTTON" ]; then
+    say "OK  Desktop Geoffrey button present"
+  else
+    say "NOTE  Desktop Geoffrey button not installed yet"
+  fi
+
   say ""
   if [ "$fail" -eq 0 ]; then
     say "Geoffrey package is ready."
@@ -2525,7 +2607,7 @@ setup() {
   dashboard
   say ""
   say "Daily use:"
-  say "Open a new Terminal and type: Geoffrey"
+  say "Double-click Geoffrey.command on the Desktop, or open Terminal and type: Geoffrey"
   say ""
   say "To finish mapping the owner's full chief-of-staff system, run:"
   say "./bin/geoffrey chief-of-staff --memory \"$target\""
@@ -2588,6 +2670,9 @@ case "${1:-}" in
     ;;
   install-launcher)
     install_launcher
+    ;;
+  install-desktop-button)
+    install_desktop_button
     ;;
   launch)
     shift

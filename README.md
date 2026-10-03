@@ -54,14 +54,20 @@ To see setup status:
 The dashboard shows plain-English checks, what is ready, and the next best
 action.
 
-For daily use after setup, open a new Terminal and type:
+For daily use after setup, double-click this file on the Desktop:
+
+```text
+Geoffrey.command
+```
+
+Or open a new Terminal and type:
 
 ```bash
 Geoffrey
 ```
 
-That opens Claude Code in the person's Geoffrey memory repo, starts with the
-daily briefing and email/follow-up skills, and syncs memory changes with GitHub
+Both start Claude Code in the person's Geoffrey memory repo, start with the
+daily briefing and email/follow-up skills, and sync memory changes with GitHub
 before and after the session.
 
 To prove Geoffrey works immediately:
