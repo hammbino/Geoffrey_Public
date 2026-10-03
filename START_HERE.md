@@ -78,8 +78,8 @@ cd ~/Geoffrey
 ```
 
 Geoffrey schedules a biweekly Mac update check during setup. Every other week
-it checks GitHub, and if a new Geoffrey version is available, it asks before it
-installs anything.
+it quietly checks GitHub. If no update exists, it says nothing. If a new
+Geoffrey version is available, it asks before it installs anything.
 
 To check sooner:
 

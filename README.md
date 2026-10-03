@@ -86,7 +86,8 @@ To get future Geoffrey improvements:
 ```
 
 Geoffrey also schedules a biweekly Mac update check during setup. Every other
-week it checks GitHub, and if an update exists, it asks before installing.
+week it quietly checks GitHub. If no update exists, it says nothing. If an
+update exists, it asks before installing.
 
 To check manually:
 

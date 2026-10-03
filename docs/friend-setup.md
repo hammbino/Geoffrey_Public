@@ -76,8 +76,8 @@ cd ~/Geoffrey
 ```
 
 Geoffrey schedules a biweekly update check on Mac during setup. Every other
-week it checks GitHub, and if a new Geoffrey version is available, it asks
-before installing.
+week it quietly checks GitHub. If no update exists, it says nothing. If a new
+Geoffrey version is available, it asks before installing.
 
 They do not need a GitHub account to download Geoffrey. During onboarding,
 Geoffrey will help them create or sign into GitHub because Geoffrey's memory

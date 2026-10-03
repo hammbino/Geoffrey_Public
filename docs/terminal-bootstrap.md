@@ -127,8 +127,9 @@ cd ~/Geoffrey
 
 This does not overwrite private email tokens or the person's memory repo.
 
-Geoffrey also schedules a Mac update check every other week. If a new Geoffrey
-version is available, it asks before installing it.
+Geoffrey also schedules a Mac update check every other week. It stays silent
+when there is no update. If a new Geoffrey version is available, it asks before
+installing it.
 
 To check manually:
 

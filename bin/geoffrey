@@ -33,7 +33,7 @@ Usage:
   ./bin/geoffrey status
   ./bin/geoffrey connect-tool [--memory PATH]
   ./bin/geoffrey update
-  ./bin/geoffrey update-check
+  ./bin/geoffrey update-check [--quiet]
   ./bin/geoffrey schedule-updates
   ./bin/geoffrey install-launcher
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
@@ -2189,15 +2189,35 @@ OSA
 }
 
 update_check() {
+  quiet="no"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --quiet)
+        quiet="yes"
+        shift
+        ;;
+      *)
+        say "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+
   if [ ! -d "$ROOT/.git" ]; then
-    say "Geoffrey update check skipped: this folder is not connected to GitHub."
-    say "To move to the update-ready install, run:"
-    say "/bin/bash -c \"\$(curl -fsSL $INSTALLER_URL)\""
+    if [ "$quiet" != "yes" ]; then
+      say "Geoffrey update check skipped: this folder is not connected to GitHub."
+      say "To move to the update-ready install, run:"
+      say "/bin/bash -c \"\$(curl -fsSL $INSTALLER_URL)\""
+    fi
     return 0
   fi
 
   if ! command -v git >/dev/null 2>&1; then
-    say "Geoffrey update check skipped: Git is not installed yet."
+    if [ "$quiet" != "yes" ]; then
+      say "Geoffrey update check skipped: Git is not installed yet."
+    fi
     return 0
   fi
 
@@ -2207,26 +2227,34 @@ update_check() {
   fi
 
   if ! git -C "$ROOT" fetch origin "$branch" >/dev/null 2>&1; then
-    say "Geoffrey update check could not reach GitHub right now."
+    if [ "$quiet" != "yes" ]; then
+      say "Geoffrey update check could not reach GitHub right now."
+    fi
     return 0
   fi
 
   local_rev="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
   remote_rev="$(git -C "$ROOT" rev-parse "origin/$branch" 2>/dev/null || true)"
   if [ -z "$local_rev" ] || [ -z "$remote_rev" ]; then
-    say "Geoffrey update check could not compare versions yet."
+    if [ "$quiet" != "yes" ]; then
+      say "Geoffrey update check could not compare versions yet."
+    fi
     return 0
   fi
 
   if [ "$local_rev" = "$remote_rev" ]; then
-    say "Geoffrey is already up to date."
+    if [ "$quiet" != "yes" ]; then
+      say "Geoffrey is already up to date."
+    fi
     return 0
   fi
 
   if ! git -C "$ROOT" merge-base --is-ancestor "$local_rev" "$remote_rev" >/dev/null 2>&1; then
-    say "Geoffrey update check found a different Git history and will not auto-prompt."
-    say "Ask the person who shared Geoffrey with you to review this folder:"
-    say "$ROOT"
+    if [ "$quiet" != "yes" ]; then
+      say "Geoffrey update check found a different Git history and will not auto-prompt."
+      say "Ask the person who shared Geoffrey with you to review this folder:"
+      say "$ROOT"
+    fi
     return 0
   fi
 
@@ -2256,7 +2284,9 @@ OSA
   if [ "$button" = "Install" ]; then
     open_update_terminal
   else
-    say "Geoffrey update postponed."
+    if [ "$quiet" != "yes" ]; then
+      say "Geoffrey update postponed."
+    fi
   fi
 }
 
@@ -2288,6 +2318,7 @@ schedule_update_checks() {
   <array>
     <string>$program_arg</string>
     <string>update-check</string>
+    <string>--quiet</string>
   </array>
   <key>StartInterval</key>
   <integer>$UPDATE_INTERVAL_SECONDS</integer>
@@ -2549,7 +2580,8 @@ case "${1:-}" in
     update_geoffrey
     ;;
   update-check)
-    update_check
+    shift
+    update_check "$@"
     ;;
   schedule-updates)
     schedule_update_checks
