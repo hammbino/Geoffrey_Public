@@ -49,6 +49,27 @@ The launcher syncs the memory repo with GitHub before Claude opens and again
 after Claude closes, so added notes, preferences, projects, and skills travel
 with the user.
 
+To prove Geoffrey works immediately:
+
+```bash
+cd ~/Geoffrey
+./bin/geoffrey first-win
+```
+
+To see what is ready or stuck:
+
+```bash
+cd ~/Geoffrey
+./bin/geoffrey dashboard
+```
+
+To connect the next business tool after email/GitHub:
+
+```bash
+cd ~/Geoffrey
+./bin/geoffrey connect-tool
+```
+
 Future Geoffrey updates are simple:
 
 ```bash

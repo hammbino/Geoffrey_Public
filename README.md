@@ -48,8 +48,11 @@ To see the first useful demo action:
 To see setup status:
 
 ```bash
-./bin/geoffrey status
+./bin/geoffrey dashboard
 ```
+
+The dashboard shows plain-English checks, what is ready, and the next best
+action.
 
 For daily use after setup, open a new Terminal and type:
 
@@ -60,6 +63,21 @@ Geoffrey
 That opens Claude Code in the person's Geoffrey memory repo, starts with the
 daily briefing and email/follow-up skills, and syncs memory changes with GitHub
 before and after the session.
+
+To prove Geoffrey works immediately:
+
+```bash
+./bin/geoffrey first-win
+```
+
+This launches Claude Code into Daily Briefing, Inbox Rescue, Follow-Up Finder,
+or Open Loops.
+
+To connect the next business tool after email/GitHub:
+
+```bash
+./bin/geoffrey connect-tool
+```
 
 To get future Geoffrey improvements:
 

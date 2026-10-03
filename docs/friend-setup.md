@@ -22,7 +22,9 @@
 Helpful checks:
 
 ```bash
-./bin/geoffrey status
+./bin/geoffrey dashboard
+./bin/geoffrey first-win
+./bin/geoffrey connect-tool
 ./bin/geoffrey first-run
 ./bin/geoffrey update-check
 ./bin/geoffrey update
@@ -37,6 +39,15 @@ Geoffrey
 This opens Claude Code in the user's Geoffrey memory repo, starts with the daily
 briefing and email/follow-up skills, and syncs new memory or skill changes with
 GitHub before and after the session.
+
+First proof of value:
+
+```bash
+./bin/geoffrey first-win
+```
+
+That lets them choose Daily Briefing, Inbox Rescue, Follow-Up Finder, or Open
+Loops and launches Claude Code directly into the work.
 
 ## Terminal Path
 

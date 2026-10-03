@@ -85,6 +85,24 @@ Geoffrey should report:
 
 Then Geoffrey starts the white-glove setup.
 
+To see what is ready or what needs attention:
+
+```bash
+./bin/geoffrey dashboard
+```
+
+To prove the system works immediately:
+
+```bash
+./bin/geoffrey first-win
+```
+
+To connect another business tool after email/GitHub:
+
+```bash
+./bin/geoffrey connect-tool
+```
+
 ## Daily Use
 
 After setup, open a new Terminal and type:

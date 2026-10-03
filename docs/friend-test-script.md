@@ -33,16 +33,16 @@ Success looks like:
 7. Run:
 
    ```bash
-   ./bin/geoffrey status
+   ./bin/geoffrey dashboard
    ```
 
 8. Run:
 
    ```bash
-   ./bin/geoffrey first-run
+   ./bin/geoffrey first-win
    ```
 
-9. Open the generated memory repo in Claude/Codex and paste the first-run prompt.
+9. Pick Daily Briefing or Inbox Rescue and let Geoffrey produce the first useful result.
 
 ## Script B: Terminal Bootstrap
 
@@ -61,7 +61,7 @@ Use this if they are comfortable opening Terminal and pasting one block.
 6. Let Geoffrey continue into setup, connect email, ask whether they have GitHub,
    help them create/sign into GitHub if needed, and create the GitHub-backed
    memory repo.
-7. Run Inbox Rescue as the first useful action.
+7. Let Geoffrey run `first-win` as the first useful action.
 
 ## Watch For Confusion
 
@@ -85,3 +85,9 @@ Run:
 ```
 
 Then connect the rest of their core operating stack in stages.
+
+Use:
+
+```bash
+./bin/geoffrey connect-tool --memory /path/to/geoffrey-memory-repo
+```
