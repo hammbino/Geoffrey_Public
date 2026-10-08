@@ -145,6 +145,8 @@ To connect another email account later:
 
 Geoffrey keeps asking whether to add another mailbox until the user is done.
 At the email prompts, type `back` to restart the step or `cancel` to stop.
+In Geoffrey.app, open **Connections** and choose **Add account** to do this
+later; the button stays available after the first account is connected.
 
 To create Geoffrey's GitHub-backed memory and brain repo:
 

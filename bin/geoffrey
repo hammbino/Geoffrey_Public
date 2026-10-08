@@ -704,7 +704,7 @@ add_email_once() {
           case "$recovery" in
             retry) return 2 ;;
             microsoft|outlook) GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER=microsoft add_email_once ;;
-            *) say "Skipped this email connection."; return 1 ;;
+            *) say "Skipped this email connection."; return 3 ;;
           esac
         else
           return 0
@@ -715,11 +715,16 @@ add_email_once() {
         secrets="$(ask "Path to Google Desktop OAuth JSON" "")"
         if [ -z "$secrets" ]; then
           say "Skipped Gmail connection."
-          return 1
+          return 3
         fi
         if ! (cd "$MCP_DIR" && npm run add-account -- --provider google --secrets "$secrets" --id "$id" --purpose "$purpose"); then
           say "Gmail did not finish connecting."
-          return 1
+          recovery="$(ask "retry, microsoft, or skip" "retry")"
+          case "$recovery" in
+            retry) return 2 ;;
+            microsoft|outlook) GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER=microsoft add_email_once ;;
+            *) say "Skipped this email connection."; return 3 ;;
+          esac
         else
           return 0
         fi
@@ -738,7 +743,7 @@ add_email_once() {
           case "$recovery" in
             retry) return 2 ;;
             google|gmail) GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER=google add_email_once ;;
-            *) say "Skipped this email connection."; return 1 ;;
+            *) say "Skipped this email connection."; return 3 ;;
           esac
         else
           return 0
@@ -749,11 +754,16 @@ add_email_once() {
         client_id="$(ask "Microsoft client ID" "")"
         if [ -z "$client_id" ]; then
           say "Skipped Outlook connection."
-          return 1
+          return 3
         fi
         if ! (cd "$MCP_DIR" && npm run add-account -- --provider microsoft --client-id "$client_id" --id "$id" --purpose "$purpose"); then
           say "Outlook did not finish connecting."
-          return 1
+          recovery="$(ask "retry, google, or skip" "retry")"
+          case "$recovery" in
+            retry) return 2 ;;
+            google|gmail) GEOFFREY_ADD_EMAIL_DEFAULT_PROVIDER=google add_email_once ;;
+            *) say "Skipped this email connection."; return 3 ;;
+          esac
         else
           return 0
         fi
@@ -796,6 +806,14 @@ add_email() {
         say ""
         say "Restarting the email step."
         continue
+        ;;
+      3)
+        say ""
+        if yes_no "Try a different email or calendar account? yes/no" "yes"; then
+          continue
+        fi
+        say "Email setup complete."
+        return 0
         ;;
       *)
         say "Stopped adding email accounts. Run ./bin/geoffrey add-email when ready."
