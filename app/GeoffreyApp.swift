@@ -25,6 +25,11 @@ struct GeoffreyApp: App {
                 Button("Refresh account status") { model.refresh() }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
             }
+            CommandMenu("Model") {
+                Button("Automatic") { model.setModel("automatic") }
+                Button("Faster") { model.setModel("sonnet") }
+                Button("Deep thinking") { model.setModel("opus") }
+            }
         }
     }
 }
@@ -413,6 +418,21 @@ struct SettingsView: View {
                 Button("Check for updates") { model.runMaintenance("update-check") }
                 Button("Open Geoffrey folder") { model.openGeoffreyFolder() }
             }
+            Section("Claude model") {
+                Picker("How Geoffrey thinks", selection: $model.modelChoice) {
+                    Text("Automatic (recommended)").tag("automatic")
+                    Text("Faster").tag("sonnet")
+                    Text("Deep thinking").tag("opus")
+                    Text("Custom").tag("custom")
+                }
+                .pickerStyle(.menu)
+                if model.modelChoice == "custom" {
+                    TextField("Claude model name", text: $model.customModel)
+                }
+                Text(model.modelDescription)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
             Section("Help") {
                 Text("Geoffrey asks before sending, publishing, spending, deleting, or changing access. Feedback on a briefing is saved privately so Geoffrey can make the next one better.")
                     .foregroundStyle(.secondary)
@@ -595,12 +615,20 @@ final class GeoffreyModel: ObservableObject {
     @Published var isRunning = false
     @Published var issueMessage = ""
     @Published var showingIssue = false
+    @Published var modelChoice: String {
+        didSet { UserDefaults.standard.set(modelChoice, forKey: "geoffreyModelChoice") }
+    }
+    @Published var customModel: String {
+        didSet { UserDefaults.standard.set(customModel, forKey: "geoffreyCustomModel") }
+    }
 
     let geoffreyHome: String
 
     init() {
         geoffreyHome = UserDefaults.standard.string(forKey: "geoffreyHome")
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Geoffrey").path
+        modelChoice = UserDefaults.standard.string(forKey: "geoffreyModelChoice") ?? "automatic"
+        customModel = UserDefaults.standard.string(forKey: "geoffreyCustomModel") ?? ""
     }
 
     var hasMemory: Bool { (health["memory"] ?? "").hasPrefix("/") }
@@ -610,6 +638,23 @@ final class GeoffreyModel: ObservableObject {
     var emailDetail: String {
         let value = health["email"] ?? "Checking..."
         return value.contains("connected") ? "\(value). Add another whenever you need it." : "No account connected yet"
+    }
+    var modelDescription: String {
+        switch modelChoice {
+        case "sonnet": return "Faster responses for everyday briefings, drafts, and routine work."
+        case "opus": return "More deliberate reasoning for complex planning, analysis, and skill design."
+        case "custom": return "Use a Claude model name supplied by your organization or Claude account."
+        default: return "Let Claude Code choose the best available model for the request."
+        }
+    }
+    var modelArgument: String? {
+        switch modelChoice {
+        case "sonnet", "opus": return modelChoice
+        case "custom":
+            let value = customModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
+        default: return nil
+        }
     }
     var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -637,6 +682,7 @@ final class GeoffreyModel: ObservableObject {
             return
         }
         isRunning = true
+        let selectedModel = modelArgument
         Task.detached { [geoffreyHome] in
             var promptArgs = ["app-prompt", "--task", task.commandName]
             switch task {
@@ -657,7 +703,8 @@ final class GeoffreyModel: ObservableObject {
                 prompt: prompt.output,
                 workingDirectory: memory,
                 geoffreyHome: geoffreyHome,
-                allowsEdits: task.allowsEdits
+                allowsEdits: task.allowsEdits,
+                model: selectedModel
             )
             if answer.status == 0 && task.allowsEdits {
                 _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
@@ -686,6 +733,8 @@ final class GeoffreyModel: ObservableObject {
         openTerminal(command: "cd \(Self.shellQuote(geoffreyHome)) && ./bin/geoffrey \(command)")
     }
 
+    func setModel(_ value: String) { modelChoice = value }
+
     func runMaintenance(_ command: String) { openTerminal(command: "cd \(Self.shellQuote(geoffreyHome)) && ./bin/geoffrey \(command)") }
     func openClaudeLogin() { openTerminal(command: "cd \(Self.shellQuote(geoffreyHome)) && claude") }
     func openMemory() { if hasMemory { NSWorkspace.shared.open(URL(fileURLWithPath: memoryDetail)) } }
@@ -699,6 +748,8 @@ final class GeoffreyModel: ObservableObject {
             issueMessage = "Your Claude sign-in needs a quick refresh. Choose Accounts > Sign in to Claude, then come back here and try again."
         } else if lower.contains("could not refresh access") || lower.contains("calendar access denied") || lower.contains("access denied for") {
             issueMessage = "One of your email or calendar accounts needs to be reconnected. Choose Accounts > Add email or calendar account, then sign in to that account again. No messages were sent."
+        } else if lower.contains("model") && (lower.contains("not available") || lower.contains("not found") || lower.contains("not supported")) {
+            issueMessage = "That Claude model is not available on this account. Open Settings and choose Automatic or Faster, then try again."
         } else if lower.contains("no such file") || lower.contains("geoffrey was not found") {
             issueMessage = "Geoffrey needs to be repaired or updated. Open Settings, check for updates, then try again."
         } else {
@@ -719,8 +770,9 @@ final class GeoffreyModel: ObservableObject {
         "'" + value.replacingOccurrences(of: "'", with: "'\\\"'\\\"'") + "'"
     }
 
-    nonisolated private static func runClaude(prompt: String, workingDirectory: String, geoffreyHome: String, allowsEdits: Bool) -> CommandResult {
+    nonisolated private static func runClaude(prompt: String, workingDirectory: String, geoffreyHome: String, allowsEdits: Bool, model: String?) -> CommandResult {
         var arguments = ["claude", "--print", "--output-format", "text", "--permission-mode", allowsEdits ? "acceptEdits" : "plan", "--name", "Geoffrey"]
+        if let model { arguments += ["--model", model] }
         if !allowsEdits { arguments += ["--add-dir", geoffreyHome] }
         arguments.append(prompt)
         return run(executable: "/usr/bin/env", arguments: arguments, workingDirectory: workingDirectory)
