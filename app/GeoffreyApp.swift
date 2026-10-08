@@ -346,16 +346,16 @@ struct ConnectionsView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 700, alignment: .leading)
 
-            ConnectionRow(icon: "envelope.fill", title: "Email and calendar", detail: model.health["email"] ?? "Checking...", ready: model.health["email"]?.contains("connected") == true) {
+            ConnectionRow(icon: "envelope.fill", title: "Email and calendar", detail: model.emailDetail, ready: model.health["email"]?.contains("connected") == true, actionTitle: "Add account") {
                 model.openSetup("add-email")
             }
-            ConnectionRow(icon: "sparkles", title: "Claude", detail: model.health["claude"] == "ready" ? "Ready" : "Sign in needed", ready: model.health["claude"] == "ready") {
+            ConnectionRow(icon: "sparkles", title: "Claude", detail: model.health["claude"] == "ready" ? "Ready" : "Sign in needed", ready: model.health["claude"] == "ready", actionTitle: nil) {
                 model.openClaudeLogin()
             }
-            ConnectionRow(icon: "brain.head.profile", title: "Private memory", detail: model.memoryDetail, ready: model.hasMemory) {
+            ConnectionRow(icon: "brain.head.profile", title: "Private memory", detail: model.memoryDetail, ready: model.hasMemory, actionTitle: nil) {
                 model.openSetup("setup")
             }
-            ConnectionRow(icon: "arrow.triangle.branch", title: "Private GitHub backup", detail: model.health["github"] == "ready" ? "Connected" : "Not connected yet", ready: model.health["github"] == "ready") {
+            ConnectionRow(icon: "arrow.triangle.branch", title: "Private GitHub backup", detail: model.health["github"] == "ready" ? "Connected" : "Not connected yet", ready: model.health["github"] == "ready", actionTitle: nil) {
                 model.openSetup("setup")
             }
             Spacer()
@@ -473,6 +473,7 @@ struct ConnectionRow: View {
     let title: String
     let detail: String
     let ready: Bool
+    let actionTitle: String?
     let action: () -> Void
 
     var body: some View {
@@ -483,7 +484,8 @@ struct ConnectionRow: View {
                 Text(detail).foregroundStyle(.secondary)
             }
             Spacer()
-            if !ready { Button("Set up", action: action).buttonStyle(.bordered) }
+            if let actionTitle { Button(actionTitle, action: action).buttonStyle(.bordered) }
+            else if !ready { Button("Set up", action: action).buttonStyle(.bordered) }
             else { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
         }
         .padding(.vertical, 12)
@@ -599,6 +601,10 @@ final class GeoffreyModel: ObservableObject {
     var canTalk: Bool { health["claude"] == "ready" && hasMemory }
     var isReady: Bool { canTalk && (health["email"] ?? "").contains("connected") }
     var memoryDetail: String { hasMemory ? health["memory"]! : "Not created yet" }
+    var emailDetail: String {
+        let value = health["email"] ?? "Checking..."
+        return value.contains("connected") ? "\(value). Add another whenever you need it." : "No account connected yet"
+    }
     var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
         if hour < 12 { return "Good morning" }
@@ -663,7 +669,10 @@ final class GeoffreyModel: ObservableObject {
 
     func sendFeedback(rating: String, note: String) {
         Task.detached { [geoffreyHome] in
-            _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-feedback", "--rating", rating, "--note", note])
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-feedback", "--rating", rating, "--note", note])
+            if result.status != 0 {
+                await MainActor.run { self.finishWithIssue(result.output) }
+            }
         }
     }
 
@@ -679,10 +688,15 @@ final class GeoffreyModel: ObservableObject {
     private func finishWithIssue(_ raw: String) {
         isRunning = false
         let message = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if message.localizedCaseInsensitiveContains("failed to authenticate") || message.localizedCaseInsensitiveContains("oauth session expired") {
+        let lower = message.lowercased()
+        if lower.contains("failed to authenticate") || lower.contains("oauth session expired") {
             issueMessage = "Your Claude sign-in needs a quick refresh. Open Connections, choose Claude, and select Set up. Then come back here and try again."
+        } else if lower.contains("could not refresh access") || lower.contains("calendar access denied") || lower.contains("access denied for") {
+            issueMessage = "One of your email or calendar accounts needs to be reconnected. Open Connections, choose Add account, and sign in to that account again. No messages were sent."
+        } else if lower.contains("no such file") || lower.contains("geoffrey was not found") {
+            issueMessage = "Geoffrey needs to be repaired or updated. Open Settings, check for updates, then try again."
         } else {
-            issueMessage = message
+            issueMessage = "Geoffrey could not finish that request. No messages were sent and no outside records were changed. Try again, or check Connections if this involved email or a calendar."
         }
         showingIssue = true
     }

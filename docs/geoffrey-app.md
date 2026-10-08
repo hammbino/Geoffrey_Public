@@ -19,6 +19,16 @@ need to use it for normal work.
 Geoffrey never sends, publishes, spends, deletes, changes access, or creates
 recurring automation without asking first.
 
+## Adding Another Email Or Calendar
+
+Open **Connections** and choose **Add account** beside Email and calendar at
+any time. Geoffrey supports more than one Gmail and/or Microsoft account. If a
+sign-in fails, the guided flow offers Retry, the other provider, or Skip so the
+owner can move on to another account without starting setup over.
+
+If a previously connected mailbox needs fresh permission, use the same **Add
+account** action and reconnect it with the same short account name.
+
 ## Skills And Business Tools
 
 In **Improve Geoffrey**, the owner can ask Geoffrey to review their current
