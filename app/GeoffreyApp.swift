@@ -21,6 +21,7 @@ struct GeoffreyApp: App {
             }
             CommandMenu("Accounts") {
                 Button("Add email or calendar account...") { model.openSetup("add-email") }
+                Button("Sign in to Claude...") { model.openClaudeLogin() }
                 Button("Refresh account status") { model.refresh() }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
             }
@@ -695,7 +696,7 @@ final class GeoffreyModel: ObservableObject {
         let message = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = message.lowercased()
         if lower.contains("failed to authenticate") || lower.contains("oauth session expired") {
-            issueMessage = "Your Claude sign-in needs a quick refresh. Open Connections, choose Claude, and select Set up. Then come back here and try again."
+            issueMessage = "Your Claude sign-in needs a quick refresh. Choose Accounts > Sign in to Claude, then come back here and try again."
         } else if lower.contains("could not refresh access") || lower.contains("calendar access denied") || lower.contains("access denied for") {
             issueMessage = "One of your email or calendar accounts needs to be reconnected. Choose Accounts > Add email or calendar account, then sign in to that account again. No messages were sent."
         } else if lower.contains("no such file") || lower.contains("geoffrey was not found") {

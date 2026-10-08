@@ -29,6 +29,9 @@ owner can move on to another account without starting setup over.
 If a previously connected mailbox needs fresh permission, use the same menu
 item and reconnect it with the same short account name.
 
+If Geoffrey says the Claude sign-in needs refreshing, choose **Accounts > Sign
+in to Claude** from the same menu.
+
 ## Skills And Business Tools
 
 In **Improve Geoffrey**, the owner can ask Geoffrey to review their current
