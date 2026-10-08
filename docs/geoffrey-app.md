@@ -49,6 +49,20 @@ Outside plugins and business-tool connections always require the owner's
 approval and sign-in. Geoffrey recommends the smallest useful connection before
 opening that setup path.
 
+## Choosing A Claude Model
+
+Open **Settings** and choose how Geoffrey should think:
+
+- **Automatic**: Claude Code chooses the best available model. This is the
+  default and best choice for most people.
+- **Faster**: use Sonnet for routine daily work and quicker responses.
+- **Deep thinking**: use Opus for complex planning, analysis, and skill design.
+- **Custom**: enter a model name supplied by an organization or Claude account.
+
+The selected model is used for briefings, Ask Geoffrey, capability reviews, and
+private-skill creation. The same choices are also available from Geoffrey's
+**Model** menu.
+
 ## Feedback That Improves The Briefing
 
 After a daily briefing, the owner can choose **Helpful** or **Adjust it**.

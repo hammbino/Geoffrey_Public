@@ -64,6 +64,9 @@ short, practical capability review or approve a new private Geoffrey skill for
 repeated business work. External plugins and tool connections always require
 the owner's approval.
 
+In Geoffrey Settings, owners can choose Automatic, Faster, or Deep thinking
+Claude behavior for their work without using Terminal.
+
 The Terminal launchers remain available for advanced use or support:
 
 Double-click this file on the Desktop:
