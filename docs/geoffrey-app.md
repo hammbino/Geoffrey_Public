@@ -21,13 +21,13 @@ recurring automation without asking first.
 
 ## Adding Another Email Or Calendar
 
-Open **Connections** and choose **Add account** beside Email and calendar at
+Choose **Accounts > Add email or calendar account** from Geoffrey's Mac menu at
 any time. Geoffrey supports more than one Gmail and/or Microsoft account. If a
 sign-in fails, the guided flow offers Retry, the other provider, or Skip so the
 owner can move on to another account without starting setup over.
 
-If a previously connected mailbox needs fresh permission, use the same **Add
-account** action and reconnect it with the same short account name.
+If a previously connected mailbox needs fresh permission, use the same menu
+item and reconnect it with the same short account name.
 
 ## Skills And Business Tools
 
