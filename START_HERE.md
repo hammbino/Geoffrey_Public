@@ -35,7 +35,14 @@ page and waits while they create one.
 
 ## Daily Use
 
-After setup, double-click this file on the Desktop:
+After setup, open **Geoffrey** from Applications. Start with **Brief me** for a
+morning briefing, or use **Ask Geoffrey** to request help in plain language.
+After a briefing, choose **Helpful** or **Adjust it** so Geoffrey can make the
+next briefing more relevant.
+
+The following are support and advanced options, not the normal daily path.
+
+Double-click this file on the Desktop:
 
 ```text
 Geoffrey.command

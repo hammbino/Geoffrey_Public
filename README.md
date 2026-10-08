@@ -54,7 +54,14 @@ To see setup status:
 The dashboard shows plain-English checks, what is ready, and the next best
 action.
 
-For daily use after setup, double-click this file on the Desktop:
+For daily use after setup, open **Geoffrey** from Applications. It is the simple
+daily workspace for briefings, asking Geoffrey for help, connected tools, and
+briefing feedback. Geoffrey learns from a quick "Helpful" or "Adjust it" note
+stored in the person's private memory.
+
+The Terminal launchers remain available for advanced use or support:
+
+Double-click this file on the Desktop:
 
 ```text
 Geoffrey.command

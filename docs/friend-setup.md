@@ -35,6 +35,17 @@ Helpful checks:
 Daily use after setup:
 
 ```text
+Open Geoffrey from Applications.
+```
+
+Use **Brief me** for the daily command center, **Ask Geoffrey** for any request,
+and **Adjust it** after a briefing if it needs to be shorter, more focused, or
+weighted differently. Geoffrey saves that feedback in the person's private
+memory for the next briefing.
+
+Terminal is only needed for support or advanced use:
+
+```text
 Double-click Geoffrey.command on the Desktop.
 ```
 

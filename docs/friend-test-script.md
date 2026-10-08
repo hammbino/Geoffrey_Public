@@ -30,20 +30,25 @@ Success looks like:
 5. If they use Outlook and Microsoft is not bundled yet, skip Outlook unless
    they are comfortable with the setup.
 6. Let Geoffrey create the memory repo.
-7. Confirm there is a `Geoffrey.command` button on the Desktop.
-8. Run:
+7. Confirm **Geoffrey** appears in Applications and open it.
+8. Choose **Brief me** or **Inbox** inside Geoffrey.
+9. Ask them whether the result was useful. If not, choose **Adjust it** and
+   save one correction.
+10. Run:
 
    ```bash
    ./bin/geoffrey dashboard
    ```
 
-9. Double-click `Geoffrey.command` once, or run:
+11. The old `Geoffrey.command` button remains available as a support fallback.
+    The friend should normally use Geoffrey.app.
+12. If needed, run:
 
    ```bash
    ./bin/geoffrey first-win
    ```
 
-10. Pick Daily Briefing or Inbox Rescue and let Geoffrey produce the first useful result.
+13. Pick Daily Briefing or Inbox Rescue and let Geoffrey produce the first useful result.
 
 ## Script B: Terminal Bootstrap
 
@@ -63,8 +68,9 @@ Use this if they are comfortable opening Terminal and pasting one block.
    want, ask whether they have GitHub,
    help them create/sign into GitHub if needed, and create the GitHub-backed
    memory repo.
-7. Confirm there is a `Geoffrey.command` button on the Desktop.
-8. Let Geoffrey run `first-win` as the first useful action.
+7. Confirm Geoffrey appears in Applications and open it.
+8. Let the friend choose **Brief me** or **Inbox** in Geoffrey as the first useful action.
+9. Ask for one piece of feedback, then use **Helpful** or **Adjust it** to save it.
 
 ## Watch For Confusion
 

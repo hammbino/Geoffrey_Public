@@ -4,6 +4,7 @@
 .env.local
 node_modules/
 geoffrey-mcp/node_modules/
+build/
 onboarding/recipients/
 
 # OAuth token-lifetime experiment: live credentials, never commit

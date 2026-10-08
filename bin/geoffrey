@@ -15,6 +15,7 @@ UPDATE_INTERVAL_SECONDS=1209600
 LAUNCHER_DIR="$STORE_DIR/bin"
 CURRENT_MEMORY_FILE="$STORE_DIR/current-memory"
 DESKTOP_BUTTON="$HOME/Desktop/Geoffrey.command"
+MAC_APP_INSTALLER="$ROOT/scripts/install-mac-app.sh"
 
 usage() {
   cat <<'USAGE'
@@ -38,6 +39,10 @@ Usage:
   ./bin/geoffrey schedule-updates
   ./bin/geoffrey install-launcher
   ./bin/geoffrey install-desktop-button
+  ./bin/geoffrey install-mac-app
+  ./bin/geoffrey app-status
+  ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask [--request "..."]
+  ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
@@ -69,6 +74,11 @@ Commands:
                Install the one-word Geoffrey terminal launcher.
   install-desktop-button
                Install the double-click Geoffrey Desktop button.
+  install-mac-app
+               Build and install Geoffrey.app in the user's Applications folder.
+  app-status   Print the simple readiness information used by Geoffrey.app.
+  app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
+  app-feedback Save briefing feedback in Geoffrey's private memory.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
@@ -1335,7 +1345,7 @@ launcher_prompt() {
   cat <<EOF_PROMPT
 Use Geoffrey.
 
-Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md if present, and every file in memory/skills.
+Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/briefing-feedback.md if present, and every file in memory/skills.
 
 Start this session as my chief of staff:
 
@@ -1358,7 +1368,7 @@ first_win_prompt() {
       cat <<EOF_PROMPT
 Use Geoffrey.
 
-Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md if present, and every file in memory/skills.
+Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/briefing-feedback.md if present, and every file in memory/skills.
 
 Run Daily Briefing now.
 
@@ -1966,6 +1976,12 @@ status_report() {
     say "TODO  Install Desktop button with ./bin/geoffrey install-desktop-button"
   fi
 
+  if [ -x "$HOME/Applications/Geoffrey.app/Contents/MacOS/Geoffrey" ]; then
+    say "OK  Geoffrey.app installed in Applications"
+  else
+    say "TODO  Install Geoffrey.app with ./bin/geoffrey install-mac-app"
+  fi
+
   if remembered="$(remembered_memory_path 2>/dev/null || true)" && [ -n "$remembered" ]; then
     say "OK  Geoffrey memory home: $remembered"
   else
@@ -1981,6 +1997,102 @@ status_report() {
   fi
 }
 
+install_mac_app() {
+  if [ "$(uname -s)" != "Darwin" ]; then
+    say "Geoffrey.app is currently available on Mac only."
+    return 0
+  fi
+
+  if [ ! -x "$MAC_APP_INSTALLER" ]; then
+    say "Geoffrey.app installer is missing. Run Geoffrey update, then try again."
+    return 1
+  fi
+
+  "$MAC_APP_INSTALLER"
+}
+
+app_status() {
+  # A small tab-separated contract for Geoffrey.app. Keep it free of terminal
+  # narration so the app can turn it into clear, nontechnical UI.
+  memory_path="$(remembered_memory_path 2>/dev/null || true)"
+  mailbox_count="$(connected_mailboxes_count 2>/dev/null || printf '0')"
+
+  if command -v claude >/dev/null 2>&1; then printf 'claude\tready\n'; else printf 'claude\tneeds_setup\n'; fi
+  if [ "$mailbox_count" -gt 0 ] 2>/dev/null; then printf 'email\t%s connected\n' "$mailbox_count"; else printf 'email\tneeds_setup\n'; fi
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then printf 'github\tready\n'; else printf 'github\tneeds_setup\n'; fi
+  if [ -n "$memory_path" ] && [ -d "$memory_path/memory" ]; then printf 'memory\t%s\n' "$memory_path"; else printf 'memory\tneeds_setup\n'; fi
+  if [ -x "$HOME/Applications/Geoffrey.app/Contents/MacOS/Geoffrey" ]; then printf 'app\tready\n'; else printf 'app\tneeds_install\n'; fi
+}
+
+app_prompt() {
+  task="ask"
+  request=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task) task="${2:-}"; shift 2 ;;
+      --request) request="${2:-}"; shift 2 ;;
+      *) say "Unknown option: $1"; exit 1 ;;
+    esac
+  done
+
+  case "$task" in
+    daily|inbox|follow-up|open-loops) first_win_prompt "$task" ;;
+    ask|*)
+      cat <<EOF_APP_PROMPT
+Use Geoffrey.
+
+Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/briefing-feedback.md if present, and the relevant files in memory/skills before answering.
+
+The owner is asking:
+$request
+
+Give a direct, useful answer in plain language. You may read connected information and prepare drafts, summaries, plans, or checklists. Do not send, post, publish, spend, delete, deploy, share access, or create recurring automation without asking for approval first. When something should become a stable preference, project, decision, or skill, explain what you would save and ask for confirmation before changing memory.
+EOF_APP_PROMPT
+      ;;
+  esac
+}
+
+app_feedback() {
+  rating=""
+  note=""
+  memory_path="$(remembered_memory_path 2>/dev/null || true)"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --rating) rating="${2:-}"; shift 2 ;;
+      --note) note="${2:-}"; shift 2 ;;
+      *) say "Unknown option: $1"; exit 1 ;;
+    esac
+  done
+
+  if [ "$rating" != "helpful" ] && [ "$rating" != "adjust" ]; then
+    say "Feedback needs a rating of helpful or adjust."
+    return 1
+  fi
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "Geoffrey memory is not ready yet. Finish setup first."
+    return 1
+  fi
+
+  feedback_file="$memory_path/memory/briefing-feedback.md"
+  if [ ! -f "$feedback_file" ]; then
+    cat > "$feedback_file" <<'EOF_FEEDBACK'
+# Briefing Feedback
+
+This is the owner's direct feedback about Geoffrey's daily briefing. Use it to
+improve relevance, length, emphasis, and recurring sections. Treat each note as
+a preference to confirm before making it permanent in `memory/user.md`.
+
+EOF_FEEDBACK
+  fi
+
+  clean_note="$(printf '%s' "$note" | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g')"
+  [ -n "$clean_note" ] || clean_note="No additional note."
+  printf -- '- %s | %s | %s\n' "$(date '+%Y-%m-%d %H:%M')" "$rating" "$clean_note" >> "$feedback_file"
+  commit_memory_changes "$memory_path" "Record Geoffrey briefing feedback"
+  sync_memory_repo "$memory_path" "after briefing feedback"
+  say "Feedback saved. Geoffrey will use it to improve future briefings."
+}
+
 dashboard_line() {
   state="$1"
   label="$2"
@@ -1994,7 +2106,7 @@ dashboard() {
   say ""
 
   ready=0
-  total=8
+  total=9
 
   if command -v claude >/dev/null 2>&1; then
     dashboard_line "OK" "Claude Code" "Ready to run Geoffrey from Terminal."
@@ -2044,6 +2156,13 @@ dashboard() {
     ready=$((ready + 1))
   else
     dashboard_line "TODO" "Desktop button" "Run ./bin/geoffrey install-desktop-button."
+  fi
+
+  if [ -x "$HOME/Applications/Geoffrey.app/Contents/MacOS/Geoffrey" ]; then
+    dashboard_line "OK" "Geoffrey app" "Open Geoffrey from Applications for the simple daily workspace."
+    ready=$((ready + 1))
+  else
+    dashboard_line "TODO" "Geoffrey app" "Run ./bin/geoffrey install-mac-app."
   fi
 
   if [ -f "$UPDATE_PLIST" ]; then
@@ -2295,6 +2414,7 @@ update_geoffrey() {
   register_mcp
   schedule_update_checks || true
   install_launcher || true
+  install_mac_app || true
 
   say ""
   if [ "$before" = "$after" ]; then
@@ -2622,6 +2742,7 @@ bootstrap() {
   register_mcp
   schedule_update_checks || true
   install_launcher || true
+  install_mac_app || true
 
   say ""
   say "Core setup check:"
@@ -2647,6 +2768,7 @@ setup() {
   register_mcp
   schedule_update_checks || true
   install_launcher || true
+  install_mac_app || true
 
   say ""
   say "Current Geoffrey mailboxes:"
@@ -2737,6 +2859,20 @@ case "${1:-}" in
     ;;
   install-desktop-button)
     install_desktop_button
+    ;;
+  install-mac-app)
+    install_mac_app
+    ;;
+  app-status)
+    app_status
+    ;;
+  app-prompt)
+    shift
+    app_prompt "$@"
+    ;;
+  app-feedback)
+    shift
+    app_feedback "$@"
     ;;
   launch)
     shift

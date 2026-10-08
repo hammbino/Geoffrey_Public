@@ -185,8 +185,8 @@ for bundle in \
   # dist/ is excluded because nested ZIPs differ byte-wise on every rebuild even
   # when their contents are identical; they are verified separately below.
   case "$bundle_name" in
-    *Mauricio*) bundle_excludes="-x .git -x dist -x .gitignore -x .DS_Store -x reference" ;;
-    *)          bundle_excludes="-x .git -x dist -x .gitignore -x .DS_Store" ;;
+    *Mauricio*) bundle_excludes="-x .git -x dist -x build -x .gitignore -x .DS_Store -x reference" ;;
+    *)          bundle_excludes="-x .git -x dist -x build -x .gitignore -x .DS_Store" ;;
   esac
 
   bundle_work="$TMP/bundle-$bundle_name"

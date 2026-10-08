@@ -140,6 +140,7 @@ rsync -a \
   --exclude '.git/' \
   --exclude '.DS_Store' \
   --exclude '.gitignore' \
+  --exclude 'build/' \
   --exclude "$(basename "$BUNDLE_MAURICIO")" \
   --exclude "$(basename "$BUNDLE_FULL")" \
   ./ "$STAGE/Geoffrey/"
