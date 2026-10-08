@@ -43,9 +43,9 @@ and **Adjust it** after a briefing if it needs to be shorter, more focused, or
 weighted differently. Geoffrey saves that feedback in the person's private
 memory for the next briefing.
 
-To add another Gmail or Microsoft account later, open **Connections** in
-Geoffrey and choose **Add account**. This remains available even after email is
-already connected.
+To add another Gmail or Microsoft account later, choose **Accounts > Add email
+or calendar account** from Geoffrey's Mac menu. This remains available even
+after email is already connected.
 
 Terminal is only needed for support or advanced use:
 

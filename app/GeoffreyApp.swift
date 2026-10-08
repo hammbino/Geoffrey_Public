@@ -19,6 +19,11 @@ struct GeoffreyApp: App {
                 Button("Refresh Geoffrey") { model.refresh() }
                     .keyboardShortcut("r", modifiers: [.command])
             }
+            CommandMenu("Accounts") {
+                Button("Add email or calendar account...") { model.openSetup("add-email") }
+                Button("Refresh account status") { model.refresh() }
+                    .keyboardShortcut("r", modifiers: [.command, .shift])
+            }
         }
     }
 }
@@ -346,7 +351,7 @@ struct ConnectionsView: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 700, alignment: .leading)
 
-            ConnectionRow(icon: "envelope.fill", title: "Email and calendar", detail: model.emailDetail, ready: model.health["email"]?.contains("connected") == true, actionTitle: "Add account") {
+            ConnectionRow(icon: "envelope.fill", title: "Email and calendar", detail: model.emailDetail, ready: model.health["email"]?.contains("connected") == true, actionTitle: nil) {
                 model.openSetup("add-email")
             }
             ConnectionRow(icon: "sparkles", title: "Claude", detail: model.health["claude"] == "ready" ? "Ready" : "Sign in needed", ready: model.health["claude"] == "ready", actionTitle: nil) {
@@ -692,7 +697,7 @@ final class GeoffreyModel: ObservableObject {
         if lower.contains("failed to authenticate") || lower.contains("oauth session expired") {
             issueMessage = "Your Claude sign-in needs a quick refresh. Open Connections, choose Claude, and select Set up. Then come back here and try again."
         } else if lower.contains("could not refresh access") || lower.contains("calendar access denied") || lower.contains("access denied for") {
-            issueMessage = "One of your email or calendar accounts needs to be reconnected. Open Connections, choose Add account, and sign in to that account again. No messages were sent."
+            issueMessage = "One of your email or calendar accounts needs to be reconnected. Choose Accounts > Add email or calendar account, then sign in to that account again. No messages were sent."
         } else if lower.contains("no such file") || lower.contains("geoffrey was not found") {
             issueMessage = "Geoffrey needs to be repaired or updated. Open Settings, check for updates, then try again."
         } else {
