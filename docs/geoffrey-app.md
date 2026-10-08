@@ -8,6 +8,9 @@ need to use it for normal work.
 
 - **Today**: a daily briefing plus Inbox Rescue, Follow-ups, and Open Loops.
 - **Ask Geoffrey**: one plain-language request box.
+- **Improve Geoffrey**: a capability review that recommends the next useful
+  skill, tool connection, or improvement, plus an approved private-skill
+  builder for recurring business work.
 - **Connections**: a simple view of email/calendar, private memory, and GitHub
   backup readiness.
 - **Memory**: the private folder where Geoffrey keeps agreed context and
@@ -15,6 +18,23 @@ need to use it for normal work.
 
 Geoffrey never sends, publishes, spends, deletes, changes access, or creates
 recurring automation without asking first.
+
+## Skills And Business Tools
+
+In **Improve Geoffrey**, the owner can ask Geoffrey to review their current
+work and recommend no more than three improvements. Each recommendation states
+its type, why it matters now, the first useful result, and the smallest access
+or approval needed.
+
+The owner can also describe repeated work and choose **Create private skill**.
+Geoffrey creates a concise, owner-specific skill in `memory/skills/` with its
+own approval boundary. Skill creation can update only the private skill and the
+chief-of-staff map. It cannot connect accounts, send messages, publish, spend,
+or modify outside tools.
+
+Outside plugins and business-tool connections always require the owner's
+approval and sign-in. Geoffrey recommends the smallest useful connection before
+opening that setup path.
 
 ## Feedback That Improves The Briefing
 

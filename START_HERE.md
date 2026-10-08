@@ -40,6 +40,10 @@ morning briefing, or use **Ask Geoffrey** to request help in plain language.
 After a briefing, choose **Helpful** or **Adjust it** so Geoffrey can make the
 next briefing more relevant.
 
+Open **Improve Geoffrey** when there is repeated work you want off your plate.
+Geoffrey can recommend the next most useful capability or build a private skill
+after you approve it. It always asks before connecting an outside service.
+
 The following are support and advanced options, not the normal daily path.
 
 Double-click this file on the Desktop:

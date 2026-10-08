@@ -24,7 +24,7 @@ struct GeoffreyApp: App {
 }
 
 enum GeoffreySection: Hashable {
-    case today, ask, connections, memory, settings
+    case today, ask, improve, connections, memory, settings
 }
 
 struct GeoffreyRootView: View {
@@ -39,6 +39,7 @@ struct GeoffreyRootView: View {
                     Label("Ask Geoffrey", systemImage: "message.fill").tag(GeoffreySection.ask)
                 }
                 Section("Your business") {
+                    Label("Improve Geoffrey", systemImage: "wand.and.stars").tag(GeoffreySection.improve)
                     Label("Connections", systemImage: "link").tag(GeoffreySection.connections)
                     Label("Memory", systemImage: "brain.head.profile").tag(GeoffreySection.memory)
                 }
@@ -61,6 +62,7 @@ struct GeoffreyRootView: View {
             switch selection ?? .today {
             case .today: TodayView()
             case .ask: AskGeoffreyView()
+            case .improve: ImproveGeoffreyView()
             case .connections: ConnectionsView()
             case .memory: MemoryView()
             case .settings: SettingsView()
@@ -209,6 +211,127 @@ struct AskGeoffreyView: View {
         }
         .padding(32)
         .frame(maxWidth: 980, alignment: .leading)
+    }
+}
+
+struct ImproveGeoffreyView: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @State private var showingSkillBuilder = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Text("Improve Geoffrey")
+                    .font(.system(size: 30, weight: .semibold))
+                Text("Turn recurring work into a better Geoffrey. Start with a recommendation, then approve only the capability you want added.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 760, alignment: .leading)
+
+                HStack(alignment: .top, spacing: 18) {
+                    CapabilityPanel(
+                        icon: "lightbulb.max.fill",
+                        title: "Find the next best capability",
+                        detail: "Geoffrey reviews your projects, open loops, tools, and briefing feedback, then recommends no more than three useful improvements.",
+                        actionTitle: "Review my work"
+                    ) {
+                        model.run(task: .capabilityReview)
+                    }
+                    CapabilityPanel(
+                        icon: "hammer.fill",
+                        title: "Build a custom skill",
+                        detail: "Teach Geoffrey one repeatable workflow for your business, such as proposal follow-ups, client prep, or content review.",
+                        actionTitle: "Build a skill"
+                    ) {
+                        showingSkillBuilder = true
+                    }
+                }
+                .disabled(model.isRunning || !model.canTalk)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Business tools and plugins", systemImage: "puzzlepiece.extension")
+                        .font(.headline)
+                    Text("When Geoffrey recommends an outside tool, it tells you the first win and the smallest access it needs. Geoffrey will never connect an account or install an outside integration without your approval.")
+                        .foregroundStyle(.secondary)
+                    Button("Plan a business-tool connection") { model.openSetup("connect-tool") }
+                        .buttonStyle(.bordered)
+                        .padding(.top, 4)
+                }
+                .padding(20)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                if let response = model.latestResponse, response.kind.isCapabilityOutput {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text(response.title).font(.headline)
+                        Text(response.text)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(22)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
+            .padding(32)
+            .frame(maxWidth: 980, alignment: .leading)
+        }
+        .sheet(isPresented: $showingSkillBuilder) { SkillBuilderSheet() }
+    }
+}
+
+struct CapabilityPanel: View {
+    let icon: String
+    let title: String
+    let detail: String
+    let actionTitle: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: icon).font(.title3).foregroundStyle(Color(red: 0.08, green: 0.45, blue: 0.36))
+            Text(title).font(.headline)
+            Text(detail).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Button(actionTitle, action: action).buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .padding(20)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct SkillBuilderSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var description = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Build a Geoffrey skill")
+                .font(.title2.weight(.semibold))
+            Text("Describe work you do repeatedly. Geoffrey will create a private skill for that workflow and will not connect accounts, send messages, or change other systems.")
+                .foregroundStyle(.secondary)
+            TextEditor(text: $description)
+                .padding(8)
+                .frame(height: 130)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Create private skill") {
+                    let request = description.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !request.isEmpty else { return }
+                    model.run(task: .buildSkill(request))
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 520)
     }
 }
 
@@ -411,7 +534,7 @@ struct FeedbackSheet: View {
 }
 
 enum GeoffreyTask: Equatable {
-    case daily, inbox, followUp, openLoops, ask(String)
+    case daily, inbox, followUp, openLoops, ask(String), capabilityReview, buildSkill(String)
 
     var commandName: String {
         switch self {
@@ -420,6 +543,8 @@ enum GeoffreyTask: Equatable {
         case .followUp: return "follow-up"
         case .openLoops: return "open-loops"
         case .ask: return "ask"
+        case .capabilityReview: return "capability-review"
+        case .buildSkill: return "build-skill"
         }
     }
 
@@ -430,7 +555,21 @@ enum GeoffreyTask: Equatable {
         case .followUp: return "Follow-ups"
         case .openLoops: return "Open loops"
         case .ask: return "Geoffrey’s response"
+        case .capabilityReview: return "Ways to improve Geoffrey"
+        case .buildSkill: return "Your new Geoffrey skill"
         }
+    }
+
+    var isCapabilityOutput: Bool {
+        switch self {
+        case .capabilityReview, .buildSkill: return true
+        default: return false
+        }
+    }
+
+    var allowsEdits: Bool {
+        if case .buildSkill = self { return true }
+        return false
     }
 }
 
@@ -488,7 +627,12 @@ final class GeoffreyModel: ObservableObject {
         isRunning = true
         Task.detached { [geoffreyHome] in
             var promptArgs = ["app-prompt", "--task", task.commandName]
-            if case let .ask(question) = task { promptArgs += ["--request", question] }
+            switch task {
+            case let .ask(question), let .buildSkill(question):
+                promptArgs += ["--request", question]
+            default:
+                break
+            }
             let prompt = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: promptArgs)
             guard prompt.status == 0 else {
                 await MainActor.run { self.finishWithIssue(prompt.output) }
@@ -497,7 +641,15 @@ final class GeoffreyModel: ObservableObject {
             let memory = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-status"]).output
                 .split(separator: "\n").first(where: { $0.hasPrefix("memory\t/") })?
                 .split(separator: "\t", maxSplits: 1).last.map(String.init) ?? ""
-            let answer = Self.runClaude(prompt: prompt.output, workingDirectory: memory)
+            let answer = Self.runClaude(
+                prompt: prompt.output,
+                workingDirectory: memory,
+                geoffreyHome: geoffreyHome,
+                allowsEdits: task.allowsEdits
+            )
+            if answer.status == 0 && task.allowsEdits {
+                _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+            }
             await MainActor.run {
                 self.isRunning = false
                 if answer.status == 0, !answer.output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -547,8 +699,11 @@ final class GeoffreyModel: ObservableObject {
         "'" + value.replacingOccurrences(of: "'", with: "'\\\"'\\\"'") + "'"
     }
 
-    nonisolated private static func runClaude(prompt: String, workingDirectory: String) -> CommandResult {
-        run(executable: "/usr/bin/env", arguments: ["claude", "--print", "--output-format", "text", "--permission-mode", "plan", "--name", "Geoffrey", prompt], workingDirectory: workingDirectory)
+    nonisolated private static func runClaude(prompt: String, workingDirectory: String, geoffreyHome: String, allowsEdits: Bool) -> CommandResult {
+        var arguments = ["claude", "--print", "--output-format", "text", "--permission-mode", allowsEdits ? "acceptEdits" : "plan", "--name", "Geoffrey"]
+        if !allowsEdits { arguments += ["--add-dir", geoffreyHome] }
+        arguments.append(prompt)
+        return run(executable: "/usr/bin/env", arguments: arguments, workingDirectory: workingDirectory)
     }
 
     nonisolated private static func run(executable: String, arguments: [String], workingDirectory: String? = nil) -> CommandResult {

@@ -59,6 +59,11 @@ daily workspace for briefings, asking Geoffrey for help, connected tools, and
 briefing feedback. Geoffrey learns from a quick "Helpful" or "Adjust it" note
 stored in the person's private memory.
 
+The app also includes **Improve Geoffrey**, where the owner can ask for a
+short, practical capability review or approve a new private Geoffrey skill for
+repeated business work. External plugins and tool connections always require
+the owner's approval.
+
 The Terminal launchers remain available for advanced use or support:
 
 Double-click this file on the Desktop:

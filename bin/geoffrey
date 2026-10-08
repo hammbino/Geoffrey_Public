@@ -41,8 +41,9 @@ Usage:
   ./bin/geoffrey install-desktop-button
   ./bin/geoffrey install-mac-app
   ./bin/geoffrey app-status
-  ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask [--request "..."]
+  ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|build-skill [--request "..."]
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
+  ./bin/geoffrey app-sync
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
@@ -79,6 +80,7 @@ Commands:
   app-status   Print the simple readiness information used by Geoffrey.app.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
+  app-sync     Save approved Geoffrey.app changes to private memory and GitHub.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
@@ -2037,6 +2039,62 @@ app_prompt() {
 
   case "$task" in
     daily|inbox|follow-up|open-loops) first_win_prompt "$task" ;;
+    capability-review)
+      cat <<'EOF_CAPABILITY_REVIEW'
+Use Geoffrey.
+
+Read CLAUDE.md, memory/user.md, memory/tools.md, memory/chief-of-staff.md,
+memory/briefing-feedback.md, memory/projects/, memory/waiting/, and
+memory/skills/ where present. Also review the local Geoffrey connector playbook
+if it is available.
+
+Act as my chief of staff and capability advisor. Identify no more than three
+high-value improvements to how Geoffrey helps me run my business.
+
+For each recommendation, use this exact shape:
+
+### Name
+**Type:** Build a Geoffrey skill | Connect a business tool | Improve an existing skill
+**Why now:** one plain-language sentence tied to my actual work
+**First win:** the useful result I would get this week
+**What I need to approve:** the smallest necessary permission, account sign-in,
+or example
+
+Prefer a small, proven next step. Do not install, connect, publish, send, or
+change anything. End by naming the one recommendation you would do first.
+EOF_CAPABILITY_REVIEW
+      ;;
+    build-skill)
+      cat <<EOF_BUILD_SKILL
+Use Geoffrey.
+
+Read CLAUDE.md, memory/user.md, memory/tools.md, memory/chief-of-staff.md,
+memory/briefing-feedback.md, and the existing files in memory/skills/ where
+present. The owner has approved creating this private Geoffrey skill:
+
+$request
+
+Create one new Markdown file in memory/skills/. Choose a short, descriptive
+kebab-case filename. Do not overwrite an existing skill; improve an existing
+skill only when it clearly covers the same repeatable work.
+
+The skill must be concise and include these headings:
+- When To Use
+- What Geoffrey Needs
+- Workflow
+- Deliverable
+- Approval Boundary
+- Improvement Loop
+
+Make it useful for this owner's real business, not a generic template. It may
+read, organize, summarize, plan, and draft. It must ask before sending,
+publishing, spending, deleting, changing access, or creating automation.
+
+Only change the new or updated memory/skills file and, if useful,
+memory/chief-of-staff.md. End with a short explanation of what you created and
+the first phrase the owner can use to run it.
+EOF_BUILD_SKILL
+      ;;
     ask|*)
       cat <<EOF_APP_PROMPT
 Use Geoffrey.
@@ -2091,6 +2149,17 @@ EOF_FEEDBACK
   commit_memory_changes "$memory_path" "Record Geoffrey briefing feedback"
   sync_memory_repo "$memory_path" "after briefing feedback"
   say "Feedback saved. Geoffrey will use it to improve future briefings."
+}
+
+app_sync() {
+  memory_path="$(remembered_memory_path 2>/dev/null || true)"
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "Geoffrey memory is not ready yet. Finish setup first."
+    return 1
+  fi
+  commit_memory_changes "$memory_path" "Save Geoffrey app changes"
+  sync_memory_repo "$memory_path" "after Geoffrey app change"
+  say "Geoffrey saved the approved change to private memory."
 }
 
 dashboard_line() {
@@ -2873,6 +2942,9 @@ case "${1:-}" in
   app-feedback)
     shift
     app_feedback "$@"
+    ;;
+  app-sync)
+    app_sync
     ;;
   launch)
     shift
