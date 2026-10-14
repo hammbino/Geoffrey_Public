@@ -7,6 +7,8 @@ need to use it for normal work.
 On a new Mac, Geoffrey.app shows **Install Geoffrey** rather than trying to
 start setup before the Geoffrey engine exists. That button opens the official
 installer. Once installation is complete, it changes to **Continue setup**.
+macOS may ask permission for Geoffrey to open Terminal for that one setup step.
+Choose **Allow**; Geoffrey does not use that permission for normal daily work.
 
 ## What The Owner Sees
 

@@ -853,7 +853,12 @@ final class GeoffreyModel: ObservableObject {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         process.arguments = ["-e", script]
-        try? process.run()
+        do {
+            try process.run()
+        } catch {
+            issueMessage = "Geoffrey could not open Terminal for this step. Open Terminal and try the setup again from there."
+            showingIssue = true
+        }
     }
 
     nonisolated private static func shellQuote(_ value: String) -> String {
