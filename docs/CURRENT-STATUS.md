@@ -9,7 +9,7 @@ Updated: October 13, 2026
 - Provides a native Mac app at `~/Applications/Geoffrey.app`.
 - Offers a daily briefing, inbox review, follow-ups, open loops, and a freeform request box.
 - Supports multiple Gmail and Microsoft/Outlook accounts through Geoffrey's account flow.
-- Stores private memory and feedback in the owner's GitHub repository.
+- Stores private memory, briefing feedback, and priority learning in the owner's GitHub repository.
 - Lets Geoffrey recommend and build private skills after the owner approves them.
 - Offers Automatic, Faster, Deep Thinking, and custom Claude model choices.
 - Checks quietly for updates every two weeks and only asks when an update exists.

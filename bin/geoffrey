@@ -43,6 +43,7 @@ Usage:
   ./bin/geoffrey app-status
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|build-skill [--request "..."]
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
+  ./bin/geoffrey app-priority-feedback --assessment right|higher|lower|not-useful [--item "..."] [--missing "..."]
   ./bin/geoffrey app-sync
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
@@ -80,6 +81,7 @@ Commands:
   app-status   Print the simple readiness information used by Geoffrey.app.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
+  app-priority-feedback Save priority ratings and missed priorities in private memory.
   app-sync     Save approved Geoffrey.app changes to private memory and GitHub.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
@@ -1365,7 +1367,7 @@ launcher_prompt() {
   cat <<EOF_PROMPT
 Use Geoffrey.
 
-Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/briefing-feedback.md if present, and every file in memory/skills.
+Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, memory/briefing-feedback.md, and memory/priority-feedback.md if present, and every file in memory/skills.
 
 Start this session as my chief of staff:
 
@@ -1388,7 +1390,7 @@ first_win_prompt() {
       cat <<EOF_PROMPT
 Use Geoffrey.
 
-Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/briefing-feedback.md if present, and every file in memory/skills.
+Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, memory/briefing-feedback.md, and memory/priority-feedback.md if present, and every file in memory/skills.
 
 Run Daily Briefing now.
 
@@ -1396,10 +1398,12 @@ Use connected email and calendar accounts where available. Connected mailboxes a
 
 Give me:
 1. Today's schedule and calendar risks.
-2. The top priorities I should focus on.
+2. The top priorities I should focus on. Label each one `Priority 1`, `Priority 2`, or `Priority 3`, followed by a short name and why it matters today.
 3. Important email follow-ups or waiting items.
 4. Suggested focus blocks.
 5. The first action Geoffrey can take for me next.
+
+Use priority feedback to learn the owner's working judgment: raise recurring higher-priority items, reduce lower-priority or not-useful items, and consider missed priorities when relevant. Do not treat one rating as a permanent rule; use it as a preference to validate in future briefings.
 
 Do not send, post, publish, spend, delete, deploy, share access, or create recurring automations without asking.
 EOF_PROMPT
@@ -2167,6 +2171,59 @@ EOF_FEEDBACK
   commit_memory_changes "$memory_path" "Record Geoffrey briefing feedback"
   sync_memory_repo "$memory_path" "after briefing feedback"
   say "Feedback saved. Geoffrey will use it to improve future briefings."
+}
+
+app_priority_feedback() {
+  assessment=""
+  item=""
+  missing=""
+  memory_path="$(remembered_memory_path 2>/dev/null || true)"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --assessment) assessment="${2:-}"; shift 2 ;;
+      --item) item="${2:-}"; shift 2 ;;
+      --missing) missing="${2:-}"; shift 2 ;;
+      *) say "Unknown option: $1"; exit 1 ;;
+    esac
+  done
+
+  case "$assessment" in
+    right|higher|lower|not-useful) ;;
+    *) say "Priority feedback needs an assessment of right, higher, lower, or not-useful."; return 1 ;;
+  esac
+  if [ -z "$item" ] && [ -z "$missing" ]; then
+    say "Name a priority Geoffrey showed or add one it missed."
+    return 1
+  fi
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "Geoffrey memory is not ready yet. Finish setup first."
+    return 1
+  fi
+
+  feedback_file="$memory_path/memory/priority-feedback.md"
+  if [ ! -f "$feedback_file" ]; then
+    cat > "$feedback_file" <<'EOF_PRIORITY_FEEDBACK'
+# Priority Learning
+
+This is the owner's direct feedback about what deserves attention in a daily
+briefing. Use it to improve ranking and coverage without treating one rating as
+a permanent rule. Confirm a repeated preference before adding it to `memory/user.md`.
+
+EOF_PRIORITY_FEEDBACK
+  fi
+
+  clean_item="$(printf '%s' "$item" | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g')"
+  clean_missing="$(printf '%s' "$missing" | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g')"
+  timestamp="$(date '+%Y-%m-%d %H:%M')"
+  if [ -n "$clean_item" ]; then
+    printf -- '- %s | rated %s | %s\n' "$timestamp" "$assessment" "$clean_item" >> "$feedback_file"
+  fi
+  if [ -n "$clean_missing" ]; then
+    printf -- '- %s | missed priority | %s\n' "$timestamp" "$clean_missing" >> "$feedback_file"
+  fi
+  commit_memory_changes "$memory_path" "Record Geoffrey priority feedback"
+  sync_memory_repo "$memory_path" "after priority feedback"
+  say "Priority feedback saved. Geoffrey will use it in future briefings."
 }
 
 app_sync() {
@@ -2960,6 +3017,10 @@ case "${1:-}" in
   app-feedback)
     shift
     app_feedback "$@"
+    ;;
+  app-priority-feedback)
+    shift
+    app_priority_feedback "$@"
     ;;
   app-sync)
     app_sync

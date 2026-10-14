@@ -65,14 +65,19 @@ private-skill creation. The same choices are also available from Geoffrey's
 
 ## Feedback That Improves The Briefing
 
-After a daily briefing, the owner can choose **Helpful** or **Adjust it**.
+After a daily briefing, the owner can choose **Helpful**, **Adjust it**, or
+**Rate priorities**. Priority ratings let the owner say an item was about right,
+should be higher or lower, or should not be surfaced next time. They can also
+add something Geoffrey missed entirely.
+
+**Adjust it**
 "Adjust it" offers common corrections such as shorter briefings, less routine
 email, more calendar/priorities, or more follow-ups, plus a free-text note.
 
 Each response is saved in the private memory repo at
-`memory/briefing-feedback.md`. Geoffrey reads that feedback on later briefings
-and should confirm a correction before promoting it into the owner's standing
-preferences.
+`memory/briefing-feedback.md` or `memory/priority-feedback.md`. Geoffrey reads
+that feedback on later briefings and should confirm a repeated correction before
+promoting it into the owner's standing preferences.
 
 ## Install And Update
 

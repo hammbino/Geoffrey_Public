@@ -91,6 +91,7 @@ struct GeoffreyRootView: View {
 struct TodayView: View {
     @EnvironmentObject private var model: GeoffreyModel
     @State private var feedbackSheet = false
+    @State private var priorityFeedbackSheet = false
 
     var body: some View {
         ScrollView {
@@ -164,6 +165,14 @@ struct TodayView: View {
                                 Label("Adjust it", systemImage: "slider.horizontal.3")
                             }
                             .buttonStyle(.bordered)
+                            if response.kind == .daily {
+                                Button {
+                                    priorityFeedbackSheet = true
+                                } label: {
+                                    Label("Rate priorities", systemImage: "list.number")
+                                }
+                                .buttonStyle(.bordered)
+                            }
                         }
                     }
                     .padding(22)
@@ -177,6 +186,7 @@ struct TodayView: View {
             .frame(maxWidth: 980, alignment: .leading)
         }
         .sheet(isPresented: $feedbackSheet) { FeedbackSheet() }
+        .sheet(isPresented: $priorityFeedbackSheet) { PriorityFeedbackSheet() }
     }
 }
 
@@ -561,6 +571,67 @@ struct FeedbackSheet: View {
     }
 }
 
+struct PriorityFeedbackSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var item = ""
+    @State private var assessment = "right"
+    @State private var missingPriority = ""
+
+    private var hasFeedback: Bool {
+        !item.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            !missingPriority.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Teach Geoffrey what matters")
+                .font(.title2.weight(.semibold))
+            Text("Tell Geoffrey whether something it surfaced belonged where it was, or name something it missed. Geoffrey uses this only for your future briefings.")
+                .foregroundStyle(.secondary)
+
+            GroupBox("Rate a priority Geoffrey showed") {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("Priority or item", text: $item)
+                    Picker("This should be", selection: $assessment) {
+                        Text("About right").tag("right")
+                        Text("Higher priority").tag("higher")
+                        Text("Lower priority").tag("lower")
+                        Text("Left out next time").tag("not-useful")
+                    }
+                    .pickerStyle(.menu)
+                }
+                .padding(.top, 4)
+            }
+
+            GroupBox("Add a priority Geoffrey missed") {
+                TextEditor(text: $missingPriority)
+                    .padding(8)
+                    .frame(height: 90)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Save for future briefings") {
+                    model.sendPriorityFeedback(
+                        item: item.trimmingCharacters(in: .whitespacesAndNewlines),
+                        assessment: assessment,
+                        missingPriority: missingPriority.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!hasFeedback)
+            }
+        }
+        .padding(24)
+        .frame(width: 500)
+    }
+}
+
 enum GeoffreyTask: Equatable {
     case daily, inbox, followUp, openLoops, ask(String), capabilityReview, buildSkill(String)
 
@@ -723,6 +794,18 @@ final class GeoffreyModel: ObservableObject {
     func sendFeedback(rating: String, note: String) {
         Task.detached { [geoffreyHome] in
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-feedback", "--rating", rating, "--note", note])
+            if result.status != 0 {
+                await MainActor.run { self.finishWithIssue(result.output) }
+            }
+        }
+    }
+
+    func sendPriorityFeedback(item: String, assessment: String, missingPriority: String) {
+        Task.detached { [geoffreyHome] in
+            var arguments = ["app-priority-feedback", "--assessment", assessment]
+            if !item.isEmpty { arguments += ["--item", item] }
+            if !missingPriority.isEmpty { arguments += ["--missing", missingPriority] }
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: arguments)
             if result.status != 0 {
                 await MainActor.run { self.finishWithIssue(result.output) }
             }
