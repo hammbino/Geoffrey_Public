@@ -84,7 +84,9 @@ Geoffrey should report:
 - Gmail sign-in helper available, or Gmail already connected
 - Microsoft OAuth config present
 
-Then Geoffrey starts the white-glove setup.
+Then Geoffrey starts the white-glove setup. Once the person has connected email
+and private memory, Geoffrey opens the Mac app automatically for the first
+briefing instead of leaving them in Terminal.
 
 To see what is ready or what needs attention:
 

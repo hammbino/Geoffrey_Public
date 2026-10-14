@@ -2036,6 +2036,17 @@ install_mac_app() {
   "$MAC_APP_INSTALLER"
 }
 
+open_geoffrey_app() {
+  app_path="$HOME/Applications/Geoffrey.app"
+  if [ -d "$app_path" ] && command -v open >/dev/null 2>&1; then
+    say ""
+    say "Opening Geoffrey now..."
+    open "$app_path"
+    return 0
+  fi
+  return 1
+}
+
 app_status() {
   # A small tab-separated contract for Geoffrey.app. Keep it free of terminal
   # narration so the app can turn it into clear, nontechnical UI.
@@ -2935,19 +2946,9 @@ setup() {
   say ""
   start_prompt
   say ""
-  dashboard
-  say ""
-  say "Daily use:"
-  say "Double-click Geoffrey.command on the Desktop, or open Terminal and type: Geoffrey"
-  say ""
-  say "To finish mapping the owner's full chief-of-staff system, run:"
-  say "./bin/geoffrey chief-of-staff --memory \"$target\""
-  say ""
-  if yes_no "Run Geoffrey's first useful action now? yes/no" "yes"; then
-    first_win --memory "$target" || true
-  else
-    demo_prompt
-  fi
+  say "Your email connection and private memory are ready."
+  say "Your first useful action is waiting in Geoffrey: choose Brief me."
+  open_geoffrey_app || say "Open Geoffrey from Applications to continue."
 }
 
 case "${1:-}" in

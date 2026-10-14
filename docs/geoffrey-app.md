@@ -10,6 +10,10 @@ installer in a temporary Mac command file. Once installation is complete, it
 changes to **Continue setup**. This first install does not depend on Geoffrey
 having permission to control Terminal.
 
+When setup has connected an email account and created private memory, Geoffrey
+opens the app automatically. The first useful action is **Brief me** inside the
+app, not another terminal prompt.
+
 ## What The Owner Sees
 
 - **Today**: a daily briefing plus Inbox Rescue, Follow-ups, and Open Loops.
