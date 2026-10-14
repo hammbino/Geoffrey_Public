@@ -1,4 +1,4 @@
-# Geoffrey OS
+# Geoffrey OS Project Notes
 
 This is the working home for Geoffrey: the Mac assistant that helps a small-business owner run their day, connect their tools, remember what matters, and improve over time.
 
