@@ -8,6 +8,8 @@
   <string>Geoffrey</string>
   <key>CFBundleIdentifier</key>
   <string>com.geoffrey.assistant</string>
+  <key>CFBundleIconFile</key>
+  <string>Geoffrey.icns</string>
   <key>CFBundleName</key>
   <string>Geoffrey</string>
   <key>CFBundlePackageType</key>
