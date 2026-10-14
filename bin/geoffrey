@@ -659,7 +659,8 @@ add_email_once() {
 
   say ""
   say "Geoffrey can connect multiple mailboxes."
-  say "Each mailbox gets a short id like personal, work, billing, sales, or old-work."
+  say "First, give this inbox a short private label so you and Geoffrey can tell accounts apart."
+  say "This does not change your email address. Good labels are work, personal, billing, sales, or old-work."
   say "Type back to restart this email step, or cancel to stop adding mailboxes."
   say ""
 
@@ -673,20 +674,20 @@ add_email_once() {
     cancel|Cancel|CANCEL|done|Done|DONE|skip|Skip|SKIP|no|No|NO) return 1 ;;
   esac
 
-  id="$(ask "Short account id" "")"
+  id="$(ask "Private label for this inbox (example: work)" "")"
   case "$id" in
     back|Back|BACK) return 2 ;;
     cancel|Cancel|CANCEL|done|Done|DONE|skip|Skip|SKIP|no|No|NO) return 1 ;;
   esac
 
-  purpose="$(ask "What is this account for?" "")"
+  purpose="$(ask "What do you mainly use this inbox for? (example: client work or invoices)" "General")"
   case "$purpose" in
     back|Back|BACK) return 2 ;;
     cancel|Cancel|CANCEL|done|Done|DONE|skip|Skip|SKIP|no|No|NO) return 1 ;;
   esac
 
   if [ -z "$id" ]; then
-    say "Account id is required. Type back to restart, or cancel to stop."
+    say "A private inbox label is required. Use a simple word such as work, personal, or billing."
     return 2
   fi
 

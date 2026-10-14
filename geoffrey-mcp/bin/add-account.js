@@ -170,8 +170,8 @@ if (providerName === "google") {
   if (!existsSync(DEFAULT_MICROSOFT_OAUTH)) console.log(`Using Microsoft public client ${client_id}`);
 }
 
-const id = arg("id") ?? (await ask("Short id for this account (e.g. work, billing): "));
-const purpose = arg("purpose") ?? (await ask("What is this account for? "));
+const id = arg("id") ?? (await ask("Private label for this inbox, not the email address (e.g. work, personal, billing): "));
+const purpose = arg("purpose") ?? (await ask("What do you mainly use this inbox for? (e.g. client work, personal, invoices): "));
 
 // --- OAuth --------------------------------------------------------------------
 

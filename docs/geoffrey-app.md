@@ -6,9 +6,9 @@ need to use it for normal work.
 
 On a new Mac, Geoffrey.app shows **Install Geoffrey** rather than trying to
 start setup before the Geoffrey engine exists. That button opens the official
-installer. Once installation is complete, it changes to **Continue setup**.
-macOS may ask permission for Geoffrey to open Terminal for that one setup step.
-Choose **Allow**; Geoffrey does not use that permission for normal daily work.
+installer in a temporary Mac command file. Once installation is complete, it
+changes to **Continue setup**. This first install does not depend on Geoffrey
+having permission to control Terminal.
 
 ## What The Owner Sees
 
@@ -33,7 +33,9 @@ sign-in fails, the guided flow offers Retry, the other provider, or Skip so the
 owner can move on to another account without starting setup over.
 
 If a previously connected mailbox needs fresh permission, use the same menu
-item and reconnect it with the same short account name.
+item and reconnect it with the same private inbox label. A private label is
+just how Geoffrey distinguishes accounts inside the app; it does not change the
+email address. Examples: `work`, `personal`, or `billing`.
 
 If Geoffrey says the Claude sign-in needs refreshing, choose **Accounts > Sign
 in to Claude** from the same menu.

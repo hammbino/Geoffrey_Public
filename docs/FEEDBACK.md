@@ -9,3 +9,4 @@ Record direct user feedback here. Keep it short and factual. Link each repeatabl
 | 2026-10-13 | Geoffrey owner | Morning briefing content is not always useful. | Capture feedback and use it in future briefing prompts. | Implemented. |
 | 2026-10-13 | Dustin | Needs to rate individual briefing priorities and add priorities Geoffrey missed. | Add priority rating and missed-priority learning to the Mac app and private memory. | Implemented; needs pilot validation. |
 | 2026-10-13 | Geoffrey owner | New Mac app showed Continue setup before `~/Geoffrey` had been installed. | Detect a missing Geoffrey engine and launch the official installer instead. | Implemented; needs first-run validation. |
+| 2026-10-13 | Geoffrey owner | “Short account id” was unclear while connecting an email account. | Ask for a private inbox label, explain that it does not change the address, and give examples. | Implemented; needs first-run validation. |

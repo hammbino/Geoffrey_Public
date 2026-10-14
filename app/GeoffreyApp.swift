@@ -817,7 +817,7 @@ final class GeoffreyModel: ObservableObject {
 
     func openSetup(_ command: String) {
         guard hasGeoffreyEngine else {
-            openTerminal(command: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh)\"")
+            launchInstaller()
             return
         }
         openTerminal(command: "cd \(Self.shellQuote(geoffreyHome)) && ./bin/geoffrey \(command)")
@@ -857,6 +857,24 @@ final class GeoffreyModel: ObservableObject {
             try process.run()
         } catch {
             issueMessage = "Geoffrey could not open Terminal for this step. Open Terminal and try the setup again from there."
+            showingIssue = true
+        }
+    }
+
+    private func launchInstaller() {
+        let installer = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Install Geoffrey.command")
+        let contents = """
+        #!/bin/bash
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh)"
+        """
+
+        do {
+            try contents.write(to: installer, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: installer.path)
+            NSWorkspace.shared.open(installer)
+        } catch {
+            issueMessage = "Geoffrey could not open the installer. Open Terminal and use the install command from the Geoffrey website."
             showingIssue = true
         }
     }
