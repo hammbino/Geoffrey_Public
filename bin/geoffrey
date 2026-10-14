@@ -828,7 +828,7 @@ add_email() {
 
 list_email() {
   ensure_store
-  node --input-type=module -e "import { listAccounts } from '$MCP_DIR/src/store.js'; const accounts = listAccounts(); if (!accounts.length) { console.log('No Geoffrey mailboxes connected yet. Run: ./bin/geoffrey add-email'); } else { for (const a of accounts) console.log(a.id.padEnd(14) + a.provider.padEnd(12) + a.email + '  - ' + (a.purpose ?? '')); }"
+  node --input-type=module -e "import { listAccounts } from '$MCP_DIR/src/store.js'; const accounts = listAccounts(); if (!accounts.length) { console.log('No inboxes connected yet. You can add one now or later.'); } else { for (const a of accounts) { const provider = a.provider === 'google' ? 'Gmail' : 'Outlook/Microsoft'; console.log('- ' + a.id + ': ' + a.email + ' (' + provider + ')'); } }"
 }
 
 connected_mailboxes_count() {
@@ -902,15 +902,17 @@ memory_repo() {
   done
 
   if [ -z "$name" ]; then
-    name="$(ask "Person's name" "")"
+    say ""
+    say "First, tell Geoffrey what to call you. This is your name, not someone else's."
+    name="$(ask "What should Geoffrey call you? (example: Jeffrey Hammond)" "")"
   fi
   if [ -z "$name" ]; then
-    say "Name is required."
+    say "Your name is needed so Geoffrey can personalize your private memory."
     exit 1
   fi
 
   if [ "$business" = "Personal" ]; then
-    business="$(ask "Business or team" "$business")"
+    business="$(ask "What business or team should Geoffrey support? (example: JLH Global; use Personal if none)" "$business")"
   fi
 
   if [ -z "$github" ]; then
