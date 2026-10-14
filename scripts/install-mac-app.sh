@@ -9,4 +9,5 @@ mkdir -p "$HOME/Applications"
 rm -rf "$TARGET"
 ditto "$ROOT/build/Geoffrey.app" "$TARGET"
 xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null || true
-echo "Geoffrey.app is ready in Applications."
+echo "Geoffrey.app is ready at $TARGET"
+open "$TARGET"
