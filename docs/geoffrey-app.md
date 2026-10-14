@@ -4,6 +4,10 @@ Geoffrey.app is the everyday Mac workspace for a business owner. The command
 line remains Geoffrey's installation and support engine; the owner should not
 need to use it for normal work.
 
+On a new Mac, Geoffrey.app shows **Install Geoffrey** rather than trying to
+start setup before the Geoffrey engine exists. That button opens the official
+installer. Once installation is complete, it changes to **Continue setup**.
+
 ## What The Owner Sees
 
 - **Today**: a daily briefing plus Inbox Rescue, Follow-ups, and Open Loops.

@@ -461,10 +461,12 @@ struct SetupBanner: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: "wand.and.stars").font(.title2).foregroundStyle(Color.orange)
             VStack(alignment: .leading, spacing: 5) {
-                Text("Let’s finish your setup") .font(.headline)
-                Text("Connect your email and create your private memory so Geoffrey can work with your real business context.")
+                Text(model.hasGeoffreyEngine ? "Let’s finish your setup" : "Install Geoffrey") .font(.headline)
+                Text(model.hasGeoffreyEngine
+                     ? "Connect your email and create your private memory so Geoffrey can work with your real business context."
+                     : "Install Geoffrey once, then connect your email and private memory.")
                     .foregroundStyle(.secondary)
-                Button("Continue setup") { model.openSetup("setup") }
+                Button(model.hasGeoffreyEngine ? "Continue setup" : "Install Geoffrey") { model.openSetup("setup") }
                     .buttonStyle(.borderedProminent)
                     .padding(.top, 4)
             }
@@ -705,6 +707,7 @@ final class GeoffreyModel: ObservableObject {
     var hasMemory: Bool { (health["memory"] ?? "").hasPrefix("/") }
     var canTalk: Bool { health["claude"] == "ready" && hasMemory }
     var isReady: Bool { canTalk && (health["email"] ?? "").contains("connected") }
+    var hasGeoffreyEngine: Bool { FileManager.default.isExecutableFile(atPath: geoffreyHome + "/bin/geoffrey") }
     var memoryDetail: String { hasMemory ? health["memory"]! : "Not created yet" }
     var emailDetail: String {
         let value = health["email"] ?? "Checking..."
@@ -813,6 +816,10 @@ final class GeoffreyModel: ObservableObject {
     }
 
     func openSetup(_ command: String) {
+        guard hasGeoffreyEngine else {
+            openTerminal(command: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh)\"")
+            return
+        }
         openTerminal(command: "cd \(Self.shellQuote(geoffreyHome)) && ./bin/geoffrey \(command)")
     }
 
