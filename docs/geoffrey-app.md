@@ -29,6 +29,13 @@ app, not another terminal prompt.
 Geoffrey never sends, publishes, spends, deletes, changes access, or creates
 recurring automation without asking first.
 
+For a briefing or other everyday request, Geoffrey prepares a compact,
+read-only packet from the owner's private memory and connected email/calendar
+metadata, then gives that packet to Claude to create the response. Geoffrey
+treats the packet as data, not instructions. It still asks before any
+consequential action, including sending a message, publishing, spending,
+deleting, changing access, or creating automation.
+
 ## Adding Another Email Or Calendar
 
 Choose **Accounts > Add email or calendar account** from Geoffrey's Mac menu at

@@ -42,8 +42,10 @@ Usage:
   ./bin/geoffrey install-mac-app
   ./bin/geoffrey app-status
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|build-skill [--request "..."]
+  ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
   ./bin/geoffrey app-priority-feedback --assessment right|higher|lower|not-useful [--item "..."] [--missing "..."]
+  ./bin/geoffrey app-record-briefing --kind daily|inbox|follow-up|open-loops --text "..."
   ./bin/geoffrey app-sync
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
@@ -80,8 +82,10 @@ Commands:
                Build and install Geoffrey.app in the user's Applications folder.
   app-status   Print the simple readiness information used by Geoffrey.app.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
+  app-context  Prepare the read-only email and calendar context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
   app-priority-feedback Save priority ratings and missed priorities in private memory.
+  app-record-briefing Save a completed briefing to private memory and GitHub.
   app-sync     Save approved Geoffrey.app changes to private memory and GitHub.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
@@ -1401,7 +1405,7 @@ Use connected email and calendar accounts where available. Connected mailboxes a
 
 Give me:
 1. Today's schedule and calendar risks.
-2. The top priorities I should focus on. Label each one `Priority 1`, `Priority 2`, or `Priority 3`, followed by a short name and why it matters today.
+2. The top priorities I should focus on. Label each one Priority 1, Priority 2, or Priority 3, followed by a short name and why it matters today.
 3. Important email follow-ups or waiting items.
 4. Suggested focus blocks.
 5. The first action Geoffrey can take for me next.
@@ -2003,7 +2007,7 @@ status_report() {
     say "TODO  Install Desktop button with ./bin/geoffrey install-desktop-button"
   fi
 
-  if [ -x "$HOME/Applications/Geoffrey.app/Contents/MacOS/Geoffrey" ]; then
+  if geoffrey_app_path >/dev/null 2>&1; then
     say "OK  Geoffrey.app installed in Applications"
   else
     say "TODO  Install Geoffrey.app with ./bin/geoffrey install-mac-app"
@@ -2024,6 +2028,16 @@ status_report() {
   fi
 }
 
+geoffrey_app_path() {
+  for app_path in "$HOME/Applications/Geoffrey.app" "/Applications/Geoffrey.app"; do
+    if [ -x "$app_path/Contents/MacOS/Geoffrey" ]; then
+      printf '%s\n' "$app_path"
+      return 0
+    fi
+  done
+  return 1
+}
+
 install_mac_app() {
   if [ "$(uname -s)" != "Darwin" ]; then
     say "Geoffrey.app is currently available on Mac only."
@@ -2039,8 +2053,8 @@ install_mac_app() {
 }
 
 open_geoffrey_app() {
-  app_path="$HOME/Applications/Geoffrey.app"
-  if [ -d "$app_path" ] && command -v open >/dev/null 2>&1; then
+  app_path="$(geoffrey_app_path 2>/dev/null || true)"
+  if [ -n "$app_path" ] && command -v open >/dev/null 2>&1; then
     say ""
     say "Opening Geoffrey now..."
     open "$app_path"
@@ -2059,7 +2073,7 @@ app_status() {
   if [ "$mailbox_count" -gt 0 ] 2>/dev/null; then printf 'email\t%s connected\n' "$mailbox_count"; else printf 'email\tneeds_setup\n'; fi
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then printf 'github\tready\n'; else printf 'github\tneeds_setup\n'; fi
   if [ -n "$memory_path" ] && [ -d "$memory_path/memory" ]; then printf 'memory\t%s\n' "$memory_path"; else printf 'memory\tneeds_setup\n'; fi
-  if [ -x "$HOME/Applications/Geoffrey.app/Contents/MacOS/Geoffrey" ]; then printf 'app\tready\n'; else printf 'app\tneeds_install\n'; fi
+  if geoffrey_app_path >/dev/null 2>&1; then printf 'app\tready\n'; else printf 'app\tneeds_install\n'; fi
 }
 
 app_prompt() {
@@ -2144,6 +2158,96 @@ Give a direct, useful answer in plain language. You may read connected informati
 EOF_APP_PROMPT
       ;;
   esac
+}
+
+app_context() {
+  task="daily"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task) task="${2:-}"; shift 2 ;;
+      *) say "Unknown option: $1"; return 1 ;;
+    esac
+  done
+
+  case "$task" in
+    daily|inbox|follow-up|open-loops|ask) ;;
+    *)
+      say "This Geoffrey request does not need connected email or calendar context."
+      return 0
+      ;;
+  esac
+
+  if [ ! -f "$MCP_DIR/bin/briefing-context.js" ]; then
+    say "Geoffrey's email and calendar reader is missing. Run Geoffrey update, then try again."
+    return 1
+  fi
+
+  memory_path="$(remembered_memory_path 2>/dev/null || true)"
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "Geoffrey memory is not ready yet. Finish setup first."
+    return 1
+  fi
+
+  emit_memory_file() {
+    file="$1"
+    label="$2"
+    if [ -f "$file" ]; then
+      printf '\n--- %s ---\n' "$label"
+      sed -n '1,220p' "$file"
+    fi
+  }
+
+  say "PRIVATE GEOFFREY MEMORY"
+  say "This packet was prepared locally from the owner's private GitHub-backed memory."
+  emit_memory_file "$memory_path/CLAUDE.md" "Geoffrey operating rules"
+  emit_memory_file "$memory_path/memory/user.md" "Owner context"
+  emit_memory_file "$memory_path/memory/tools.md" "Business tools"
+  emit_memory_file "$memory_path/memory/chief-of-staff.md" "Chief of staff plan"
+  emit_memory_file "$memory_path/memory/briefing-feedback.md" "Briefing feedback"
+  emit_memory_file "$memory_path/memory/priority-feedback.md" "Priority feedback"
+
+  for file in "$memory_path"/memory/journal/*.md "$memory_path"/memory/projects/*.md "$memory_path"/memory/waiting/*.md "$memory_path"/memory/skills/*.md; do
+    [ -f "$file" ] || continue
+    emit_memory_file "$file" "${file#"$memory_path"/}"
+  done
+
+  say ""
+  node "$MCP_DIR/bin/briefing-context.js" --task "$task"
+}
+
+app_record_briefing() {
+  kind="daily"
+  text=""
+  memory_path="$(remembered_memory_path 2>/dev/null || true)"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --kind) kind="${2:-}"; shift 2 ;;
+      --text) text="${2:-}"; shift 2 ;;
+      *) say "Unknown option: $1"; return 1 ;;
+    esac
+  done
+
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "Geoffrey memory is not ready yet. Finish setup first."
+    return 1
+  fi
+  if [ -z "${text//[[:space:]]/}" ]; then
+    say "There was no Geoffrey result to save."
+    return 1
+  fi
+
+  archive_dir="$memory_path/memory/briefings"
+  mkdir -p "$archive_dir"
+  stamp="$(date '+%Y-%m-%d-%H%M%S')"
+  file="$archive_dir/${stamp}-${kind}.md"
+  {
+    printf '# Geoffrey %s\n\n' "$kind"
+    printf '_Saved %s_\n\n' "$(date '+%Y-%m-%d %H:%M %Z')"
+    printf '%s\n' "$text"
+  } > "$file"
+  commit_memory_changes "$memory_path" "Save Geoffrey $kind briefing"
+  sync_memory_repo "$memory_path" "after Geoffrey $kind briefing"
+  say "Saved this Geoffrey result to private memory."
 }
 
 app_feedback() {
@@ -2316,7 +2420,7 @@ dashboard() {
     dashboard_line "TODO" "Desktop button" "Run ./bin/geoffrey install-desktop-button."
   fi
 
-  if [ -x "$HOME/Applications/Geoffrey.app/Contents/MacOS/Geoffrey" ]; then
+  if geoffrey_app_path >/dev/null 2>&1; then
     dashboard_line "OK" "Geoffrey app" "Open Geoffrey from Applications for the simple daily workspace."
     ready=$((ready + 1))
   else
@@ -3018,6 +3122,10 @@ case "${1:-}" in
     shift
     app_prompt "$@"
     ;;
+  app-context)
+    shift
+    app_context "$@"
+    ;;
   app-feedback)
     shift
     app_feedback "$@"
@@ -3025,6 +3133,10 @@ case "${1:-}" in
   app-priority-feedback)
     shift
     app_priority_feedback "$@"
+    ;;
+  app-record-briefing)
+    shift
+    app_record_briefing "$@"
     ;;
   app-sync)
     app_sync
