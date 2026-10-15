@@ -40,6 +40,7 @@ Usage:
   ./bin/geoffrey install-launcher
   ./bin/geoffrey install-desktop-button
   ./bin/geoffrey install-mac-app
+  ./bin/geoffrey uninstall [--purge-private-memory] [--yes] [--dry-run]
   ./bin/geoffrey app-status
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill|build-skill [--request "..."]
   ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill
@@ -81,6 +82,8 @@ Commands:
                Install the double-click Geoffrey Desktop button.
   install-mac-app
                Build and install Geoffrey.app in the user's Applications folder.
+  uninstall    Remove Geoffrey.app, its launcher, update job, and MCP registration.
+               Use --purge-private-memory only to erase the separate private memory repo.
   app-status   Print the simple readiness information used by Geoffrey.app.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-context  Prepare the read-only private context used by Geoffrey.app.
@@ -2115,6 +2118,100 @@ install_mac_app() {
   "$MAC_APP_INSTALLER"
 }
 
+uninstall_geoffrey() {
+  purge_private_memory="no"
+  assume_yes="no"
+  dry_run="no"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --purge-private-memory) purge_private_memory="yes"; shift ;;
+      --yes) assume_yes="yes"; shift ;;
+      --dry-run) dry_run="yes"; shift ;;
+      *) say "Unknown option: $1"; return 1 ;;
+    esac
+  done
+
+  memory_path=""
+  if [ -f "$CURRENT_MEMORY_FILE" ]; then
+    memory_path="$(head -n 1 "$CURRENT_MEMORY_FILE" | tr -d '\r')"
+  fi
+
+  say "Geoffrey uninstall"
+  say ""
+  say "This removes Geoffrey runtime files from this Mac:"
+  say "- /Applications/Geoffrey.app"
+  say "- $HOME/Applications/Geoffrey.app"
+  say "- $STORE_DIR (accounts, launcher, logs, and setup state)"
+  say "- $DESKTOP_BUTTON (only when Geoffrey created it)"
+  say "- $UPDATE_PLIST and its loaded update job"
+  say "- the Claude MCP registration named geoffrey"
+  say ""
+  if [ "$purge_private_memory" = "yes" ]; then
+    if [ -n "$memory_path" ]; then
+      say "It will also permanently remove this private memory repo:"
+      say "- $memory_path"
+    else
+      say "No private memory repo path is recorded, so none will be removed."
+    fi
+  else
+    say "Your private memory repo and all Geoffrey source checkouts will be kept."
+    if [ -n "$memory_path" ]; then say "Private memory kept: $memory_path"; fi
+  fi
+
+  if [ "$dry_run" = "yes" ]; then
+    say ""
+    say "Dry run only. Nothing was removed."
+    return 0
+  fi
+
+  if [ "$assume_yes" != "yes" ]; then
+    answer="$(ask "Type REMOVE to continue" "")"
+    if [ "$answer" != "REMOVE" ]; then
+      say "Nothing was removed."
+      return 0
+    fi
+  fi
+
+  if [ -f "$UPDATE_PLIST" ]; then
+    launchctl bootout "gui/$(id -u)" "$UPDATE_PLIST" >/dev/null 2>&1 || true
+    launchctl unload "$UPDATE_PLIST" >/dev/null 2>&1 || true
+    rm -f "$UPDATE_PLIST"
+  fi
+
+  if command -v claude >/dev/null 2>&1; then
+    claude mcp remove geoffrey >/dev/null 2>&1 || true
+  fi
+
+  if [ -f "$DESKTOP_BUTTON" ] && grep -q 'Geoffrey generated desktop launcher' "$DESKTOP_BUTTON" 2>/dev/null; then
+    rm -f "$DESKTOP_BUTTON"
+  fi
+
+  for app_path in "/Applications/Geoffrey.app" "$HOME/Applications/Geoffrey.app"; do
+    [ -e "$app_path" ] || continue
+    rm -rf -- "$app_path"
+  done
+  [ ! -e "$STORE_DIR" ] || rm -rf -- "$STORE_DIR"
+
+  if [ "$purge_private_memory" = "yes" ] && [ -n "$memory_path" ] && [ -d "$memory_path" ]; then
+    case "$memory_path" in
+      /|"$HOME"|"$HOME/"|"$STORE_DIR")
+        say "Refusing to remove an unsafe private-memory path: $memory_path"
+        return 1
+        ;;
+    esac
+    rm -rf -- "$memory_path"
+  fi
+
+  say ""
+  say "Geoffrey runtime files were removed."
+  if [ "$purge_private_memory" = "yes" ]; then
+    say "The recorded private memory repo was removed too."
+  else
+    say "Private memory was kept. To start with a blank memory later, run uninstall again with --purge-private-memory."
+  fi
+  say "Source checkouts were intentionally kept so you can inspect or reinstall from them."
+}
+
 open_geoffrey_app() {
   app_path="$(geoffrey_app_path 2>/dev/null || true)"
   if [ -n "$app_path" ] && command -v open >/dev/null 2>&1; then
@@ -3255,6 +3352,10 @@ case "${1:-}" in
     ;;
   install-mac-app)
     install_mac_app
+    ;;
+  uninstall)
+    shift
+    uninstall_geoffrey "$@"
     ;;
   app-status)
     app_status
