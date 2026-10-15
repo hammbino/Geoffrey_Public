@@ -66,4 +66,7 @@ fi
 
 cp "$PLIST" "$APP/Contents/Info.plist"
 cp "$ICON" "$APP/Contents/Resources/Geoffrey.icns"
+ENGINE="$APP/Contents/Resources/GeoffreyEngine"
+mkdir -p "$ENGINE"
+rsync -a --exclude build --exclude dist --exclude .DS_Store "$ROOT/" "$ENGINE/"
 echo "Built $APP"

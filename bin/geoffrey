@@ -1319,15 +1319,8 @@ remembered_memory_path() {
     fi
   fi
 
-  candidate="$(find "$HOME/Repos" -maxdepth 2 -type d -name memory 2>/dev/null \
-    | sed 's#/memory$##' \
-    | grep '/geoffrey-' \
-    | head -n 1 || true)"
-  if [ -n "$candidate" ] && [ -d "$candidate/memory" ]; then
-    printf '%s\n' "$candidate"
-    return 0
-  fi
-
+  # Memory is private and must be selected deliberately during setup. Do not
+  # discover arbitrary Geoffrey-shaped repositories on the machine.
   return 1
 }
 
@@ -3292,7 +3285,7 @@ setup() {
   say ""
   say "Your email connection and private memory are ready."
   say "Your first useful action is waiting in Geoffrey: choose Brief me."
-  open_geoffrey_app || say "Open Geoffrey from Applications to continue."
+  say "Installation is complete. Open Geoffrey from Applications when you are ready to start with Brief me."
 }
 
 case "${1:-}" in

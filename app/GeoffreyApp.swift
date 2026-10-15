@@ -88,6 +88,9 @@ struct GeoffreyRootView: View {
         .sheet(isPresented: $model.showingAccountConnection) {
             AccountConnectionSheet()
         }
+        .sheet(isPresented: $model.showingMemorySetup) {
+            MemorySetupSheet()
+        }
     }
 }
 
@@ -1279,12 +1282,13 @@ struct SetupBanner: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: "wand.and.stars").font(.title2).foregroundStyle(Color.orange)
             VStack(alignment: .leading, spacing: 5) {
-                Text(model.hasGeoffreyEngine ? "Let’s finish your setup" : "Install Geoffrey") .font(.headline)
+                let needsAccount = model.accounts.isEmpty
+                Text(model.hasGeoffreyEngine ? (needsAccount ? "Connect your email to get started" : "Create your private Geoffrey memory") : "Install Geoffrey") .font(.headline)
                 Text(model.hasGeoffreyEngine
-                     ? "Connect your email and create your private memory so Geoffrey can work with your real business context."
+                     ? (needsAccount ? "Start with one email or calendar. Geoffrey only reads what you approve." : "Next, create the private memory that makes Geoffrey useful over time.")
                      : "Install Geoffrey once, then connect your email and private memory.")
                     .foregroundStyle(.secondary)
-                Button(model.hasGeoffreyEngine ? "Continue setup" : "Install Geoffrey") { model.openSetup("setup") }
+                Button(model.hasGeoffreyEngine ? (needsAccount ? "Connect email" : "Set up private memory") : "Install Geoffrey") { model.openSetup(needsAccount ? "add-email" : "setup") }
                     .buttonStyle(.borderedProminent)
                     .padding(.top, 4)
             }
@@ -1442,6 +1446,55 @@ struct AccountConnectionSheet: View {
             purpose = account.purpose
         }
         .onDisappear { model.refresh() }
+    }
+}
+
+struct MemorySetupSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var owner = ""
+    @State private var business = ""
+    @State private var github = ""
+
+    private var canCreate: Bool {
+        !owner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !github.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        model.health["github"] == "ready"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Create your private memory").font(.title2.weight(.semibold))
+            Text("This is Geoffrey’s private, GitHub-backed record of your preferences, projects, and feedback. It is never shared with other Geoffrey users.").foregroundStyle(.secondary)
+            if let outcome = model.memorySetupOutcome {
+                Label(outcome, systemImage: model.hasMemory ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(model.hasMemory ? Color.green : Color.orange)
+                HStack { Spacer(); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("What should Geoffrey call you?").font(.headline)
+                    TextField("For example: Jeffrey Hammond", text: $owner).textFieldStyle(.roundedBorder)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Business or team").font(.headline)
+                    TextField("For example: JLH Global (optional)", text: $business).textFieldStyle(.roundedBorder)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("GitHub username").font(.headline)
+                    TextField("For example: jeffreyhammond", text: $github).textFieldStyle(.roundedBorder)
+                    Text(model.health["github"] == "ready" ? "GitHub is connected. Geoffrey will create a private backup." : "Connect GitHub in Settings before creating private memory.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                HStack {
+                    Button("Cancel") { dismiss() }
+                    Spacer()
+                    if model.isCreatingMemory { ProgressView().controlSize(.small) }
+                    Button("Create private memory") { model.createMemory(owner: owner, business: business, github: github) }
+                        .buttonStyle(.borderedProminent).disabled(!canCreate || model.isCreatingMemory)
+                }
+            }
+        }
+        .padding(24).frame(width: 520)
     }
 }
 
@@ -1657,6 +1710,9 @@ final class GeoffreyModel: ObservableObject {
     @Published var health: [String: String] = [:]
     @Published var latestResponse: GeoffreyResponse?
     @Published var latestBriefing: GeoffreyResponse?
+    @Published var showingMemorySetup = false
+    @Published var isCreatingMemory = false
+    @Published var memorySetupOutcome: String?
     @Published var conversation: [GeoffreyConversationMessage] = []
     @Published var isRunning = false
     @Published var runningTask: GeoffreyTask?
@@ -1674,16 +1730,35 @@ final class GeoffreyModel: ObservableObject {
     @Published var customModel: String {
         didSet { UserDefaults.standard.set(customModel, forKey: "geoffreyCustomModel") }
     }
+    private var memoryCreationProcess: Process?
 
     let geoffreyHome: String
     private var accountConnectionProcess: Process?
     var accountConnectionSeed: GeoffreyAccount?
 
     init() {
-        geoffreyHome = UserDefaults.standard.string(forKey: "geoffreyHome")
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Geoffrey").path
+        geoffreyHome = Self.resolvedGeoffreyHome()
         modelChoice = UserDefaults.standard.string(forKey: "geoffreyModelChoice") ?? "automatic"
         customModel = UserDefaults.standard.string(forKey: "geoffreyCustomModel") ?? ""
+    }
+
+    private static func resolvedGeoffreyHome() -> String {
+        let manager = FileManager.default
+        let fallback = manager.homeDirectoryForCurrentUser.appendingPathComponent("Geoffrey").path
+        if let saved = UserDefaults.standard.string(forKey: "geoffreyHome"), manager.isExecutableFile(atPath: saved + "/bin/geoffrey") { return saved }
+        guard let supportBase = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return fallback }
+        let support = supportBase.appendingPathComponent("Geoffrey", isDirectory: true)
+        let target = support.appendingPathComponent("engine", isDirectory: true)
+        if manager.isExecutableFile(atPath: target.appendingPathComponent("bin/geoffrey").path) { UserDefaults.standard.set(target.path, forKey: "geoffreyHome"); return target.path }
+        guard let bundledBase = Bundle.main.resourceURL else { return fallback }
+        let bundled = bundledBase.appendingPathComponent("GeoffreyEngine", isDirectory: true)
+        guard manager.isExecutableFile(atPath: bundled.appendingPathComponent("bin/geoffrey").path) else { return fallback }
+        do {
+            try manager.createDirectory(at: support, withIntermediateDirectories: true)
+            try manager.copyItem(at: bundled, to: target)
+            UserDefaults.standard.set(target.path, forKey: "geoffreyHome")
+            return target.path
+        } catch { return fallback }
     }
 
     var hasMemory: Bool { (health["memory"] ?? "").hasPrefix("/") }
@@ -1926,16 +2001,43 @@ final class GeoffreyModel: ObservableObject {
         }
     }
 
-    func openSetup(_ command: String) {
-        guard hasGeoffreyEngine else {
-            launchInstaller()
+    func presentMemorySetup() {
+        guard hasGeoffreyEngine else { launchInstaller(); return }
+        memorySetupOutcome = nil
+        showingMemorySetup = true
+    }
+
+    func createMemory(owner: String, business: String, github: String) {
+        let cleanOwner = owner.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanBusiness = business.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanGitHub = github.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanOwner.isEmpty, !cleanGitHub.isEmpty else { return }
+        guard health["github"] == "ready" else {
+            memorySetupOutcome = "Sign in to GitHub first, then return here to create your private backup."
             return
         }
-        if command == "add-email" {
+        isCreatingMemory = true
+        memorySetupOutcome = nil
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["memory", "--name", cleanOwner, "--business", cleanBusiness.isEmpty ? "Personal" : cleanBusiness, "--github", cleanGitHub, "--push"])
+            await MainActor.run {
+                self.isCreatingMemory = false
+                if result.status == 0 {
+                    self.memorySetupOutcome = "Your private Geoffrey memory is ready and backed up to GitHub."
+                    self.refresh()
+                } else {
+                    self.memorySetupOutcome = "Geoffrey could not create private memory yet. Please check your GitHub sign-in and try again."
+                }
+            }
+        }
+    }
+
+    func openSetup(_ command: String) {
+        guard hasGeoffreyEngine else { launchInstaller(); return }
+        if command == "add-email" || accounts.isEmpty {
             presentAccountConnection()
         } else {
-            issueMessage = "Finish setup by connecting an email or calendar in Connections. Geoffrey keeps that sign-in inside the app and only reads what you approve."
-            showingIssue = true
+            presentMemorySetup()
         }
     }
 

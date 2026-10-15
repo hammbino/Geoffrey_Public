@@ -141,6 +141,8 @@ rsync -a \
   --exclude '.DS_Store' \
   --exclude '.gitignore' \
   --exclude 'build/' \
+  --exclude "Geoffrey-Mac-Private-Beta.zip" \
+  --exclude "$(basename "$BUNDLE_MAURICIO")" \
   --exclude "$(basename "$BUNDLE_MAURICIO")" \
   --exclude "$(basename "$BUNDLE_FULL")" \
   ./ "$STAGE/Geoffrey/"
