@@ -131,10 +131,10 @@ struct TodayView: View {
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 10) {
-                        ActionButton(title: "Brief me", icon: "sparkles", prominent: true) { model.run(task: .daily) }
-                        ActionButton(title: "Inbox", icon: "tray.full") { model.run(task: .inbox) }
-                        ActionButton(title: "Follow-ups", icon: "arrowshape.turn.up.right") { model.run(task: .followUp) }
-                        ActionButton(title: "Open loops", icon: "checklist") { model.run(task: .openLoops) }
+                        ActionButton(title: "Brief me", icon: "sparkles", prominent: model.runningTask == .daily) { model.run(task: .daily) }
+                        ActionButton(title: "Inbox", icon: "tray.full", prominent: model.runningTask == .inbox) { model.run(task: .inbox) }
+                        ActionButton(title: "Follow-ups", icon: "arrowshape.turn.up.right", prominent: model.runningTask == .followUp) { model.run(task: .followUp) }
+                        ActionButton(title: "Open loops", icon: "checklist", prominent: model.runningTask == .openLoops) { model.run(task: .openLoops) }
                     }
                     .disabled(model.isRunning || !model.canTalk)
                 }
@@ -160,7 +160,10 @@ struct TodayView: View {
                         },
                         rateSection: { section, rating in
                             let judgement = rating == "helpful" ? "useful" : "needs improvement"
-                            model.sendFeedback(rating: rating, note: "Briefing section feedback: \(section) — \(judgement).")
+                            model.sendFeedback(rating: rating == "helpful" ? "helpful" : "adjust", note: "Briefing section feedback: \(section) — \(judgement).")
+                        },
+                        markHandled: { section, item in
+                            model.markBriefingItemHandled(section: section, item: item)
                         },
                         adjust: { feedbackSheet = true }
                     )
@@ -189,7 +192,9 @@ private struct BriefingDashboardView: View {
     let ratePriority: (String, String) -> Void
     let markHelpful: () -> Void
     let rateSection: (String, String) -> Void
+    let markHandled: (String, String) -> Void
     let adjust: () -> Void
+    @State private var handledItems = Set<String>()
 
     private var briefing: BriefingDisplay { BriefingDisplay(response.text) }
     var body: some View {
@@ -225,9 +230,17 @@ private struct BriefingDashboardView: View {
                 .padding(.vertical, 4)
             }
 
-            BriefingSection(title: "Schedule", icon: "calendar", content: briefing.schedule, rate: rateSection)
-            BriefingSection(title: "Follow-ups", icon: "arrowshape.turn.up.right", content: briefing.followUps, rate: rateSection)
-            BriefingSection(title: "Focus blocks", icon: "timer", content: briefing.focusBlocks, rate: rateSection)
+            ForEach(briefing.sections) { section in
+                BriefingSection(
+                    section: section,
+                    handledItems: handledItems,
+                    rate: rateSection,
+                    markHandled: { item in
+                        handledItems.insert(section.title + item)
+                        markHandled(section.title, item)
+                    }
+                )
+            }
 
             Divider()
             VStack(alignment: .leading, spacing: 10) {
@@ -250,7 +263,7 @@ private struct BriefingDashboardView: View {
                     .buttonStyle(.bordered)
                     .disabled(helpfulSaved)
                     Button { adjust() } label: {
-                        Label("Improve tomorrow's briefing", systemImage: "slider.horizontal.3")
+                        Label("Change tomorrow's briefing", systemImage: "slider.horizontal.3")
                     }
                     .buttonStyle(.bordered)
                 }
@@ -316,17 +329,25 @@ private struct PriorityCard: View {
 }
 
 private struct BriefingSection: View {
-    let title: String
-    let icon: String
-    let content: String?
+    let section: BriefingSectionData
+    let handledItems: Set<String>
     let rate: (String, String) -> Void
+    let markHandled: (String) -> Void
     @State private var feedback = ""
 
     var body: some View {
-        if let content, !content.isEmpty {
-            VStack(alignment: .leading, spacing: 7) {
-                Label(title, systemImage: icon).font(.headline)
-                ForEach(items, id: \.self) { item in
+        VStack(alignment: .leading, spacing: 7) {
+                Label(section.title, systemImage: section.icon).font(.headline)
+                if section.items.isEmpty {
+                    Text(section.emptyMessage)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else if visibleItems.isEmpty {
+                    Text("Everything here is handled.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(visibleItems, id: \.self) { item in
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "circle.fill")
                             .font(.system(size: 5))
@@ -335,7 +356,17 @@ private struct BriefingSection: View {
                         Text(item)
                             .font(.callout)
                             .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 4)
+                        Button {
+                            markHandled(item)
+                        } label: {
+                            Image(systemName: "checkmark.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                        .help("Mark handled")
                     }
+                }
                 }
                 HStack {
                     Spacer()
@@ -350,24 +381,20 @@ private struct BriefingSection: View {
                 .controlSize(.small)
                 .font(.caption)
             }
-        }
     }
 
     private func save(_ rating: String) {
         feedback = rating
-        rate(title, rating)
+        rate(section.title, rating)
     }
 
-    private var items: [String] {
-        guard let content else { return [] }
-        return content.components(separatedBy: .newlines).map { line in
-            line.replacingOccurrences(of: "**", with: "")
-                .trimmingCharacters(in: CharacterSet(charactersIn: "- "))
-        }.filter { !$0.isEmpty }
+    private var visibleItems: [String] {
+        section.items.filter { !handledItems.contains(section.title + $0) }
     }
 }
 
 private struct ResponseDetailView: View {
+    @EnvironmentObject private var model: GeoffreyModel
     let response: GeoffreyResponse
     private var display: OperationalResultDisplay { OperationalResultDisplay(response.text) }
 
@@ -383,17 +410,66 @@ private struct ResponseDetailView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            ForEach(display.sections) { section in
-                OperationalResultSection(section: section, emphasizesItems: section.title.lowercased() == "today")
+            if case .recommendSkill = response.kind {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Ready to use this?")
+                        .font(.headline)
+                    Text("Geoffrey will create this private workflow. It will not connect accounts or send anything.")
+                        .foregroundStyle(.secondary)
+                    Button("Build this skill") {
+                        model.run(task: .buildSkill(recommendedSkillBuildBrief))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.isRunning)
+                }
+                .padding(16)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            if case .buildSkill = response.kind {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Put it to work")
+                        .font(.headline)
+                    Text("Run the new workflow once now so Geoffrey can produce its first useful result.")
+                        .foregroundStyle(.secondary)
+                    Button("Try this skill") {
+                        model.run(task: .runSkill(newSkillTryBrief))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.isRunning)
+                }
+                .padding(16)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            if display.sections.isEmpty {
+                ResultEmptyState(title: response.title)
+            } else {
+                ForEach(display.sections) { section in
+                    OperationalResultSection(section: section, emphasizesItems: section.title.lowercased() == "today") { rating in
+                        let signal = rating == "helpful" ? "useful" : "needs improvement"
+                        model.sendFeedback(rating: rating == "helpful" ? "helpful" : "adjust", note: "Operational result feedback: \(response.title), \(section.title) — \(signal).")
+                    }
+                }
             }
         }
         .padding(.vertical, 6)
+    }
+
+    private var recommendedSkillBuildBrief: String {
+        "Create the recommended private skill below. The owner approved this by choosing Build this skill. Use the recommendation's stated outcome, first result, and needed input; keep the workflow safe and ask for any missing example when the skill is first used.\n\n\(response.text)"
+    }
+
+    private var newSkillTryBrief: String {
+        "Run the private skill that was just created. Produce its first useful result from the prepared context. If one small example or detail is genuinely required, ask for only that detail. Do not send, publish, spend, delete, or change anything.\n\nSkill creation result:\n\(response.text)"
     }
 }
 
 private struct OperationalResultSection: View {
     let section: OperationalResultSectionData
     let emphasizesItems: Bool
+    let rate: (String) -> Void
+    @State private var feedback = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -439,6 +515,18 @@ private struct OperationalResultSection: View {
                     }
                 }
             }
+            HStack {
+                Spacer()
+                if feedback.isEmpty {
+                    Button("Useful") { save("helpful") }
+                    Button("Needs work") { save("adjust") }
+                } else {
+                    Label("Feedback saved", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                }
+            }
+            .controlSize(.small)
+            .font(.caption)
         }
         .padding(.top, 8)
     }
@@ -452,6 +540,28 @@ private struct OperationalResultSection: View {
         case let title where title.contains("nothing"): return "checkmark.circle"
         default: return "list.bullet"
         }
+    }
+
+    private func save(_ rating: String) {
+        feedback = rating
+        rate(rating)
+    }
+}
+
+private struct ResultEmptyState: View {
+    let title: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Nothing needs attention here").font(.headline)
+                Text("\(title) found no open items right now.").foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .background(Color.green.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -500,6 +610,21 @@ private struct OperationalResultDisplay {
             if let item = OperationalResultDisplay.item(from: line) { items.append(item) }
         }
         flush()
+        // Some capable outputs are plain lists without Markdown headings. Preserve
+        // their hierarchy as compact rows instead of dropping them into a text wall.
+        if output.isEmpty, !introductionLines.isEmpty {
+            let rows = introductionLines.flatMap { line -> [OperationalResultItem] in
+                let sentences = line.split(separator: ".", omittingEmptySubsequences: true)
+                if sentences.count > 1 {
+                    return sentences.map { OperationalResultItem(title: Self.clean(String($0)), detail: "") }
+                }
+                return [OperationalResultItem(title: Self.clean(line), detail: "")]
+            }.filter { !$0.title.isEmpty }
+            if !rows.isEmpty {
+                output = [OperationalResultSectionData(title: "Summary", items: rows)]
+                introductionLines = []
+            }
+        }
         introduction = introductionLines.joined(separator: " ")
         sections = output
     }
@@ -570,9 +695,7 @@ private struct BriefingPriority: Identifiable {
 
 private struct BriefingDisplay {
     let priorities: [BriefingPriority]
-    let schedule: String?
-    let followUps: String?
-    let focusBlocks: String?
+    let sections: [BriefingSectionData]
     let firstAction: String?
 
     init(_ text: String) {
@@ -593,9 +716,7 @@ private struct BriefingDisplay {
         let priorityLines = sections.first(where: { $0.key.contains("priorit") })?.value
             ?? lines.filter { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().contains("priority") }
         priorities = Array(priorityLines.compactMap(BriefingDisplay.priority(from:)).prefix(5))
-        schedule = BriefingDisplay.content(in: sections, matching: "schedule")
-        followUps = BriefingDisplay.content(in: sections, matching: "follow")
-        focusBlocks = BriefingDisplay.content(in: sections, matching: "focus")
+        self.sections = BriefingDisplay.sections(from: sections)
         firstAction = BriefingDisplay.content(in: sections, matching: "first action")
     }
 
@@ -608,6 +729,29 @@ private struct BriefingDisplay {
         return lines.joined(separator: "\n")
     }
 
+    private static func sections(from source: [String: [String]]) -> [BriefingSectionData] {
+        let supported: [(term: String, title: String, icon: String, empty: String)] = [
+            ("schedule", "Schedule", "calendar", "No meetings or calendar risks found."),
+            ("follow", "Follow-ups", "arrowshape.turn.up.right", "No follow-ups need attention."),
+            ("focus", "Focus blocks", "timer", "No focus blocks suggested yet."),
+            ("open loop", "Open loops", "checklist", "No open loops found."),
+            ("inbox", "Inbox results", "tray.full", "No inbox items need attention."),
+            ("waiting", "Waiting on", "person.2", "No waiting items found."),
+            ("clarification", "Clarifications", "questionmark.circle", "No clarifications are needed.")
+        ]
+        return supported.compactMap { spec in
+            let values = source.first(where: { $0.key.contains(spec.term) })?.value ?? []
+            // Keep the core daily sections visible even when the model found nothing.
+            guard !values.isEmpty || ["Schedule", "Follow-ups", "Focus blocks"].contains(spec.title) else { return nil }
+            return BriefingSectionData(title: spec.title, icon: spec.icon, items: values.map(cleanItem), emptyMessage: spec.empty)
+        }
+    }
+
+    private static func cleanItem(_ value: String) -> String {
+        value.replacingOccurrences(of: "**", with: "")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "- "))
+    }
+
     private static func priority(from line: String) -> BriefingPriority? {
         let clean = line.replacingOccurrences(of: "**", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "- "))
         guard clean.lowercased().hasPrefix("priority"), let colon = clean.firstIndex(of: ":") else { return nil }
@@ -618,6 +762,14 @@ private struct BriefingDisplay {
         let detail = pieces.dropFirst().first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
         return BriefingPriority(level: level, title: title, detail: detail)
     }
+}
+
+private struct BriefingSectionData: Identifiable {
+    let title: String
+    let icon: String
+    let items: [String]
+    let emptyMessage: String
+    var id: String { title }
 }
 
 struct AskGeoffreyView: View {
@@ -645,42 +797,47 @@ struct AskGeoffreyView: View {
             .padding(.horizontal, 32)
             .padding(.top, 32)
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    if model.conversation.isEmpty && !model.isRunning {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("What would you like to work through?").font(.headline)
-                            Text("Geoffrey can help you decide, organize, prepare, and follow through. It will ask before it sends, posts, spends, or changes anything outside Geoffrey.")
-                                .foregroundStyle(.secondary)
-                            HStack(spacing: 8) {
-                                Button("Plan my day") { request = "Help me plan my day around what matters most." }
-                                Button("Find follow-ups") { request = "What follow-ups need my attention today?" }
-                                Button("Work through a decision") { request = "Help me think through a decision." }
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        .padding(.top, 34)
-                    }
-                    ForEach(model.conversation) { message in
-                        ConversationBubble(message: message)
-                    }
-                    if model.isRunning {
-                        HStack(spacing: 10) {
-                            ProgressView().controlSize(.small)
-                            Text("Geoffrey is thinking...").foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 10)
-                    }
-                }
-                .frame(maxWidth: 760, alignment: .leading)
+            if model.conversation.isEmpty && !model.isRunning {
+                AskWelcomeView(
+                    planDay: { request = "Help me plan my day around what matters most." },
+                    findFollowUps: { request = "What follow-ups need my attention today?" },
+                    workThroughDecision: { request = "Help me think through a decision." }
+                )
+                .frame(maxWidth: 680)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, 32)
-                .padding(.vertical, 20)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(model.conversation) { message in
+                            ConversationBubble(message: message)
+                        }
+                        if model.isRunning {
+                            HStack(spacing: 10) {
+                                ProgressView().controlSize(.small)
+                                Text("Geoffrey is thinking...").foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 10)
+                        }
+                    }
+                    .frame(maxWidth: 760, alignment: .leading)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 20)
+                }
             }
 
             Divider()
-            HStack(alignment: .bottom, spacing: 10) {
-                ChatComposer(text: $request, onSend: send)
-                    .frame(minHeight: 44, maxHeight: 96)
+            HStack(alignment: .center, spacing: 10) {
+                TextField("Ask about a task, decision, or problem you want off your plate", text: $request)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.black)
+                    .onSubmit(send)
+                    .padding(.horizontal, 14)
+                .frame(height: 54)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black.opacity(0.14), lineWidth: 1))
                 Button {
                     send()
                 } label: {
@@ -691,88 +848,40 @@ struct AskGeoffreyView: View {
                 .help("Send to Geoffrey")
                 .disabled(request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isRunning || !model.canTalk)
             }
-            .padding(20)
+            .frame(maxWidth: 760)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 14)
             .background(Color(nsColor: .controlBackgroundColor))
         }
-        .frame(maxWidth: 980, alignment: .leading)
+        .frame(maxWidth: 980, maxHeight: .infinity, alignment: .leading)
     }
 }
 
-/// Native AppKit handling is deliberate: Return must send, while Shift-Return stays a newline.
-private struct ChatComposer: NSViewRepresentable {
-    @Binding var text: String
-    let onSend: () -> Void
+private struct AskWelcomeView: View {
+    let planDay: () -> Void
+    let findFollowUps: () -> Void
+    let workThroughDecision: () -> Void
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, onSend: onSend)
-    }
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = false
-        scrollView.drawsBackground = false
-        scrollView.borderType = .noBorder
-
-        let textView = ReturnToSendTextView()
-        textView.delegate = context.coordinator
-        textView.onSend = context.coordinator.send
-        textView.isRichText = false
-        textView.importsGraphics = false
-        textView.font = .systemFont(ofSize: 15)
-        textView.textColor = .labelColor
-        textView.backgroundColor = .clear
-        textView.drawsBackground = false
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
-        textView.textContainerInset = NSSize(width: 10, height: 10)
-        textView.textContainer?.widthTracksTextView = true
-        textView.textContainer?.lineFragmentPadding = 0
-
-        scrollView.documentView = textView
-        context.coordinator.textView = textView
-        return scrollView
-    }
-
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        context.coordinator.onSend = onSend
-        context.coordinator.textView?.onSend = context.coordinator.send
-        if context.coordinator.textView?.string != text {
-            context.coordinator.textView?.string = text
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Image(systemName: "sparkles")
+                .font(.title2)
+                .foregroundStyle(Color(red: 0.08, green: 0.45, blue: 0.36))
+            Text("What can I take off your plate?")
+                .font(.title2.weight(.semibold))
+            Text("Start with the outcome you want. Geoffrey will organize the work and ask before anything leaves the app.")
+                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button("Plan my day", action: planDay)
+                Button("Find follow-ups", action: findFollowUps)
+                Button("Work through a decision", action: workThroughDecision)
+            }
+            .buttonStyle(.bordered)
         }
-    }
-
-    final class Coordinator: NSObject, NSTextViewDelegate {
-        @Binding var text: String
-        var onSend: () -> Void
-        weak var textView: ReturnToSendTextView?
-
-        init(text: Binding<String>, onSend: @escaping () -> Void) {
-            _text = text
-            self.onSend = onSend
-        }
-
-        func textDidChange(_ notification: Notification) {
-            text = textView?.string ?? ""
-        }
-
-        func send() {
-            let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !message.isEmpty else { return }
-            onSend()
-        }
-    }
-}
-
-private final class ReturnToSendTextView: NSTextView {
-    var onSend: (() -> Void)?
-
-    override func keyDown(with event: NSEvent) {
-        let isReturn = event.keyCode == 36 || event.keyCode == 76
-        if isReturn && !event.modifierFlags.contains(.shift) {
-            onSend?()
-            return
-        }
-        super.keyDown(with: event)
+        .padding(28)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -808,36 +917,44 @@ struct ImproveGeoffreyView: View {
             VStack(alignment: .leading, spacing: 24) {
                 Text("Improve Geoffrey")
                     .font(.system(size: 30, weight: .semibold))
-                Text("Turn recurring work into a better Geoffrey. Start with a recommendation, then approve only the capability you want added.")
+                Text("Start with the work you want off your plate. Geoffrey will recommend one safe, useful next step.")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 760, alignment: .leading)
 
                 HStack(alignment: .top, spacing: 18) {
                     CapabilityPanel(
                         icon: "lightbulb.max.fill",
-                        title: "Find the next best capability",
-                        detail: "Geoffrey reviews your projects, open loops, tools, and briefing feedback, then recommends no more than three useful improvements.",
-                        actionTitle: "Review my work"
+                        title: "What should Geoffrey improve next?",
+                        detail: "Geoffrey reviews your work and recommends the one improvement most likely to save you time this week.",
+                        actionTitle: "Recommend my next step"
                     ) {
                         model.run(task: .capabilityReview)
                     }
                     CapabilityPanel(
                         icon: "hammer.fill",
-                        title: "Build a custom skill",
-                        detail: "Teach Geoffrey one repeatable workflow for your business, such as proposal follow-ups, client prep, or content review.",
-                        actionTitle: "Build a skill"
+                        title: "Something I repeat",
+                        detail: "Tell Geoffrey about recurring work. It will turn that into a safe workflow you can review.",
+                        actionTitle: "Describe repeated work"
                     ) {
                         showingSkillBuilder = true
+                    }
+                    CapabilityPanel(
+                        icon: "sparkles",
+                        title: "Recommend a skill for me",
+                        detail: "Geoffrey will suggest one practical workflow to build and explain the first result it would deliver.",
+                        actionTitle: "Recommend a skill"
+                    ) {
+                        model.run(task: .recommendSkill)
                     }
                 }
                 .disabled(model.isRunning || !model.canTalk)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Business tools and plugins", systemImage: "puzzlepiece.extension")
+                    Label("Connect a business tool", systemImage: "puzzlepiece.extension")
                         .font(.headline)
-                    Text("When Geoffrey recommends an outside tool, it tells you the first win and the smallest access it needs. Geoffrey will never connect an account or install an outside integration without your approval.")
+                    Text("Tell Geoffrey the outcome you need. It will recommend the smallest useful connection and explain exactly what you would approve.")
                         .foregroundStyle(.secondary)
-                    Button("Plan a business-tool connection") { showingToolConnection = true }
+                    Button("Tell Geoffrey what you need") { showingToolConnection = true }
                         .buttonStyle(.bordered)
                         .padding(.top, 4)
                 }
@@ -865,61 +982,28 @@ struct ImproveGeoffreyView: View {
 struct ToolConnectionSheet: View {
     @EnvironmentObject private var model: GeoffreyModel
     @Environment(\.dismiss) private var dismiss
-    @State private var area = "Files and documents"
-    @State private var tool = ""
-    @State private var customTool = ""
     @State private var goal = ""
-
-    private var suggestions: [String] {
-        switch area {
-        case "Files and documents": return ["Google Drive", "Dropbox", "Notion"]
-        case "Tasks and projects": return ["Asana", "ClickUp", "Trello"]
-        case "CRM and clients": return ["HubSpot", "Salesforce", "Airtable"]
-        case "Chat and meetings": return ["Slack", "Microsoft Teams", "Zoom"]
-        case "Money and billing": return ["QuickBooks", "Stripe", "Xero"]
-        case "Website, marketing, or social": return ["LinkedIn", "Instagram", "WordPress"]
-        default: return ["Zapier", "Make", "ChatGPT"]
-        }
-    }
+    @State private var knowsTool = false
+    @State private var tool = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("What should Geoffrey help with?").font(.title2.weight(.semibold))
-            Text("Start with the work you want off your plate. Geoffrey will suggest the simplest useful path before connecting anything.")
+            Text("What do you need help with?").font(.title2.weight(.semibold))
+            Text("Describe the result you want. Geoffrey will recommend the simplest useful path before asking you to connect anything.")
                 .foregroundStyle(.secondary)
-            TextField("For example: keep client files organized or follow up with new leads", text: $goal)
+            TextField("For example: make sure new leads get a timely follow-up", text: $goal)
                 .textFieldStyle(.roundedBorder)
-            Picker("What kind of tool is it?", selection: $area) {
-                Text("Files and documents").tag("Files and documents")
-                Text("Tasks and projects").tag("Tasks and projects")
-                Text("CRM and clients").tag("CRM and clients")
-                Text("Chat and meetings").tag("Chat and meetings")
-                Text("Money and billing").tag("Money and billing")
-                Text("Website, marketing, or social").tag("Website, marketing, or social")
-                Text("AI and automation").tag("AI and automation")
-            }
-            .pickerStyle(.menu)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Common choices").font(.headline)
-                Picker("Suggested tools", selection: $tool) {
-                    Text("Let Geoffrey recommend the best path").tag("")
-                    ForEach(suggestions, id: \.self) { suggestion in
-                        Text(suggestion).tag(suggestion)
-                    }
-                    Text("Another tool").tag("custom")
-                }
-                .pickerStyle(.menu)
-                if tool == "custom" {
-                    TextField("Name the tool", text: $customTool)
-                        .textFieldStyle(.roundedBorder)
-                }
+            Toggle("I already know which app I use", isOn: $knowsTool)
+                .toggleStyle(.checkbox)
+            if knowsTool {
+                TextField("App name, for example HubSpot or Notion", text: $tool)
+                    .textFieldStyle(.roundedBorder)
             }
             HStack {
                 Button("Cancel") { dismiss() }
                 Spacer()
-                Button("Make a connection plan") {
-                    let name = tool == "custom" ? customTool.trimmingCharacters(in: .whitespacesAndNewlines) : tool.trimmingCharacters(in: .whitespacesAndNewlines)
-                    model.run(task: .connectTool(area: area, tool: name, goal: goal.trimmingCharacters(in: .whitespacesAndNewlines)))
+                Button("Recommend the next step") {
+                    model.run(task: .connectTool(area: "Business tools", tool: tool.trimmingCharacters(in: .whitespacesAndNewlines), goal: goal.trimmingCharacters(in: .whitespacesAndNewlines)))
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
@@ -960,19 +1044,34 @@ struct SkillBuilderSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Build a Geoffrey skill")
+            Text("What do you want Geoffrey to handle more reliably?")
                 .font(.title2.weight(.semibold))
-            Text("Describe work you do repeatedly. Geoffrey will create a private skill for that workflow and will not connect accounts, send messages, or change other systems.")
+            Text("Describe the outcome, not the process. Geoffrey will turn it into a private workflow and will not send messages, connect accounts, or change other systems.")
                 .foregroundStyle(.secondary)
-            TextEditor(text: $description)
-                .padding(8)
-                .frame(height: 130)
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            HStack(spacing: 8) {
+                Button("Keep proposals moving") { description = "Make sure proposals do not go cold." }
+                Button("Prepare client meetings") { description = "Prepare me for every client meeting." }
+                Button("Turn notes into follow-ups") { description = "Turn meeting notes into clear follow-ups." }
+            }
+            .buttonStyle(.bordered)
+            ZStack(alignment: .topLeading) {
+                if description.isEmpty {
+                    Text("For example: I want a reliable way to prepare for client meetings")
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 16)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: $description)
+                    .padding(8)
+            }
+            .frame(height: 130)
+            .background(Color(nsColor: .textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
-                Button("Create private skill") {
+                Button("Create this workflow") {
                     let request = description.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !request.isEmpty else { return }
                     model.run(task: .buildSkill(request))
@@ -1350,41 +1449,48 @@ struct FeedbackSheet: View {
     @EnvironmentObject private var model: GeoffreyModel
     @Environment(\.dismiss) private var dismiss
     @State private var note = ""
-    @State private var selected = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Help Geoffrey improve") .font(.title2.weight(.semibold))
-            Text("What would make the next morning briefing more useful?") .foregroundStyle(.secondary)
-            Picker("", selection: $selected) {
-                Text("Choose one").tag("")
-                Text("Shorter and more focused").tag("Make future briefings shorter and more focused.")
-                Text("Less email detail").tag("Reduce routine email detail unless it needs attention.")
-                Text("More calendar and priorities").tag("Put more emphasis on calendar risks and priorities.")
-                Text("More follow-ups").tag("Surface more client, prospect, and waiting follow-ups.")
-                Text("Something else").tag("custom")
+            Text("Change tomorrow's briefing") .font(.title2.weight(.semibold))
+            Text("Choose one change. Geoffrey will use it next time.") .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Button("Make it shorter") { save("Make future briefings shorter and more focused.") }
+                Button("Show less routine email") { save("Reduce routine email detail unless it needs attention.") }
+                Button("Focus more on priorities") { save("Put more emphasis on calendar risks and priorities.") }
+                Button("Show more follow-ups") { save("Surface more client, prospect, and waiting follow-ups.") }
             }
-            .pickerStyle(.menu)
-            TextEditor(text: $note)
-                .padding(8)
-                .frame(height: 90)
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            .buttonStyle(.bordered)
+            DisclosureGroup("Something else") {
+                TextEditor(text: $note)
+                    .padding(8)
+                    .frame(height: 90)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                HStack {
+                    Spacer()
+                    Button("Save my note") {
+                        let message = note.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !message.isEmpty else { return }
+                        save(message)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.top, 4)
+            }
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
-                Button("Save feedback") {
-                    let extra = note.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let selectedText = selected == "custom" ? "" : selected
-                    let message = [selectedText, extra].filter { !$0.isEmpty }.joined(separator: " ")
-                    model.sendFeedback(rating: "adjust", note: message.isEmpty ? "The owner asked to adjust this briefing." : message)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
             }
         }
         .padding(24)
         .frame(width: 460)
+    }
+
+    private func save(_ message: String) {
+        model.sendFeedback(rating: "adjust", note: message)
+        dismiss()
     }
 }
 
@@ -1450,7 +1556,7 @@ struct PriorityFeedbackSheet: View {
 }
 
 enum GeoffreyTask: Equatable {
-    case daily, inbox, followUp, openLoops, ask(String), connectTool(area: String, tool: String, goal: String), capabilityReview, buildSkill(String)
+    case daily, inbox, followUp, openLoops, ask(String), runSkill(String), connectTool(area: String, tool: String, goal: String), capabilityReview, recommendSkill, buildSkill(String)
 
     var commandName: String {
         switch self {
@@ -1458,8 +1564,9 @@ enum GeoffreyTask: Equatable {
         case .inbox: return "inbox"
         case .followUp: return "follow-up"
         case .openLoops: return "open-loops"
-        case .ask, .connectTool: return "ask"
+        case .ask, .runSkill, .connectTool: return "ask"
         case .capabilityReview: return "capability-review"
+        case .recommendSkill: return "recommend-skill"
         case .buildSkill: return "build-skill"
         }
     }
@@ -1471,15 +1578,17 @@ enum GeoffreyTask: Equatable {
         case .followUp: return "Follow-ups"
         case .openLoops: return "Open loops"
         case .ask: return "Geoffrey’s response"
-        case .connectTool: return "Your connection plan"
-        case .capabilityReview: return "Ways to improve Geoffrey"
+        case .runSkill: return "Your skill at work"
+        case .connectTool: return "Recommended next step"
+        case .capabilityReview: return "Ways Geoffrey can help more"
+        case .recommendSkill: return "A skill Geoffrey recommends"
         case .buildSkill: return "Your new Geoffrey skill"
         }
     }
 
     var isCapabilityOutput: Bool {
         switch self {
-        case .capabilityReview, .buildSkill, .connectTool: return true
+        case .capabilityReview, .recommendSkill, .buildSkill, .runSkill, .connectTool: return true
         default: return false
         }
     }
@@ -1489,7 +1598,9 @@ enum GeoffreyTask: Equatable {
         return false
     }
 
-    var savesBriefing: Bool {
+    /// Action results are archived for context, but only `isDailyBriefing` updates
+    /// the dashboard shown at the top of Today.
+    var archivesResult: Bool {
         switch self {
         case .daily, .inbox, .followUp, .openLoops: return true
         default: return false
@@ -1548,6 +1659,7 @@ final class GeoffreyModel: ObservableObject {
     @Published var latestBriefing: GeoffreyResponse?
     @Published var conversation: [GeoffreyConversationMessage] = []
     @Published var isRunning = false
+    @Published var runningTask: GeoffreyTask?
     @Published var showingAccountConnection = false
     @Published var isConnectingAccount = false
     @Published var isRefreshingAccounts = false
@@ -1633,6 +1745,7 @@ final class GeoffreyModel: ObservableObject {
             return
         }
         isRunning = true
+        runningTask = task
         if case let .ask(question) = task {
             conversation.append(GeoffreyConversationMessage(text: question, isOwner: true))
         }
@@ -1645,10 +1758,10 @@ final class GeoffreyModel: ObservableObject {
         Task.detached { [geoffreyHome] in
             var promptArgs = ["app-prompt", "--task", task.commandName]
             switch task {
-            case let .ask(question), let .buildSkill(question):
+            case let .ask(question), let .runSkill(question), let .buildSkill(question):
                 promptArgs += ["--request", question]
             case let .connectTool(area, tool, goal):
-                promptArgs += ["--request", "I want help with this outcome: \(goal). For \(area), consider \(tool.isEmpty ? "the tools already in my Geoffrey memory" : tool). Do the cognitive work: recommend the simplest useful path, name any tool worth connecting, explain the first value Geoffrey can deliver, and ask only for the smallest missing detail. Do not connect anything until I approve."]
+                promptArgs += ["--request", "I want help with this outcome: \(goal). For \(area), consider \(tool.isEmpty ? "the tools already in my Geoffrey memory" : tool). Do the cognitive work. Recommend one smallest useful path, its first result, and the minimum access needed. State clearly whether Geoffrey can connect it today: only existing Gmail/Outlook email and calendar connections are supported directly in this app; do not imply that another app is connected or can be authorized automatically. If the app is unsupported, offer the easiest useful workaround. Do not connect anything until I approve. Use the headings ### Recommended path, ### First result, ### What I would approve, and ### Next step. Do not mention internal tools, packets, or implementation details."]
             default:
                 break
             }
@@ -1679,7 +1792,7 @@ final class GeoffreyModel: ObservableObject {
             if answer.status == 0 && task.allowsEdits {
                 _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
             }
-            if answer.status == 0 && task.savesBriefing {
+            if answer.status == 0 && task.archivesResult {
                 _ = Self.run(
                     executable: geoffreyHome + "/bin/geoffrey",
                     arguments: ["app-record-briefing", "--kind", task.commandName, "--text", String(answer.output.prefix(50000))]
@@ -1687,6 +1800,7 @@ final class GeoffreyModel: ObservableObject {
             }
             await MainActor.run {
                 self.isRunning = false
+                self.runningTask = nil
                 if answer.status == 0, !answer.output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     let text = answer.output.trimmingCharacters(in: .whitespacesAndNewlines)
                     let response = GeoffreyResponse(title: task.title, text: text, date: Date(), kind: task)
@@ -1707,6 +1821,18 @@ final class GeoffreyModel: ObservableObject {
     func sendFeedback(rating: String, note: String) {
         Task.detached { [geoffreyHome] in
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-feedback", "--rating", rating, "--note", note])
+            if result.status != 0 {
+                await MainActor.run { self.finishWithIssue(result.output) }
+            }
+        }
+    }
+
+    func markBriefingItemHandled(section: String, item: String) {
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(
+                executable: geoffreyHome + "/bin/geoffrey",
+                arguments: ["app-complete-item", "--section", section, "--item", item]
+            )
             if result.status != 0 {
                 await MainActor.run { self.finishWithIssue(result.output) }
             }
@@ -1838,6 +1964,7 @@ final class GeoffreyModel: ObservableObject {
 
     private func finishWithIssue(_ raw: String) {
         isRunning = false
+        runningTask = nil
         let message = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = message.lowercased()
         if lower.contains("failed to authenticate") || lower.contains("oauth session expired") {

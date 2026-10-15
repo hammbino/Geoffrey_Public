@@ -41,9 +41,10 @@ Usage:
   ./bin/geoffrey install-desktop-button
   ./bin/geoffrey install-mac-app
   ./bin/geoffrey app-status
-  ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|build-skill [--request "..."]
-  ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask
+  ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill|build-skill [--request "..."]
+  ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
+  ./bin/geoffrey app-complete-item --section "..." --item "..."
   ./bin/geoffrey app-priority-feedback --assessment right|higher|lower|not-useful [--item "..."] [--missing "..."]
   ./bin/geoffrey app-record-briefing --kind daily|inbox|follow-up|open-loops --text "..."
   ./bin/geoffrey app-sync
@@ -82,8 +83,9 @@ Commands:
                Build and install Geoffrey.app in the user's Applications folder.
   app-status   Print the simple readiness information used by Geoffrey.app.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
-  app-context  Prepare the read-only email and calendar context used by Geoffrey.app.
+  app-context  Prepare the read-only private context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
+  app-complete-item Record an item as handled in Geoffrey's private memory.
   app-priority-feedback Save priority ratings and missed priorities in private memory.
   app-record-briefing Save a completed briefing to private memory and GitHub.
   app-sync     Save approved Geoffrey.app changes to private memory and GitHub.
@@ -2162,6 +2164,9 @@ if it is available.
 Act as my chief of staff and capability advisor. Identify no more than three
 high-value improvements to how Geoffrey helps me run my business.
 
+The app supplies a prepared private context packet below. Use that packet as
+your source of truth; do not ask the owner to locate or paste files.
+
 For each recommendation, use this exact shape:
 
 ### Name
@@ -2172,8 +2177,36 @@ For each recommendation, use this exact shape:
 or example
 
 Prefer a small, proven next step. Do not install, connect, publish, send, or
-change anything. End by naming the one recommendation you would do first.
+change anything. End with a section titled `### Start here` that names the one
+recommendation you would do first and the single button or approval the owner
+should see next. Never mention packets, files, internal tools, permissions, or
+missing context in the owner-facing answer.
 EOF_CAPABILITY_REVIEW
+      ;;
+    recommend-skill)
+      cat <<'EOF_RECOMMEND_SKILL'
+Use Geoffrey.
+
+The app supplies a prepared private context packet below. Use that packet as
+your source of truth; do not ask the owner to locate or paste files.
+
+Recommend exactly one private Geoffrey skill that would reduce this owner's
+load this week. Favor a repeated, real business task over a generic assistant
+ability. Do not create the skill yet and do not connect accounts, send,
+publish, spend, delete, or change anything.
+
+Use this exact shape:
+
+### Recommended skill
+**What it handles:** one plain-language sentence
+**Why this one:** one sentence tied to the owner's actual work
+**First result:** what the owner would receive the first time they use it
+**What it needs:** only the smallest missing detail, example, or existing connection
+
+### Start here
+Give the owner one short phrase they can approve to create this skill. Never
+mention packets, files, internal tools, permissions, or missing context.
+EOF_RECOMMEND_SKILL
       ;;
     build-skill)
       cat <<EOF_BUILD_SKILL
@@ -2231,7 +2264,7 @@ app_context() {
   done
 
   case "$task" in
-    daily|inbox|follow-up|open-loops|ask) ;;
+    daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill) ;;
     *)
       say "This Geoffrey request does not need connected email or calendar context."
       return 0
@@ -2258,7 +2291,7 @@ app_context() {
     fi
   }
 
-  say "PRIVATE GEOFFREY MEMORY"
+  say "PRIVATE GEOFFREY CONTEXT"
   say "This packet was prepared locally from the owner's private GitHub-backed memory."
   emit_memory_file "$memory_path/CLAUDE.md" "Geoffrey operating rules"
   emit_memory_file "$memory_path/memory/user.md" "Owner context"
@@ -2266,11 +2299,19 @@ app_context() {
   emit_memory_file "$memory_path/memory/chief-of-staff.md" "Chief of staff plan"
   emit_memory_file "$memory_path/memory/briefing-feedback.md" "Briefing feedback"
   emit_memory_file "$memory_path/memory/priority-feedback.md" "Priority feedback"
+  emit_memory_file "$memory_path/memory/completed-items.md" "Items the owner has handled"
 
   for file in "$memory_path"/memory/journal/*.md "$memory_path"/memory/projects/*.md "$memory_path"/memory/waiting/*.md "$memory_path"/memory/skills/*.md; do
     [ -f "$file" ] || continue
     emit_memory_file "$file" "${file#"$memory_path"/}"
   done
+
+  # A capability review needs the owner's durable business context, but it does
+  # not need live mailbox or calendar data. Keeping that data out makes the
+  # recommendation safer and avoids an unnecessary, expensive fetch.
+  if [ "$task" = "capability-review" ] || [ "$task" = "recommend-skill" ]; then
+    return 0
+  fi
 
   say ""
   node "$MCP_DIR/bin/briefing-context.js" --task "$task"
@@ -2350,6 +2391,45 @@ EOF_FEEDBACK
   commit_memory_changes "$memory_path" "Record Geoffrey briefing feedback"
   sync_memory_repo "$memory_path" "after briefing feedback"
   say "Feedback saved. Geoffrey will use it to improve future briefings."
+}
+
+app_complete_item() {
+  section=""
+  item=""
+  memory_path="$(remembered_memory_path 2>/dev/null || true)"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --section) section="${2:-}"; shift 2 ;;
+      --item) item="${2:-}"; shift 2 ;;
+      *) say "Unknown option: $1"; return 1 ;;
+    esac
+  done
+
+  if [ -z "$memory_path" ] || [ ! -d "$memory_path/memory" ]; then
+    say "Geoffrey memory is not ready yet. Finish setup first."
+    return 1
+  fi
+  clean_section="$(printf '%s' "$section" | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g')"
+  clean_item="$(printf '%s' "$item" | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g')"
+  if [ -z "$clean_section" ] || [ -z "$clean_item" ]; then
+    say "Name the briefing section and item to mark it handled."
+    return 1
+  fi
+
+  completed_file="$memory_path/memory/completed-items.md"
+  if [ ! -f "$completed_file" ]; then
+    cat > "$completed_file" <<'EOF_COMPLETED'
+# Items Marked Handled
+
+These are items the owner marked handled from a Geoffrey briefing. Do not
+surface them again unless fresh evidence shows they need attention.
+
+EOF_COMPLETED
+  fi
+  printf -- '- %s | %s | %s\n' "$(date '+%Y-%m-%d %H:%M')" "$clean_section" "$clean_item" >> "$completed_file"
+  commit_memory_changes "$memory_path" "Mark Geoffrey item handled"
+  sync_memory_repo "$memory_path" "after marking Geoffrey item handled"
+  say "Marked handled. Geoffrey will avoid resurfacing it without new evidence."
 }
 
 app_priority_feedback() {
@@ -3190,6 +3270,10 @@ case "${1:-}" in
   app-feedback)
     shift
     app_feedback "$@"
+    ;;
+  app-complete-item)
+    shift
+    app_complete_item "$@"
     ;;
   app-priority-feedback)
     shift
