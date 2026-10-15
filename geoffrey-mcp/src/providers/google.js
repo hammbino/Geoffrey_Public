@@ -196,10 +196,12 @@ async function calCall(account, path, params) {
   }
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (res.status === 403 || res.status === 401) {
+    const detail = await res.text();
     throw new Error(
       `Calendar access denied for "${account.id}". This account was connected ` +
-      `before calendar scope was added. Reconnect it:\n` +
+      `before calendar scope was added or Google did not grant Calendar access. Reconnect it:\n` +
       `  npm run add-account -- --secrets <client_secret.json> --id ${account.id}`
+      + (detail ? `\nGoogle said: ${detail}` : "")
     );
   }
   if (!res.ok) throw new Error(`Calendar ${res.status} on ${path}: ${await res.text()}`);

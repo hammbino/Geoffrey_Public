@@ -22,7 +22,5 @@
   <string>14.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
-  <key>NSAppleEventsUsageDescription</key>
-  <string>Geoffrey opens Terminal only when you choose a setup, account connection, repair, or update action.</string>
 </dict>
 </plist>

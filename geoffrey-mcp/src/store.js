@@ -57,3 +57,12 @@ export function upsertAccount(account) {
   save(data);
   return account;
 }
+
+export function removeAccount(id) {
+  const data = load();
+  const index = data.accounts.findIndex((account) => account.id === id);
+  if (index < 0) throw new Error(`Unknown account "${id}".`);
+  const [removed] = data.accounts.splice(index, 1);
+  save(data);
+  return removed;
+}

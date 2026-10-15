@@ -830,6 +830,60 @@ add_email() {
   done
 }
 
+app_add_account() {
+  provider=""
+  id=""
+  purpose=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --provider) provider="${2:-}"; shift 2 ;;
+      --id) id="${2:-}"; shift 2 ;;
+      --purpose) purpose="${2:-}"; shift 2 ;;
+      *) say "Unknown account option: $1"; return 2 ;;
+    esac
+  done
+
+  case "$provider" in
+    google|microsoft) ;;
+    *) say "Choose Gmail or Outlook to continue."; return 2 ;;
+  esac
+  if [ -z "$id" ]; then
+    say "Give this account a short name, such as Work or Personal."; return 2
+  fi
+  if [ -z "$purpose" ]; then purpose="General"; fi
+
+  ensure_store
+  ensure_node_deps
+  if [ "$provider" = "google" ]; then
+    install_gmail_oauth_config
+  elif [ ! -f "$MCP_DIR/config/microsoft-oauth.json" ]; then
+    say "Outlook sign-in is not available in this Geoffrey installation yet. Update Geoffrey, then try again."
+    return 2
+  fi
+
+  cd "$MCP_DIR"
+  exec npm run add-account -- --provider "$provider" --id "$id" --purpose "$purpose"
+}
+
+app_accounts() {
+  ensure_store
+  node "$MCP_DIR/bin/account-status.js"
+}
+
+app_remove_account() {
+  id=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --id) id="${2:-}"; shift 2 ;;
+      *) say "Unknown account option: $1"; return 2 ;;
+    esac
+  done
+  if [ -z "$id" ]; then say "Choose an account to remove."; return 2; fi
+  ensure_store
+  node "$MCP_DIR/bin/remove-account.js" --id "$id"
+}
+
 list_email() {
   ensure_store
   node --input-type=module -e "import { listAccounts } from '$MCP_DIR/src/store.js'; const accounts = listAccounts(); if (!accounts.length) { console.log('No inboxes connected yet. You can add one now or later.'); } else { for (const a of accounts) { const provider = a.provider === 'google' ? 'Gmail' : 'Outlook/Microsoft'; console.log('- ' + a.id + ': ' + a.email + ' (' + provider + ')'); } }"
@@ -1409,6 +1463,13 @@ Give me:
 3. Important email follow-ups or waiting items.
 4. Suggested focus blocks.
 5. The first action Geoffrey can take for me next.
+
+Make this easy to scan in Geoffrey's app. Never use tables. Keep each item to one short sentence, and use short bullets for schedule, follow-ups, and focus blocks. Format every priority exactly like this:
+**Priority 1: Short priority name.** Why it matters today.
+
+Give three to five priorities when the day warrants it, and no more than five follow-ups or focus blocks. Prefer a clear recommendation over a long explanation.
+
+Never mention request limits, journals, memory files, internal tools, permissions, or whether you saved information unless the owner directly asks. Write only the owner-facing briefing.
 
 Use priority feedback to learn the owner's working judgment: raise recurring higher-priority items, reduce lower-priority or not-useful items, and consider missed priorities when relevant. Do not treat one rating as a permanent rule; use it as a preference to validate in future briefings.
 
@@ -3140,6 +3201,17 @@ case "${1:-}" in
     ;;
   app-sync)
     app_sync
+    ;;
+  app-add-account)
+    shift
+    app_add_account "$@"
+    ;;
+  app-accounts)
+    app_accounts
+    ;;
+  app-remove-account)
+    shift
+    app_remove_account "$@"
     ;;
   launch)
     shift
