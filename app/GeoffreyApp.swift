@@ -2026,7 +2026,10 @@ final class GeoffreyModel: ObservableObject {
                     self.memorySetupOutcome = "Your private Geoffrey memory is ready and backed up to GitHub."
                     self.refresh()
                 } else {
-                    self.memorySetupOutcome = "Geoffrey could not create private memory yet. Please check your GitHub sign-in and try again."
+                    let detail = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+                    self.memorySetupOutcome = detail.isEmpty
+                        ? "Geoffrey could not create private memory yet. Please try again."
+                        : detail
                 }
             }
         }

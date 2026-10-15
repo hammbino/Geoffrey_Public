@@ -999,14 +999,22 @@ memory_repo() {
     repo="geoffrey-$slug"
   fi
   if [ -z "$target" ]; then
-    target="$HOME/Repos/$repo"
+    # The packaged Mac app keeps its engine in Application Support, leaving
+    # one simple, visible customer home at ~/Geoffrey for private memory.
+    # Keep the legacy source install behavior so an existing developer clone
+    # at ~/Geoffrey remains usable as its own updateable engine.
+    if [ "$ROOT" != "$HOME/Geoffrey" ]; then
+      target="$HOME/Geoffrey"
+    else
+      target="$HOME/Repos/$repo"
+    fi
   fi
 
   if [ -e "$target" ] && [ "$(find "$target" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" != "" ]; then
-    say "Target exists and is not empty: $target"
+    say "Your Geoffrey folder already contains files: $target"
+    say "Choose an empty folder or move the existing files before creating private memory."
     exit 1
   fi
-
   mkdir -p "$target"
   cp -R "$ROOT/memory-template/." "$target/"
 
