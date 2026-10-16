@@ -85,12 +85,21 @@ export function classifyExecution(workflow, readyCapabilities = new Set()) {
   };
 }
 
-function normalizeWorkflow(raw, index, readyCapabilities, queueCounts) {
+function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns) {
   const id = cleanText(raw.id, `workflow-${index + 1}`);
   const classification = classifyExecution(raw, readyCapabilities);
   const approvalState = cleanText(raw.approval?.state, "needs_review");
-  const deploymentState = cleanText(raw.execution?.deployment_state, "not_connected");
+  const declaredDeploymentState = cleanText(raw.execution?.deployment_state, "not_connected");
+  const verifiedAt = cleanText(raw.execution?.verified_at);
+  const deploymentState = declaredDeploymentState === "active" && !verifiedAt ? "needs_verification" : declaredDeploymentState;
   const enabled = raw.enabled === true && approvalState === "approved";
+  const stats = queueStats.get(id) ?? { queued: 0, failed: 0, running: 0 };
+  const latestRun = latestRuns.get(id);
+  const canRun = enabled && classification.route === "local" && Boolean(cleanText(raw.task));
+  const state = !enabled ? "needs_review"
+    : stats.running ? "running"
+      : stats.failed ? "failed"
+        : cleanText(raw.status?.state, "ready");
 
   return {
     id,
@@ -105,7 +114,9 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueCounts) {
       route: classification.route,
       reason: classification.reason,
       deployment_state: deploymentState,
+      verified_at: verifiedAt || null,
       missing_capabilities: classification.missing_capabilities,
+      can_run: canRun,
     },
     approval: {
       state: approvalState,
@@ -115,11 +126,14 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueCounts) {
       path: cleanText(raw.source?.path) || null,
     },
     status: {
-      state: enabled ? cleanText(raw.status?.state, "ready") : "needs_review",
-      last_run_at: cleanText(raw.status?.last_run_at) || null,
+      state,
+      last_run_at: cleanText(latestRun?.finished_at ?? raw.status?.last_run_at) || null,
+      last_run_status: cleanText(latestRun?.status) || null,
       next_run_at: cleanText(raw.status?.next_run_at) || null,
-      queued_runs: queueCounts.get(id) ?? 0,
-      last_error: cleanText(raw.status?.last_error) || null,
+      queued_runs: stats.queued,
+      failed_runs: stats.failed,
+      last_result_path: cleanText(latestRun?.result_path) || null,
+      last_error: cleanText(latestRun?.error ?? raw.status?.last_error) || null,
     },
   };
 }
@@ -128,7 +142,7 @@ function migratedWorkflow(path) {
   return {
     id: `imported-${stableID(path)}`,
     name: titleFromPath(path),
-    purpose: "Imported from Dustin's existing Geoffrey memory. Review it before enabling or changing its schedule.",
+    purpose: "Imported from existing Geoffrey memory. Review it before enabling or changing its schedule.",
     enabled: false,
     cadence: { summary: "Schedule needs review" },
     execution: { preference: "auto", deployment_state: "not_connected" },
@@ -139,17 +153,27 @@ function migratedWorkflow(path) {
   };
 }
 
-export function buildAutomationInventory({ manifest, migration, queue, capabilities, sourcePath = null }) {
+export function buildAutomationInventory({ manifest, migration, queue, history, capabilities, sourcePath = null }) {
   const readyCapabilities = new Set(
     (Array.isArray(capabilities) ? capabilities : [])
       .filter((item) => item?.state === "ready" || item?.enabled === true)
       .flatMap((item) => [cleanText(item.id), cleanText(item.name)])
       .filter(Boolean),
   );
-  const queueCounts = new Map();
+  const queueStats = new Map();
   for (const item of Array.isArray(queue?.items) ? queue.items : []) {
     const workflowID = cleanText(item?.workflow_id);
-    if (workflowID) queueCounts.set(workflowID, (queueCounts.get(workflowID) ?? 0) + 1);
+    if (!workflowID) continue;
+    const stats = queueStats.get(workflowID) ?? { queued: 0, failed: 0, running: 0 };
+    if (item.state === "failed") stats.failed += 1;
+    else if (item.state === "running") stats.running += 1;
+    else if (!item.state || item.state === "queued") stats.queued += 1;
+    queueStats.set(workflowID, stats);
+  }
+  const latestRuns = new Map();
+  for (const run of Array.isArray(history?.runs) ? history.runs : []) {
+    const workflowID = cleanText(run?.workflow_id);
+    if (workflowID) latestRuns.set(workflowID, run);
   }
 
   const declared = Array.isArray(manifest?.workflows) ? manifest.workflows : [];
@@ -161,12 +185,12 @@ export function buildAutomationInventory({ manifest, migration, queue, capabilit
     .filter((path) => typeof path === "string" && path.trim() && !knownPaths.has(path.trim()))
     .map((path) => migratedWorkflow(path.trim()));
   const workflows = [...declared, ...imported]
-    .map((item, index) => normalizeWorkflow(item, index, readyCapabilities, queueCounts))
+    .map((item, index) => normalizeWorkflow(item, index, readyCapabilities, queueStats, latestRuns))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return {
     schema_version: 1,
-    execution_available: false,
+    execution_available: workflows.some((item) => item.execution.can_run),
     source: sourcePath,
     workflows,
     summary: {
@@ -175,6 +199,7 @@ export function buildAutomationInventory({ manifest, migration, queue, capabilit
       local: workflows.filter((item) => item.execution.route === "local").length,
       needs_review: workflows.filter((item) => item.execution.route === "review" || item.approval.state !== "approved").length,
       queued_runs: workflows.reduce((sum, item) => sum + item.status.queued_runs, 0),
+      failed_runs: workflows.reduce((sum, item) => sum + item.status.failed_runs, 0),
     },
   };
 }

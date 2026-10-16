@@ -1950,6 +1950,7 @@ final class GeoffreyModel: ObservableObject {
     @Published var isSigningIntoClaude = false
     @Published var isSigningIntoGitHub = false
     @Published var repairingCapabilityIDs = Set<String>()
+    @Published var runningAutomationIDs = Set<String>()
     @Published var modelChoice: String {
         didSet { UserDefaults.standard.set(modelChoice, forKey: "geoffreyModelChoice") }
     }
@@ -2652,9 +2653,57 @@ final class GeoffreyModel: ObservableObject {
     }
 
     func reviewAutomation(_ automation: GeoffreyAutomation) {
-        let route = automation.routePresentation.title.lowercased()
-        issueMessage = "\(automation.name) is \(route). Before Geoffrey changes anything, its schedule, required accounts, and output destination must be confirmed on this Mac. Geoffrey has only discovered and preserved it; no job was created, duplicated, or enabled."
+        if automation.execution.route == "cloud" {
+            issueMessage = "\(automation.name) is cloud capable, but no active Claude schedule is connected yet. Connecting it requires confirming the cadence, accounts, output destination, budget, and permissions. Geoffrey will not create or duplicate that schedule automatically."
+        } else if automation.approval.state == "approved" && automation.enabled && !automation.execution.canRun {
+            issueMessage = "\(automation.name) is approved, but it needs a clear task instruction in private memory before Geoffrey can run it. No work was started."
+        } else {
+            let route = automation.routePresentation.title.lowercased()
+            issueMessage = "\(automation.name) is \(route). Before Geoffrey changes anything, its schedule, required accounts, and output destination must be confirmed on this Mac. Geoffrey has only discovered and preserved it; no job was created, duplicated, or enabled."
+        }
         showingIssue = true
+    }
+
+    func runAutomation(_ automation: GeoffreyAutomation, retry: Bool = false) {
+        guard runningAutomationIDs.isEmpty else {
+            issueMessage = "Another Geoffrey automation is already running. Let it finish before starting this one."
+            showingIssue = true
+            return
+        }
+        runningAutomationIDs.insert(automation.id)
+        Task.detached { [geoffreyHome] in
+            var arguments = ["app-automation-run", "--workflow", automation.id]
+            if retry { arguments.append("--retry") }
+            else if automation.status.queuedRuns == 0 { arguments.append("--now") }
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: arguments)
+            let response = try? JSONDecoder().decode(GeoffreyAutomationRunResponse.self, from: Data(result.output.utf8))
+            _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+            await MainActor.run {
+                self.runningAutomationIDs.remove(automation.id)
+                if result.status == 0, response?.ok == true {
+                    self.issueMessage = "\(automation.name) finished. Its result and run record were saved to private, GitHub-backed memory."
+                } else {
+                    self.issueMessage = response?.error ?? "\(automation.name) could not finish. The run remains available to retry, and no outside records were changed."
+                }
+                self.showingIssue = true
+                self.refresh()
+            }
+        }
+    }
+
+    func openCloudAutomationSetup(_ automation: GeoffreyAutomation) {
+        guard let url = URL(string: "https://claude.ai/code/routines") else { return }
+        NSWorkspace.shared.open(url)
+        issueMessage = "Claude Routines is open for \(automation.name). Review the workflow's cadence, connected services, output destination, usage, and permissions there. Geoffrey will only show it as running in Claude cloud after an approved routine reference is recorded and verified."
+        showingIssue = true
+    }
+
+    func openAutomationResult(_ relativePath: String) {
+        guard hasMemory else { return }
+        let root = URL(fileURLWithPath: memoryDetail, isDirectory: true).standardizedFileURL
+        let result = root.appendingPathComponent(relativePath).standardizedFileURL
+        guard result.path.hasPrefix(root.path + "/") else { return }
+        NSWorkspace.shared.open(result)
     }
 
     private func runCapabilityRepair(_ capability: GeoffreyCapability, arguments: [String], success: String) {

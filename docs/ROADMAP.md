@@ -39,8 +39,9 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Surface imported routines and schedules in Geoffrey with cloud, Mac-required, and review states.
 - [ ] Route cloud-compatible work to supported Claude cloud automation.
 - [x] Queue missed occurrences of approved local-only work safely and show the queue count.
-- [ ] Execute queued local work when Geoffrey returns and show its result.
-- [ ] Record run history, failures, retry state, and owner approvals.
+- [x] Execute approved queued local work in read-only mode when Geoffrey returns and show its result.
+- [x] Record local run history, failures, retry state, and owner approvals.
+- [ ] Verify cloud run history, failures, and routine health through a supported Claude interface.
 - [ ] Validate and bind Dustin's actual three-times-daily social briefing during release-candidate acceptance.
 
 ## Phase 5: Portable State and Security — Pending

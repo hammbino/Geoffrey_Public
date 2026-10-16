@@ -14,12 +14,12 @@ struct GeoffreyAutomationsTests {
             "purpose": "Prepare the briefing",
             "enabled": false,
             "cadence": {"summary": "Daily at 08:00, 13:00, 17:00", "timezone": "America/Denver"},
-            "execution": {"route": "cloud", "reason": "Cloud safe", "deployment_state": "not_connected", "missing_capabilities": []},
+            "execution": {"route": "cloud", "reason": "Cloud safe", "deployment_state": "not_connected", "verified_at": null, "missing_capabilities": [], "can_run": false},
             "approval": {"state": "needs_review"},
             "source": {"kind": "legacy_memory", "path": "memory/social-briefing.md"},
-            "status": {"state": "needs_review", "last_run_at": null, "next_run_at": null, "queued_runs": 0, "last_error": null}
+            "status": {"state": "needs_review", "last_run_at": null, "last_run_status": null, "next_run_at": null, "queued_runs": 0, "failed_runs": 0, "last_result_path": null, "last_error": null}
           }],
-          "summary": {"total": 1, "cloud": 1, "local": 0, "needs_review": 1, "queued_runs": 0}
+          "summary": {"total": 1, "cloud": 1, "local": 0, "needs_review": 1, "queued_runs": 0, "failed_runs": 0}
         }
         """.utf8)
         let inventory = try JSONDecoder().decode(GeoffreyAutomationInventory.self, from: data)

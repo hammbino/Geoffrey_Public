@@ -97,7 +97,15 @@ automations="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app
 printf '%s' "$automations" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const inventory = JSON.parse(input); if (inventory.schema_version !== 1 || inventory.execution_available !== false || !Array.isArray(inventory.workflows)) process.exit(1); });' || fail "Automation discovery contract is not valid."
 rg -F 'Label("Automations", systemImage: "repeat.circle.fill")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The app needs an Automation Center in the main navigation."
 rg -F 'Review before Geoffrey changes a schedule' "$ROOT/app/GeoffreyAutomations.swift" >/dev/null || fail "Automation discovery must explain its approval boundary."
-ok "Automation Center discovers recurring work without changing schedules"
+rg -F 'Button(automation.status.queuedRuns > 0 ? "Run queued" : "Run now")' "$ROOT/app/GeoffreyAutomations.swift" >/dev/null || fail "Approved local automation must be runnable from the app."
+rg -F 'Button("Retry")' "$ROOT/app/GeoffreyAutomations.swift" >/dev/null || fail "Failed local automation must have a visible retry action."
+rg -F 'Button("Open last result")' "$ROOT/app/GeoffreyAutomations.swift" >/dev/null || fail "Automation results must remain visible to the owner."
+rg -F 'https://claude.ai/code/routines' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Cloud-capable work must use Claude's supported Routines setup surface."
+rg -F '"--permission-mode", "plan"' "$ROOT/geoffrey-mcp/src/automation-runner.js" >/dev/null || fail "Local automation execution must remain read-only."
+if rg -F 'dangerously-skip-permissions' "$ROOT/geoffrey-mcp/src/automation-runner.js" >/dev/null; then
+  fail "Automation execution must not bypass Claude permission controls."
+fi
+ok "Automation Center discovers, runs, retries, and preserves approved local work"
 rg -F 'Recommend my next step' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs an outcome-first recommendation action."
 rg -F 'Recommend a skill for me' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs a focused skill recommendation action."
 rg -F 'I already know which app I use' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connection planning must keep app selection optional."

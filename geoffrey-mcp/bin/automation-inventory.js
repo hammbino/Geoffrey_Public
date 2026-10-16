@@ -32,6 +32,8 @@ const manifestCandidates = [
 const manifestPath = manifestCandidates.find((path) => existsSync(path)) ?? null;
 const migration = readJson(join(store, "migration-v1.json"));
 const queue = readJson(join(store, "automations", "queue.json"));
+const portableHistoryPath = memoryRoot && join(memoryRoot, "memory", "automations", "history.json");
+const history = readJson(portableHistoryPath) ?? readJson(join(store, "automations", "history.json"));
 
 let capabilities = [];
 if (capabilitiesIndex >= 0) {
@@ -49,6 +51,7 @@ const inventory = buildAutomationInventory({
   manifest: manifestPath ? readJson(manifestPath) : null,
   migration,
   queue,
+  history,
   capabilities,
   sourcePath: manifestPath && memoryRoot && manifestPath.startsWith(memoryRoot)
     ? manifestPath.slice(memoryRoot.length + 1)

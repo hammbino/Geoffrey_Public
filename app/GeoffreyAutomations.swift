@@ -21,7 +21,7 @@ struct GeoffreyAutomationInventory: Codable {
         executionAvailable: false,
         source: nil,
         workflows: [],
-        summary: GeoffreyAutomationSummary(total: 0, cloud: 0, local: 0, needsReview: 0, queuedRuns: 0)
+        summary: GeoffreyAutomationSummary(total: 0, cloud: 0, local: 0, needsReview: 0, queuedRuns: 0, failedRuns: 0)
     )
 }
 
@@ -31,11 +31,13 @@ struct GeoffreyAutomationSummary: Codable {
     let local: Int
     let needsReview: Int
     let queuedRuns: Int
+    let failedRuns: Int
 
     enum CodingKeys: String, CodingKey {
         case total, cloud, local
         case needsReview = "needs_review"
         case queuedRuns = "queued_runs"
+        case failedRuns = "failed_runs"
     }
 }
 
@@ -68,12 +70,16 @@ struct GeoffreyAutomationExecution: Codable {
     let route: String
     let reason: String
     let deploymentState: String
+    let verifiedAt: String?
     let missingCapabilities: [String]
+    let canRun: Bool
 
     enum CodingKeys: String, CodingKey {
         case route, reason
         case deploymentState = "deployment_state"
+        case verifiedAt = "verified_at"
         case missingCapabilities = "missing_capabilities"
+        case canRun = "can_run"
     }
 }
 
@@ -89,15 +95,21 @@ struct GeoffreyAutomationSource: Codable {
 struct GeoffreyAutomationStatus: Codable {
     let state: String
     let lastRunAt: String?
+    let lastRunStatus: String?
     let nextRunAt: String?
     let queuedRuns: Int
+    let failedRuns: Int
+    let lastResultPath: String?
     let lastError: String?
 
     enum CodingKeys: String, CodingKey {
         case state
         case lastRunAt = "last_run_at"
+        case lastRunStatus = "last_run_status"
         case nextRunAt = "next_run_at"
         case queuedRuns = "queued_runs"
+        case failedRuns = "failed_runs"
+        case lastResultPath = "last_result_path"
         case lastError = "last_error"
     }
 }
@@ -169,7 +181,7 @@ struct AutomationCenterView: View {
                         .foregroundStyle(Color(red: 0.08, green: 0.45, blue: 0.36))
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Review before Geoffrey changes a schedule").font(.headline)
-                        Text("Discovery is read-only. Imported work stays off until its timing, tools, and destination are approved. Geoffrey will not duplicate Dustin’s existing briefing.")
+                        Text("Imported work stays off until its timing, tools, and destination are approved. Geoffrey will not duplicate an existing briefing or silently create a cloud schedule.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -193,6 +205,14 @@ struct AutomationCenterView: View {
                     .background(Color(nsColor: .controlBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
+                    if model.automationInventory.summary.failedRuns > 0 {
+                        Label("\(model.automationInventory.summary.failedRuns) run\(model.automationInventory.summary.failedRuns == 1 ? "" : "s") need a retry", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .padding(14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.orange.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Recurring work").font(.headline)
                         ForEach(model.automations) { automation in
@@ -269,6 +289,17 @@ private struct AutomationCard: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
+            if let lastRunAt = automation.status.lastRunAt {
+                HStack(spacing: 8) {
+                    Image(systemName: automation.status.lastRunStatus == "succeeded" ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(automation.status.lastRunStatus == "succeeded" ? Color.green : Color.orange)
+                    Text("Last run: \(lastRunAt)")
+                    if let error = automation.status.lastError { Text("· \(error)") }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
             HStack {
                 if automation.source.kind == "legacy_memory" {
                     Label("Imported from existing Geoffrey memory", systemImage: "arrow.down.doc")
@@ -280,20 +311,60 @@ private struct AutomationCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if automation.approval.state != "approved" || !automation.enabled {
+                if let resultPath = automation.status.lastResultPath {
+                    Button("Open last result") { model.openAutomationResult(resultPath) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
+                if model.runningAutomationIDs.contains(automation.id) {
+                    ProgressView().controlSize(.small)
+                    Text("Running").font(.caption).foregroundStyle(.secondary)
+                } else if automation.approval.state != "approved" || !automation.enabled {
                     Button("Review") { model.reviewAutomation(automation) }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
+                } else if automation.execution.route == "cloud" && automation.execution.deploymentState != "active" {
+                    Button("Connect cloud") { model.openCloudAutomationSetup(automation) }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                } else if automation.execution.route == "local" && automation.status.failedRuns > 0 {
+                    Button("Retry") { model.runAutomation(automation, retry: true) }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(!model.runningAutomationIDs.isEmpty)
+                } else if automation.execution.canRun {
+                    Button(automation.status.queuedRuns > 0 ? "Run queued" : "Run now") {
+                        model.runAutomation(automation)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(!model.runningAutomationIDs.isEmpty)
                 } else {
-                    Text(automation.status.state == "ready" ? "Ready" : "Needs attention")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(automation.status.state == "ready" ? Color.green : Color.orange)
+                    Button("Review instructions") { model.reviewAutomation(automation) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                 }
             }
         }
         .padding(20)
         .background(Color(nsColor: .controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct GeoffreyAutomationRunResponse: Codable {
+    let ok: Bool
+    let workflowID: String?
+    let runID: String?
+    let status: String?
+    let resultPath: String?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case ok, status, error
+        case workflowID = "workflow_id"
+        case runID = "run_id"
+        case resultPath = "result_path"
     }
 }
 #endif

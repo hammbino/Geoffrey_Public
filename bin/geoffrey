@@ -46,6 +46,7 @@ Usage:
   ./bin/geoffrey app-capabilities
   ./bin/geoffrey app-automations
   ./bin/geoffrey app-automation-queue
+  ./bin/geoffrey app-automation-run --workflow ID [--retry|--now]
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill|build-skill [--request "..."]
   ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
@@ -93,6 +94,7 @@ Commands:
   app-capabilities List the Claude skills, plugins, and MCPs Geoffrey can use.
   app-automations Discover recurring work without creating or changing schedules.
   app-automation-queue Queue missed approved local work without running it.
+  app-automation-run Run one approved local workflow and record its result.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-context  Prepare the read-only private context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
@@ -2274,6 +2276,10 @@ app_automation_queue() {
   node "$MCP_DIR/bin/automation-queue.js" --write --engine-root "$ROOT"
 }
 
+app_automation_run() {
+  node "$MCP_DIR/bin/automation-run.js" "$@"
+}
+
 app_prompt() {
   task="ask"
   request=""
@@ -3409,6 +3415,10 @@ case "${1:-}" in
     ;;
   app-automation-queue)
     app_automation_queue
+    ;;
+  app-automation-run)
+    shift
+    app_automation_run "$@"
     ;;
   app-prompt)
     shift

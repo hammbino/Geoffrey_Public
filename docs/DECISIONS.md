@@ -20,6 +20,8 @@
 | Cloud-first automation with a local queue | Cloud-capable workflows should run while the Mac is off; local-only dependencies wait and catch up visibly. | Discovery and queue implemented; execution pending |
 | Automation discovery never changes a schedule | Legacy candidates and portable manifests can be inventoried safely before timing, tools, and destination are approved. | Implemented |
 | “Cloud capable” is not “running in cloud” | Geoffrey only claims active cloud execution after an approved Claude deployment is connected and verified. | Implemented |
+| Local recurring work runs read-only | Queued work may retrieve, analyze, and prepare results, but cannot send, publish, spend, delete, change access, or bypass Claude permissions. | Implemented |
+| Automation results and history are portable | Owner-ready results and non-secret run metadata sync with private GitHub memory; operational queue state stays local. | Implemented |
 | GitHub holds portable, non-secret owner state | Memory, approved skills, workflow definitions, and results remain owned and transferable; credentials never belong in GitHub. | Partially implemented |
 | macOS Keychain will hold credentials | The current preserved account registry is a migration source, not the final security design. | Decided; implementation pending |
 | The current Google OAuth flow is acceptable for the pilot | Commercial Gmail scope verification is deferred until Geoffrey is being prepared for market. | Pilot decision |

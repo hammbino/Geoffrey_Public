@@ -37,6 +37,7 @@ test("automation inventory discovers migrated work and classifies cloud, local, 
         {
           id: "local-files",
           name: "Local file review",
+          task: "Review the approved local files and summarize them.",
           execution: { preference: "auto" },
           requirements: { cloud_compatible: false, local_paths: ["~/Documents"] },
           approval: { state: "approved" },
@@ -53,7 +54,10 @@ test("automation inventory discovers migrated work and classifies cloud, local, 
       ],
     }));
     writeFileSync(join(store, "automations", "queue.json"), JSON.stringify({
-      items: [{ workflow_id: "local-files" }, { workflow_id: "local-files" }],
+      items: [{ workflow_id: "local-files" }, { workflow_id: "local-files" }, { workflow_id: "local-files", state: "failed" }],
+    }));
+    writeFileSync(join(memory, "memory", "automations", "history.json"), JSON.stringify({
+      runs: [{ workflow_id: "local-files", status: "failed", finished_at: "2026-10-16T10:00:00Z", error: "Synthetic failure" }],
     }));
     const capabilitiesPath = join(root, "capabilities.json");
     writeFileSync(capabilitiesPath, JSON.stringify([{ id: "mcp:social", name: "social", state: "ready", enabled: true }]));
@@ -68,13 +72,16 @@ test("automation inventory discovers migrated work and classifies cloud, local, 
     assert.equal(result.workflows.find(({ id }) => id === "cloud-brief").execution.route, "cloud");
     assert.equal(result.workflows.find(({ id }) => id === "local-files").execution.route, "local");
     assert.equal(result.workflows.find(({ id }) => id === "local-files").status.queued_runs, 2);
+    assert.equal(result.workflows.find(({ id }) => id === "local-files").status.failed_runs, 1);
+    assert.equal(result.workflows.find(({ id }) => id === "local-files").execution.can_run, true);
     assert.equal(result.workflows.find(({ id }) => id === "missing-tool").execution.route, "review");
     assert.equal(result.workflows.find(({ source }) => source.kind === "legacy_memory").approval.state, "needs_review");
     assert.equal(result.summary.cloud, 1);
     assert.equal(result.summary.local, 1);
     assert.equal(result.summary.queued_runs, 2);
+    assert.equal(result.summary.failed_runs, 1);
     assert.equal(output.includes("ghp_THIS_MUST_NEVER_APPEAR"), false);
-    assert.equal(result.execution_available, false);
+    assert.equal(result.execution_available, true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
