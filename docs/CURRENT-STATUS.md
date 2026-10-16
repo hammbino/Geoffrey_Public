@@ -6,7 +6,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## Proven Now
 
-- Native Mac app builds as Geoffrey `0.6.0` (build 6).
+- Native Mac app builds as Geoffrey `0.6.1` (build 7).
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
@@ -16,6 +16,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Capability inventory combines Claude skills, plugins, and MCP servers.
 - Improve Geoffrey summarizes Claude, email/calendar, private memory, GitHub, and capability readiness before recommending anything new.
 - Missing setup and unhealthy capabilities route to targeted actions, including account repair, Claude or GitHub sign-in, disabled-plugin enablement, and MCP reconnection guidance.
+- Improve Geoffrey places the outcome-first “Connect a business tool” action above the longer inventory of available capabilities.
 - Release packages use an explicit allowlist and pass sensitive-material checks.
 - A live authenticated two-turn Claude session successfully resumed the same session and recalled information from the first turn.
 - Geoffrey's exact `stream-json` flags were verified against the installed Claude Code `2.1.301` event format.

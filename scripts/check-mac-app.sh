@@ -118,6 +118,9 @@ rg -F 'func performReadinessAction(' "$ROOT/app/GeoffreyApp.swift" >/dev/null ||
 rg -F 'func repairCapability(' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Disabled or disconnected Claude capabilities need repair actions."
 rg -F 'Button(repairTitle)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Capability repair must be available in the interface."
 rg -F 'func openGitHubLogin()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "GitHub portability needs an in-app connection path."
+connect_tool_line="$(rg -n -F 'Label("Connect a business tool"' "$ROOT/app/GeoffreyApp.swift" | head -1 | cut -d: -f1)"
+available_line="$(rg -n -F 'Label("Available in Geoffrey"' "$ROOT/app/GeoffreyApp.swift" | head -1 | cut -d: -f1)"
+[ "$connect_tool_line" -lt "$available_line" ] || fail "Connect a business tool must appear above Available in Geoffrey."
 ok "Improve Geoffrey explains readiness and routes targeted repairs"
 
 rg -F '@Published var runningTask: GeoffreyTask?' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Today actions must track the running task."

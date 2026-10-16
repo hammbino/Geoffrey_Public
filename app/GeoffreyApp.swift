@@ -989,6 +989,19 @@ struct ImproveGeoffreyView: View {
                 }
                 .disabled(model.isRunning || !model.canTalk)
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Connect a business tool", systemImage: "puzzlepiece.extension")
+                        .font(.headline)
+                    Text("Tell Geoffrey the outcome you need. It will recommend the smallest useful connection and explain exactly what you would approve.")
+                        .foregroundStyle(.secondary)
+                    Button("Tell Geoffrey what you need") { showingToolConnection = true }
+                        .buttonStyle(.bordered)
+                        .padding(.top, 4)
+                }
+                .padding(20)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Label("Available in Geoffrey", systemImage: "shippingbox.fill")
@@ -1006,19 +1019,6 @@ struct ImproveGeoffreyView: View {
                             CapabilityInventoryRow(capability: capability)
                         }
                     }
-                }
-                .padding(20)
-                .background(Color(nsColor: .controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Connect a business tool", systemImage: "puzzlepiece.extension")
-                        .font(.headline)
-                    Text("Tell Geoffrey the outcome you need. It will recommend the smallest useful connection and explain exactly what you would approve.")
-                        .foregroundStyle(.secondary)
-                    Button("Tell Geoffrey what you need") { showingToolConnection = true }
-                        .buttonStyle(.bordered)
-                        .padding(.top, 4)
                 }
                 .padding(20)
                 .background(Color(nsColor: .controlBackgroundColor))
