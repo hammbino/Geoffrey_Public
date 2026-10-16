@@ -140,7 +140,16 @@ rsync -a \
   --exclude '.git/' \
   --exclude '.DS_Store' \
   --exclude '.gitignore' \
+  --exclude '.env' \
+  --exclude '.env.*' \
   --exclude 'build/' \
+  --exclude 'node_modules/' \
+  --exclude 'release-screenshots/' \
+  --exclude 'onboarding/recipients/' \
+  --exclude 'geoffrey-mcp/config/google-oauth.json' \
+  --exclude 'accounts.json' \
+  --exclude '*.token' \
+  --exclude '*.secret' \
   --exclude "Geoffrey-Mac-Private-Beta.zip" \
   --exclude "$(basename "$BUNDLE_MAURICIO")" \
   --exclude "$(basename "$BUNDLE_MAURICIO")" \

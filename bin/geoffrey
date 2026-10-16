@@ -42,6 +42,7 @@ Usage:
   ./bin/geoffrey install-mac-app
   ./bin/geoffrey uninstall [--purge-private-memory] [--yes] [--dry-run]
   ./bin/geoffrey app-status
+  ./bin/geoffrey app-migrate
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill|build-skill [--request "..."]
   ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
@@ -85,6 +86,7 @@ Commands:
   uninstall    Remove Geoffrey.app, its launcher, update job, and MCP registration.
                Use --purge-private-memory only to erase the separate private memory repo.
   app-status   Print the simple readiness information used by Geoffrey.app.
+  app-migrate  Back up and inventory terminal-era private state for the Mac app.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-context  Prepare the read-only private context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
@@ -2230,11 +2232,28 @@ app_status() {
   memory_path="$(remembered_memory_path 2>/dev/null || true)"
   mailbox_count="$(connected_mailboxes_count 2>/dev/null || printf '0')"
 
-  if command -v claude >/dev/null 2>&1; then printf 'claude\tready\n'; else printf 'claude\tneeds_setup\n'; fi
+  if command -v claude >/dev/null 2>&1; then
+    if claude auth status --json 2>/dev/null | grep -Eq '"loggedIn"[[:space:]]*:[[:space:]]*true'; then
+      printf 'claude\tready\n'
+    else
+      printf 'claude\tneeds_login\n'
+    fi
+  else
+    printf 'claude\tneeds_setup\n'
+  fi
   if [ "$mailbox_count" -gt 0 ] 2>/dev/null; then printf 'email\t%s connected\n' "$mailbox_count"; else printf 'email\tneeds_setup\n'; fi
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then printf 'github\tready\n'; else printf 'github\tneeds_setup\n'; fi
   if [ -n "$memory_path" ] && [ -d "$memory_path/memory" ]; then printf 'memory\t%s\n' "$memory_path"; else printf 'memory\tneeds_setup\n'; fi
   if geoffrey_app_path >/dev/null 2>&1; then printf 'app\tready\n'; else printf 'app\tneeds_install\n'; fi
+  if [ -f "$STORE_DIR/backups/pre-desktop-v1/accounts.json" ] || [ -f "$STORE_DIR/backups/pre-desktop-v1/current-memory" ]; then
+    printf 'migration\tpreserved\n'
+  else
+    printf 'migration\tfresh_install\n'
+  fi
+}
+
+app_migrate() {
+  node "$MCP_DIR/bin/migrate-legacy.js" --write --engine-root "$ROOT"
 }
 
 app_prompt() {
@@ -3360,6 +3379,9 @@ case "${1:-}" in
     ;;
   app-status)
     app_status
+    ;;
+  app-migrate)
+    app_migrate
     ;;
   app-prompt)
     shift

@@ -68,7 +68,45 @@ cp "$PLIST" "$APP/Contents/Info.plist"
 cp "$ICON" "$APP/Contents/Resources/Geoffrey.icns"
 ENGINE="$APP/Contents/Resources/GeoffreyEngine"
 mkdir -p "$ENGINE"
-rsync -a --exclude .git --exclude build --exclude dist --exclude .DS_Store "$ROOT/" "$ENGINE/"
+
+# Build the embedded engine from an explicit allowlist. Geoffrey's working
+# checkout can contain private OAuth material, screenshots, Git history, old
+# release archives, and local recipient packets. None of those belong in a
+# customer application bundle.
+ENGINE_PATHS=(
+  ".claude"
+  "bin"
+  "core"
+  "docs"
+  "geoffrey-mcp"
+  "memory-template"
+  "packs"
+  "plugins"
+  "onboarding/recipient-packet-template.md"
+  "CLAUDE.md"
+  "HANDOFF.md"
+  "PROJECT.md"
+  "README.md"
+  "START_HERE.md"
+)
+
+for path in "${ENGINE_PATHS[@]}"; do
+  [ -e "$ROOT/$path" ] || {
+    echo "Required Geoffrey engine path is missing: $path"
+    exit 1
+  }
+  rsync -aR \
+    --exclude '.DS_Store' \
+    --exclude '.env' \
+    --exclude '.env.*' \
+    --exclude 'accounts.json' \
+    --exclude '*.token' \
+    --exclude '*.secret' \
+    --exclude 'config/google-oauth.json' \
+    --exclude 'node_modules/.cache/' \
+    "$ROOT/./$path" "$ENGINE/"
+done
+
+"$ROOT/scripts/check-release-safety.sh" "$APP"
 codesign --force --deep --sign - "$APP"
-echo "Built $APP"
 echo "Built $APP"

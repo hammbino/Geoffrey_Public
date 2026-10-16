@@ -3,6 +3,18 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/build/Geoffrey.app"
+TEST_HOME="$(mktemp -d)"
+TEST_MEMORY="$TEST_HOME/geoffrey-memory"
+TEST_BIN="$TEST_HOME/bin"
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+mkdir -p "$TEST_HOME/.geoffrey" "$TEST_HOME/Applications" "$TEST_MEMORY" "$TEST_BIN"
+cp -R "$ROOT/memory-template/." "$TEST_MEMORY/"
+ln -s "$APP" "$TEST_HOME/Applications/Geoffrey.app"
+printf '%s\n' "$TEST_MEMORY" > "$TEST_HOME/.geoffrey/current-memory"
+printf '{"accounts":[]}\n' > "$TEST_HOME/.geoffrey/accounts.json"
+printf '%s\n' '#!/usr/bin/env bash' 'if [ "${1:-}" = "auth" ] && [ "${2:-}" = "status" ]; then echo "{\"loggedIn\":true}"; exit 0; fi' 'echo "2.1.0 (Claude Code)"' > "$TEST_BIN/claude"
+chmod +x "$TEST_BIN/claude"
 
 fail() {
   printf 'NO  %s\n' "$1"
@@ -18,6 +30,15 @@ rg -F '.onSubmit(send)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat m
 rg -F 'TextField("Ask about a task, decision, or problem you want off your plate"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must use a native editable text field."
 ok "Chat input is a native Return-to-send field"
 
+rg -F '"--output-format", "json"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Claude responses must use structured output."
+rg -F 'arguments += ["--resume", resumeSessionID]' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Ask Geoffrey must resume its Claude session."
+rg -F 'geoffreyClaudeSessionID' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Claude conversation identity must survive an app restart."
+rg -F 'Button("New conversation")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The owner needs a clear way to start a new Claude session."
+if rg -F 'Do not read files or call tools' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
+  fail "General Geoffrey requests must not disable Claude files and tools."
+fi
+ok "Ask Geoffrey keeps a resumable Claude session with skills and tools available"
+
 rg -F 'OperationalResultDisplay' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results must use the structured renderer."
 rg -F 'ResultEmptyState' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results need an explicit no-items state."
 rg -F 'Operational result feedback:' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational result sections must support learning feedback."
@@ -26,13 +47,21 @@ if rg -F 'Text(response.text)' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
 fi
 ok "Long operational results use structured UI"
 
-capability_context="$("$ROOT/bin/geoffrey" app-context --task capability-review)"
+capability_context="$(HOME="$TEST_HOME" "$ROOT/bin/geoffrey" app-context --task capability-review)"
 printf '%s' "$capability_context" | rg -q '^PRIVATE GEOFFREY CONTEXT$' || fail "Capability review must receive a prepared private context packet."
 if printf '%s' "$capability_context" | rg -q 'does not need connected email or calendar context'; then
   fail "Capability review must not receive the empty-context notice."
 fi
-recommended_skill_context="$("$ROOT/bin/geoffrey" app-context --task recommend-skill)"
+recommended_skill_context="$(HOME="$TEST_HOME" "$ROOT/bin/geoffrey" app-context --task recommend-skill)"
 printf '%s' "$recommended_skill_context" | rg -q '^PRIVATE GEOFFREY CONTEXT$' || fail "Skill recommendation must receive a prepared private context packet."
+migration_result="$(HOME="$TEST_HOME" "$ROOT/bin/geoffrey" app-migrate)"
+printf '%s' "$migration_result" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const migration = JSON.parse(input); if (migration.schema_version !== 1 || migration.state !== "migrated" || !migration.private_state.memory_repository.exists) process.exit(1); });' || fail "Legacy migration result is not valid."
+[ -f "$TEST_HOME/.geoffrey/backups/pre-desktop-v1/accounts.json" ] || fail "Legacy account backup was not created."
+[ -f "$TEST_HOME/.geoffrey/backups/pre-desktop-v1/current-memory" ] || fail "Legacy memory pointer backup was not created."
+if rg -F 'refresh_token' "$TEST_HOME/.geoffrey/migration-v1.json" >/dev/null; then
+  fail "Migration manifest must not contain account secrets."
+fi
+ok "Terminal-era state is backed up and inventoried without exposing secrets"
 rg -F 'Recommend my next step' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs an outcome-first recommendation action."
 rg -F 'Recommend a skill for me' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs a focused skill recommendation action."
 rg -F 'I already know which app I use' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connection planning must keep app selection optional."
@@ -68,8 +97,10 @@ rg -F 'Button("Try this skill")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fai
 rg -F 'case let .ask(question), let .runSkill(question), let .buildSkill(question)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "A skill run must receive its approved request."
 ok "Recommended skills can be built and used directly"
 
-rg -F 'defaults write com.geoffrey.assistant geoffreyHome -string "$ROOT"' "$ROOT/scripts/install-mac-app.sh" >/dev/null || fail "App installation must pair the app with its matching engine."
-ok "Installation pairs Geoffrey.app with its engine"
+rg -F 'engine.installing' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "App installation must stage its version-matched engine atomically."
+rg -F '.geoffrey-engine-version' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "App installation must version its embedded engine."
+rg -F '["app-migrate"]' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The app must migrate the terminal-era state automatically."
+ok "Installation uses a versioned self-contained engine and automatic migration"
 
 rg -F 'if task.isDailyBriefing {' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Only the daily briefing may replace the briefing dashboard."
 rg -F 'self.latestBriefing = response' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Daily briefing must retain the dashboard state."
@@ -83,14 +114,16 @@ if rg -n -i 'Terminal' "$ROOT/app/GeoffreyApp.swift" "$ROOT/app/Info.plist" >/de
 fi
 ok "No Terminal workflow is exposed in Geoffrey.app"
 
-"$ROOT/bin/geoffrey" app-status | rg -q '^app\tready$' || fail "Geoffrey engine is not ready for the app."
+test_status="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-status)"
+printf '%s\n' "$test_status" | rg -q '^claude\tready$' || fail "Geoffrey must verify Claude authentication, not only CLI installation. Status was: $test_status"
+printf '%s\n' "$test_status" | rg -q '^app\tready$' || fail "Geoffrey engine is not ready for the app. Status was: $test_status"
 ok "Geoffrey engine reports ready"
 
-accounts="$("$ROOT/bin/geoffrey" app-accounts)"
+accounts="$(HOME="$TEST_HOME" "$ROOT/bin/geoffrey" app-accounts)"
 printf '%s' "$accounts" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const accounts = JSON.parse(input); if (!Array.isArray(accounts) || accounts.some(account => !account.id || !account.email || !account.calendar?.state)) process.exit(1); });' || fail "Account-health data is not valid."
 ok "Account-health data is valid"
 
-test ! -e "$ROOT/geoffrey-mcp/config/google-oauth.json" || fail "Private Google OAuth config must not be packaged."
-ok "No private Google OAuth config in source"
+"$ROOT/scripts/check-release-safety.sh" "$APP" >/dev/null || fail "Built application contains unsafe release material."
+ok "Built application excludes private and development-only material"
 
 printf 'Geoffrey Mac app check passed.\n'

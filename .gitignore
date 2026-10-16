@@ -6,6 +6,8 @@ node_modules/
 geoffrey-mcp/node_modules/
 build/
 onboarding/recipients/
+release-screenshots/
+dist/Geoffrey-Mac-Private-Beta.zip
 
 # OAuth token-lifetime experiment: live credentials, never commit
 experiments/oauth-token-lifetime/tokens.json

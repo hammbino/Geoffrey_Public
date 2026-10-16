@@ -185,8 +185,8 @@ for bundle in \
   # dist/ is excluded because nested ZIPs differ byte-wise on every rebuild even
   # when their contents are identical; they are verified separately below.
   case "$bundle_name" in
-    *Mauricio*) bundle_excludes="-x .git -x dist -x build -x .gitignore -x .DS_Store -x reference" ;;
-    *)          bundle_excludes="-x .git -x dist -x build -x .gitignore -x .DS_Store" ;;
+    *Mauricio*) bundle_excludes="-x .git -x dist -x build -x .gitignore -x .DS_Store -x reference -x node_modules -x release-screenshots -x recipients -x google-oauth.json -x .env -x .env.* -x accounts.json -x *.token -x *.secret" ;;
+    *)          bundle_excludes="-x .git -x dist -x build -x .gitignore -x .DS_Store -x node_modules -x release-screenshots -x recipients -x google-oauth.json -x .env -x .env.* -x accounts.json -x *.token -x *.secret" ;;
   esac
 
   bundle_work="$TMP/bundle-$bundle_name"
@@ -198,6 +198,14 @@ for bundle in \
     else
       bad "Bundle is STALE, contents differ from the working tree: $bundle_name"
     fi
+  else
+    bad "Bundle could not be extracted: $bundle_name"
+  fi
+
+  if unzip -Z1 "$bundle" 2>/dev/null | grep -Eiq '(^|/)(\.git|release-screenshots|accounts\.json|google-oauth\.json|\.env(\.|$)|[^/]+\.(token|secret))(/|$)'; then
+    bad "Bundle contains a forbidden private or development path: $bundle_name"
+  else
+    ok "Bundle excludes private and development-only paths: $bundle_name"
   fi
 
   # A bundle can carry current files while embedding an outdated plugin ZIP,
