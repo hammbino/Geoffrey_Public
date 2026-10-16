@@ -79,6 +79,8 @@ These items may still exist in older Git history or tags. Before any public rele
 - The visible conversation persists across app restarts in Application Support with owner-only file permissions.
 - The app detects Claude CLI authentication and can start Claude's supported login flow.
 - Improve Geoffrey inventories available user, private, and bundled skills plus installed Claude plugins and MCP servers.
+- Improve Geoffrey summarizes the readiness of Claude, multiple email/calendar accounts, private memory, GitHub portability, and Claude capabilities before recommending expansion.
+- Disabled plugins can be explicitly enabled, MCP login failures can be reconnected, pending approvals receive precise guidance, unhealthy accounts route to reconnect, and GitHub has an in-app browser login path.
 
 Live authentication evidence on October 15, 2026:
 
@@ -101,12 +103,13 @@ The current verified result is:
 - JavaScript syntax checks: pass;
 - behavioral tests: 7 passed, 0 failed;
 - isolated Claude stream parser tests: pass for session identity, partial text, tool activity, final results, structured failures, and non-JSON diagnostics;
+- isolated readiness tests: pass for all-ready, multi-account repair, signed-out, first-use, empty-inventory, and capability-attention states;
 - Claude package safety/currentness: pass;
 - Mac app build and payload safety: pass;
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
 - strict code-signature verification: pass using an ad hoc signature.
 
-The behavioral tests cover capability inventory aggregation, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, migration without token leakage, and Claude stream parsing. The built Ask Geoffrey interface was also inspected visually in dark mode for hierarchy, legibility, clipping, and composer layout.
+The behavioral tests cover capability inventory aggregation and repair classification, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, migration without token leakage, Claude stream parsing, and owner-facing readiness decisions. The built Ask Geoffrey, Improve Geoffrey, and Connections interfaces were also inspected visually in dark mode for hierarchy, legibility, clipping, and action clarity.
 
 ## Honest Limitations and Remaining Work
 
@@ -115,7 +118,7 @@ The following are not complete and must not be presented as finished:
 - **Automation:** the cloud/local execution router, existing-automation discovery, import, scheduling view, missed-run queue, and catch-up behavior remain to be built and tested.
 - **Secrets:** existing account data is preserved, but migration to macOS Keychain and recovery/export rules remain.
 - **GitHub portability:** memory exists, but the complete portable schema for skills, connectors, automation manifests, results, and restore still needs implementation and failure testing.
-- **Connections:** account add/test/repair/remove flows and health explanations need to be completed in the app.
+- **Connections:** add/reconnect/remove and health explanations exist, but still require clean-Mac and Dustin-state acceptance testing.
 - **Updates:** the legacy GitHub updater can deliver the first desktop transition, but the installed Application Support engine is not itself a Git checkout. A signed, app-native update mechanism with release notes and rollback must replace the current placeholder.
 - **Distribution:** the app is ad hoc signed only. Developer ID signing, notarization, final ZIP/DMG packaging, clean-Mac installation, and Gatekeeper validation remain.
 - **Historical exposure:** sensitive artifacts removed from the current branch remain recoverable from older repository history until separately remediated.
@@ -123,14 +126,13 @@ The following are not complete and must not be presented as finished:
 
 ## Remaining Lifecycle
 
-1. Finish capability readiness, recommendations, connection repair, and approval explanations around the proven conversation runtime.
-2. Build the hybrid automation center, import Dustin-compatible workflow definitions, and prove cloud and queued-local paths.
-3. Complete GitHub portability, Keychain secret storage, backup, restore, and recovery tests.
-4. Finish connection management, first-run setup, accessibility, and error recovery.
-5. Implement the signed app update path and release notes.
-6. Run automated, clean-environment, migration, security, and guided human acceptance tests.
-7. Sign with Developer ID, notarize, package, and publish a release candidate.
-8. Only then give Dustin the update and validate his existing briefing, memory, skills, connectors, and accounts end to end.
+1. Build the hybrid automation center, import Dustin-compatible workflow definitions, and prove cloud and queued-local paths.
+2. Complete GitHub portability, Keychain secret storage, backup, restore, and recovery tests.
+3. Finish first-run setup, accessibility, and error recovery.
+4. Implement the signed app update path and release notes.
+5. Run automated, clean-environment, migration, security, and guided human acceptance tests.
+6. Sign with Developer ID, notarize, package, and publish a release candidate.
+7. Only then give Dustin the update and validate his existing briefing, memory, skills, connectors, and accounts end to end.
 
 ## Release Gate for Dustin
 

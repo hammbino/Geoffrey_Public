@@ -957,6 +957,8 @@ struct ImproveGeoffreyView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 760, alignment: .leading)
 
+                GeoffreyReadinessView()
+
                 HStack(alignment: .top, spacing: 18) {
                     CapabilityPanel(
                         icon: "lightbulb.max.fill",
@@ -999,21 +1001,7 @@ struct ImproveGeoffreyView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(model.capabilities) { capability in
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: capability.icon)
-                                    .foregroundStyle(capability.enabled ? Color.green : Color.orange)
-                                    .frame(width: 22)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(capability.displayName).font(.body.weight(.medium))
-                                    Text("\(capability.kindLabel) · \(capability.source) · \(capability.description)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(capability.enabled ? "Ready" : "Needs attention")
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(capability.enabled ? Color.green : Color.orange)
-                            }
+                            CapabilityInventoryRow(capability: capability)
                         }
                     }
                 }
@@ -1048,6 +1036,89 @@ struct ImproveGeoffreyView: View {
         }
         .sheet(isPresented: $showingSkillBuilder) { SkillBuilderSheet() }
         .sheet(isPresented: $showingToolConnection) { ToolConnectionSheet() }
+    }
+}
+
+private struct GeoffreyReadinessView: View {
+    @EnvironmentObject private var model: GeoffreyModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Geoffrey readiness", systemImage: "checkmark.shield.fill")
+                    .font(.headline)
+                Spacer()
+                Text("\(model.readinessReadyCount) of \(model.readinessItems.count) ready")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(model.readinessReadyCount == model.readinessItems.count ? Color.green : Color.orange)
+            }
+            Text("Geoffrey checks the pieces behind the interface and gives you the next useful repair—not a technical error dump.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            ForEach(model.readinessItems) { item in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: item.state == .ready ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .foregroundStyle(item.state == .ready ? Color.green : Color.orange)
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.title).font(.body.weight(.medium))
+                        Text(item.detail).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 12)
+                    if let actionTitle = item.actionTitle {
+                        Button(actionTitle) { model.performReadinessAction(item) }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    } else {
+                        Text("Ready")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.green)
+                    }
+                }
+                if item.id != model.readinessItems.last?.id { Divider() }
+            }
+        }
+        .padding(20)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct CapabilityInventoryRow: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    let capability: GeoffreyCapability
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: capability.icon)
+                .foregroundStyle(capability.isReady ? Color.green : Color.orange)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(capability.displayName).font(.body.weight(.medium))
+                Text("\(capability.kindLabel) · \(capability.source) · \(capability.description)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if model.repairingCapabilityIDs.contains(capability.id) {
+                ProgressView().controlSize(.small)
+            } else if let repairTitle = capability.repairTitle {
+                VStack(alignment: .trailing, spacing: 5) {
+                    Text(capability.statusLabel)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.orange)
+                    Button(repairTitle) { model.repairCapability(capability) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
+            } else {
+                Text("Ready")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.green)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -1201,14 +1272,14 @@ struct ConnectionsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 VStack(alignment: .leading, spacing: 0) {
-                    ConnectionRow(icon: "sparkles", title: "Claude", detail: model.health["claude"] == "ready" ? "Ready" : "Sign in needed", ready: model.health["claude"] == "ready", actionTitle: nil) {
+                    ConnectionRow(icon: "sparkles", title: "Claude", detail: model.health["claude"] == "ready" ? "Ready" : "Sign in needed", ready: model.health["claude"] == "ready", actionTitle: "Sign in") {
                         model.openClaudeLogin()
                     }
-                    ConnectionRow(icon: "brain.head.profile", title: "Private memory", detail: model.memoryDetail, ready: model.hasMemory, actionTitle: nil) {
+                    ConnectionRow(icon: "brain.head.profile", title: "Private memory", detail: model.memoryDetail, ready: model.hasMemory, actionTitle: "Set up") {
                         model.openSetup("setup")
                     }
-                    ConnectionRow(icon: "arrow.triangle.branch", title: "Private GitHub backup", detail: model.health["github"] == "ready" ? "Connected" : "Not connected yet", ready: model.health["github"] == "ready", actionTitle: nil) {
-                        model.openSetup("setup")
+                    ConnectionRow(icon: "arrow.triangle.branch", title: "Private GitHub backup", detail: model.health["github"] == "ready" ? "Connected" : "Sign in needed", ready: model.health["github"] == "ready", actionTitle: "Connect") {
+                        model.openGitHubLogin()
                     }
                 }
                 .padding(.horizontal, 20)
@@ -1417,9 +1488,13 @@ struct ConnectionRow: View {
                 Text(detail).foregroundStyle(.secondary)
             }
             Spacer()
-            if let actionTitle { Button(actionTitle, action: action).buttonStyle(.bordered) }
-            else if !ready { Button("Set up", action: action).buttonStyle(.bordered) }
-            else { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
+            if ready {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            } else if let actionTitle {
+                Button(actionTitle, action: action).buttonStyle(.bordered)
+            } else {
+                Button("Set up", action: action).buttonStyle(.bordered)
+            }
         }
         .padding(.vertical, 12)
         Divider()
@@ -1802,9 +1877,33 @@ struct GeoffreyCapability: Codable, Identifiable {
     let type: String
     let source: String
     let enabled: Bool
+    let state: String?
+    let repair: String?
     let description: String
 
     var displayName: String { name.replacingOccurrences(of: "-", with: " ").capitalized }
+    var isReady: Bool { (state ?? (enabled ? "ready" : "needs_attention")) == "ready" }
+    var statusLabel: String {
+        switch state {
+        case "disabled": return "Disabled"
+        case "needs_login": return "Sign in needed"
+        case "pending": return "Approval needed"
+        case "needs_attention": return "Needs attention"
+        default: return isReady ? "Ready" : "Needs attention"
+        }
+    }
+    var repairTitle: String? {
+        guard !isReady else { return nil }
+        switch repair {
+        case "enable_plugin": return "Enable"
+        case "login_mcp": return "Reconnect"
+        default: return "How to fix"
+        }
+    }
+    var commandIdentifier: String {
+        guard let separator = id.firstIndex(of: ":") else { return name }
+        return String(id[id.index(after: separator)...])
+    }
     var kindLabel: String {
         switch type {
         case "mcp": return "Connection"
@@ -1846,6 +1945,8 @@ final class GeoffreyModel: ObservableObject {
     @Published var issueMessage = ""
     @Published var showingIssue = false
     @Published var isSigningIntoClaude = false
+    @Published var isSigningIntoGitHub = false
+    @Published var repairingCapabilityIDs = Set<String>()
     @Published var modelChoice: String {
         didSet { UserDefaults.standard.set(modelChoice, forKey: "geoffreyModelChoice") }
     }
@@ -1971,6 +2072,16 @@ final class GeoffreyModel: ObservableObject {
         let value = health["email"] ?? "Checking..."
         return value.contains("connected") ? "\(value). Add another whenever you need it." : "No account connected yet"
     }
+    var readinessItems: [GeoffreyReadinessItem] {
+        GeoffreyReadiness.items(
+            health: health,
+            accountCount: accounts.count,
+            accountsNeedingRepair: accounts.filter { $0.calendar.state != "ready" }.count,
+            capabilityCount: capabilities.count,
+            capabilitiesNeedingRepair: capabilities.filter { !$0.isReady }.count
+        )
+    }
+    var readinessReadyCount: Int { readinessItems.filter { $0.state == .ready }.count }
     var modelDescription: String {
         switch modelChoice {
         case "sonnet": return "Faster responses for everyday briefings, drafts, and routine work."
@@ -2474,6 +2585,82 @@ final class GeoffreyModel: ObservableObject {
             }
         }
     }
+
+    func performReadinessAction(_ item: GeoffreyReadinessItem) {
+        switch item.id {
+        case "claude":
+            openClaudeLogin()
+        case "email":
+            if let account = accounts.first(where: { $0.calendar.state != "ready" }) {
+                presentAccountConnection(account)
+            } else {
+                presentAccountConnection()
+            }
+        case "memory":
+            if health["github"] == "ready" {
+                presentMemorySetup()
+            } else {
+                issueMessage = "Connect GitHub first so Geoffrey can create private, portable memory instead of trapping it inside this Mac."
+                showingIssue = true
+            }
+        case "github":
+            openGitHubLogin()
+        case "capabilities":
+            if let capability = capabilities.first(where: { !$0.isReady }) {
+                issueMessage = "\(capability.displayName) is the first Claude capability that needs attention. Use its \(capability.repairTitle ?? "How to fix") button below."
+            } else {
+                issueMessage = "Refresh Geoffrey to check Claude's skills, plugins, and connections again."
+            }
+            showingIssue = true
+        default:
+            break
+        }
+    }
+
+    func repairCapability(_ capability: GeoffreyCapability) {
+        guard !capability.isReady else { return }
+        switch capability.repair {
+        case "enable_plugin":
+            runCapabilityRepair(
+                capability,
+                arguments: ["claude", "plugin", "enable", capability.commandIdentifier],
+                success: "\(capability.displayName) is enabled. Geoffrey is refreshing its Claude capabilities."
+            )
+        case "login_mcp":
+            runCapabilityRepair(
+                capability,
+                arguments: ["claude", "mcp", "login", capability.commandIdentifier],
+                success: "\(capability.displayName) is reconnected. Geoffrey is checking it again."
+            )
+        case "review_mcp":
+            issueMessage = capability.state == "pending"
+                ? "\(capability.displayName) is waiting for approval in Claude. Open Claude Code, approve that connection when Claude asks, then return here and refresh."
+                : "\(capability.displayName) is configured in Claude but is not healthy. Reconnect it in Claude, then return here and refresh. Geoffrey will not remove or replace it automatically."
+            showingIssue = true
+        default:
+            issueMessage = "Refresh Geoffrey to check \(capability.displayName) again. If it still needs attention, reconnect it in Claude before Geoffrey tries to use it."
+            showingIssue = true
+        }
+    }
+
+    private func runCapabilityRepair(_ capability: GeoffreyCapability, arguments: [String], success: String) {
+        guard !repairingCapabilityIDs.contains(capability.id) else { return }
+        repairingCapabilityIDs.insert(capability.id)
+        Task.detached {
+            let result = Self.run(executable: "/usr/bin/env", arguments: arguments)
+            await MainActor.run {
+                self.repairingCapabilityIDs.remove(capability.id)
+                if result.status == 0 {
+                    self.issueMessage = success
+                    self.refresh()
+                } else {
+                    self.issueMessage = "Geoffrey could not repair \(capability.displayName) automatically. Nothing was removed or replaced. Open Claude and reconnect it there, then refresh Geoffrey."
+                }
+                self.showingIssue = true
+            }
+        }
+    }
+
     func openClaudeLogin() {
         guard !isSigningIntoClaude else { return }
         isSigningIntoClaude = true
@@ -2488,6 +2675,27 @@ final class GeoffreyModel: ObservableObject {
                     self.issueMessage = "Claude sign-in did not finish. Try again when you are ready; no Geoffrey data was changed."
                 }
                 self.showingIssue = true
+            }
+        }
+    }
+
+    func openGitHubLogin() {
+        guard !isSigningIntoGitHub else { return }
+        isSigningIntoGitHub = true
+        issueMessage = "GitHub sign-in is opening in your browser. The one-time code is copied to your clipboard. Approve only the account you want to hold Geoffrey's private memory."
+        showingIssue = true
+        Task.detached {
+            let result = Self.run(
+                executable: "/usr/bin/env",
+                arguments: ["gh", "auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web", "--clipboard"]
+            )
+            await MainActor.run {
+                self.isSigningIntoGitHub = false
+                self.issueMessage = result.status == 0
+                    ? "GitHub is connected. Geoffrey can now create or sync private, portable memory."
+                    : "GitHub sign-in did not finish. Nothing was created or shared. Try Connect again when you are ready."
+                self.showingIssue = true
+                self.refresh()
             }
         }
     }

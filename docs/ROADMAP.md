@@ -24,14 +24,14 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Write a secret-free migration manifest.
 - [x] Install the app engine atomically in Application Support while leaving private state intact.
 
-## Phase 3: Claude Conversation and Capability Center — In Progress
+## Phase 3: Claude Conversation and Capability Center — Complete
 
 - [x] Detect Claude CLI authentication and provide the supported login flow.
 - [x] Capture and resume Claude session IDs.
 - [x] Inventory skills, plugins, and MCP servers.
 - [x] Prove a live authenticated two-turn conversation.
 - [x] Add streaming, cancellation, readable tool activity, persistent visible history, and approved-change status.
-- [ ] Finish readiness, recommendation, and repair experiences.
+- [x] Finish readiness, recommendation, and targeted repair experiences.
 
 ## Phase 4: Hybrid Automation — Pending
 

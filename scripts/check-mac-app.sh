@@ -41,6 +41,12 @@ TEST_ARCH="$(uname -m)"
 "$TEST_HOME/claude-stream-tests" >/dev/null || fail "Claude stream events must be parsed safely."
 ok "Claude stream parser handles partial text, tools, completion, and errors"
 
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" \
+  "$ROOT/app/GeoffreyReadiness.swift" "$ROOT/app/GeoffreyReadinessTests.swift" \
+  -o "$TEST_HOME/geoffrey-readiness-tests"
+"$TEST_HOME/geoffrey-readiness-tests" >/dev/null || fail "Readiness states must produce the correct owner action."
+ok "Readiness tests cover healthy, repair, and first-use states"
+
 rg -F '.onSubmit(send)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must send when the owner presses Return."
 rg -F 'TextField("Ask about a task, decision, or problem you want off your plate"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must use a native editable text field."
 ok "Chat input is a native Return-to-send field"
@@ -86,9 +92,14 @@ rg -F 'Recommend a skill for me' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fai
 rg -F 'I already know which app I use' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connection planning must keep app selection optional."
 rg -F 'What do you want Geoffrey to handle more reliably?' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Skill creation must start with an owner outcome."
 capabilities="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-capabilities)"
-printf '%s' "$capabilities" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const items = JSON.parse(input); if (!Array.isArray(items) || !items.some(item => item.type === "skill" && item.enabled)) process.exit(1); });' || fail "Capability inventory must return enabled Geoffrey skills."
+printf '%s' "$capabilities" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const items = JSON.parse(input); if (!Array.isArray(items) || !items.some(item => item.type === "skill" && item.enabled) || items.some(item => !item.state || !item.repair)) process.exit(1); });' || fail "Capability inventory must return actionable Geoffrey readiness states."
 rg -F 'Label("Available in Geoffrey"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey must show available Claude capabilities."
-ok "Improve Geoffrey uses prepared context and outcome-first flows"
+rg -F 'Label("Geoffrey readiness"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey must summarize readiness before recommending new capabilities."
+rg -F 'func performReadinessAction(' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Each readiness problem must route to an owner action."
+rg -F 'func repairCapability(' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Disabled or disconnected Claude capabilities need repair actions."
+rg -F 'Button(repairTitle)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Capability repair must be available in the interface."
+rg -F 'func openGitHubLogin()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "GitHub portability needs an in-app connection path."
+ok "Improve Geoffrey explains readiness and routes targeted repairs"
 
 rg -F '@Published var runningTask: GeoffreyTask?' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Today actions must track the running task."
 rg -F 'prominent: model.runningTask == .inbox' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Inbox must be highlighted while it is running."

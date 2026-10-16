@@ -23,7 +23,16 @@ function skillMetadata(path, source) {
     if (!existsSync(file) || seenSkills.has(entry.name)) continue;
     const text = readFileSync(file, "utf8");
     const description = text.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "Claude skill";
-    capabilities.push({ id: `skill:${entry.name}`, name: entry.name, type: "skill", source, enabled: true, description });
+    capabilities.push({
+      id: `skill:${entry.name}`,
+      name: entry.name,
+      type: "skill",
+      source,
+      enabled: true,
+      state: "ready",
+      repair: "none",
+      description,
+    });
     seenSkills.add(entry.name);
   }
 }
@@ -42,6 +51,8 @@ try {
       type: "plugin",
       source: plugin.scope ?? "Claude",
       enabled: plugin.enabled !== false,
+      state: plugin.enabled === false ? "disabled" : "ready",
+      repair: plugin.enabled === false ? "enable_plugin" : "none",
       description: plugin.enabled === false ? "Installed but disabled" : "Installed Claude plugin",
     });
   }
@@ -54,7 +65,30 @@ try {
     if (!match || /No MCP servers configured/i.test(line)) continue;
     const name = match[1].replace(/^[^\w]+/, "").trim();
     if (!name) continue;
-    capabilities.push({ id: `mcp:${name}`, name, type: "mcp", source: "Claude", enabled: !/disabled|pending/i.test(match[2]), description: match[2].trim() });
+    const description = match[2].trim();
+    let state = "needs_attention";
+    let repair = "review_mcp";
+    if (/connected|[✔✓]/i.test(description)) {
+      state = "ready";
+      repair = "none";
+    } else if (/pending/i.test(description)) {
+      state = "pending";
+    } else if (/login|auth|unauthori[sz]ed/i.test(description)) {
+      state = "needs_login";
+      repair = "login_mcp";
+    } else if (/disabled/i.test(description)) {
+      state = "disabled";
+    }
+    capabilities.push({
+      id: `mcp:${name}`,
+      name,
+      type: "mcp",
+      source: "Claude",
+      enabled: state === "ready",
+      state,
+      repair,
+      description,
+    });
   }
 } catch { /* An unavailable MCP health check should not hide skills/plugins. */ }
 

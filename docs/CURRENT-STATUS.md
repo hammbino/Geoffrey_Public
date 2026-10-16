@@ -6,7 +6,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## Proven Now
 
-- Native Mac app builds as Geoffrey `0.3.0` (build 3).
+- Native Mac app builds as Geoffrey `0.4.0` (build 4).
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
@@ -14,6 +14,8 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Owners can stop an active request and see understandable thinking, connected-account, web, reading, and approved-change states.
 - Claude sign-in status and login flow are surfaced through the app.
 - Capability inventory combines Claude skills, plugins, and MCP servers.
+- Improve Geoffrey summarizes Claude, email/calendar, private memory, GitHub, and capability readiness before recommending anything new.
+- Missing setup and unhealthy capabilities route to targeted actions, including account repair, Claude or GitHub sign-in, disabled-plugin enablement, and MCP reconnection guidance.
 - Release packages use an explicit allowlist and pass sensitive-material checks.
 - A live authenticated two-turn Claude session successfully resumed the same session and recalled information from the first turn.
 - Geoffrey's exact `stream-json` flags were verified against the installed Claude Code `2.1.301` event format.
@@ -21,7 +23,6 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## In Progress
 
-- A capability center that explains what is ready, what needs attention, and what Geoffrey recommends.
 - A hybrid automation center for cloud execution plus a queued local fallback.
 - Portable GitHub state for approved skills, connector definitions, automation manifests, results, and recovery.
 - Keychain-backed secret storage and connection repair.
