@@ -1,31 +1,38 @@
 # Current Product Status
 
-Updated: October 13, 2026
+Updated: October 15, 2026
 
-## What Geoffrey Already Does
+The current effort is the native Mac release for Dustin. The terminal interface is not the future product, but its state must be preserved. The authoritative scope, evidence, limitations, and release gate are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
-- Installs from a public GitHub repository with one Terminal command.
-- Creates a local Geoffrey workspace in `~/Geoffrey`.
-- Provides a native Mac app at `~/Applications/Geoffrey.app`.
-- Offers a daily briefing, inbox review, follow-ups, open loops, and a freeform request box.
-- Supports multiple Gmail and Microsoft/Outlook accounts through Geoffrey's account flow.
-- Stores private memory, briefing feedback, and priority learning in the owner's GitHub repository.
-- Lets Geoffrey recommend and build private skills after the owner approves them.
-- Offers Automatic, Faster, Deep Thinking, and custom Claude model choices.
-- Checks quietly for updates every two weeks and only asks when an update exists.
+## Proven Now
 
-## What Needs Work Before a Broad Friend Release
+- Native Mac app builds as Geoffrey `0.2.0` (build 2).
+- The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
+- Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
+- Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
+- Ask Geoffrey records and resumes Claude session IDs.
+- Claude sign-in status and login flow are surfaced through the app.
+- Capability inventory combines Claude skills, plugins, and MCP servers.
+- Release packages use an explicit allowlist and pass sensitive-material checks.
+- `./scripts/verify.sh` passes all current checks, including 7 behavioral tests and strict verification of the ad hoc signature.
 
-1. **In-app first-run setup**: the initial setup still relies too heavily on Terminal.
-2. **Persistent conversation**: each app action currently starts a new Claude run. Geoffrey should retain an in-app conversation and clear approval moments.
-3. **Connection management**: people need a simple way to see, add, repair, and remove accounts from the app.
-4. **Repair and readiness checks**: Geoffrey should verify Claude sign-in, required Mac tools, and account connections in language a nontechnical person can act on.
-5. **Update notes**: when an update is available, explain what it changes before asking to install it.
+## In Progress
 
-## Honest Readiness
+- A readable persistent conversation with streaming, cancellation, tool activity, and approval moments.
+- A capability center that explains what is ready, what needs attention, and what Geoffrey recommends.
+- A hybrid automation center for cloud execution plus a queued local fallback.
+- Portable GitHub state for approved skills, connector definitions, automation manifests, results, and recovery.
+- Keychain-backed secret storage and connection repair.
+- A signed, app-native updater that supersedes the initial legacy GitHub transition.
 
-- Core usefulness: **8/10**
-- Friend handoff simplicity today: **about 6/10**
-- Target before sharing beyond a closely guided pilot: **8/10 or better**
+## Not Yet Proven
 
-The product is strong enough for two guided pilot users. It is not yet fair to describe as fully hands-off for a nontechnical friend.
+- The live two-turn Claude resume test, because the development Mac is not authenticated to Claude Code.
+- Import and execution of Dustin's three-times-daily social briefing.
+- Cloud execution while Dustin's Mac is off and queued catch-up for local-only work.
+- Clean-Mac installation, Developer ID signing, notarization, Gatekeeper acceptance, and rollback.
+- End-to-end migration against Dustin's actual machine.
+
+## Readiness
+
+This branch is a development milestone, not a Dustin release candidate. Dustin should not be involved until the release gate in the Desktop Release Record passes.

@@ -1,5 +1,7 @@
 # Geoffrey Handoff
 
+> **Legacy package note:** This document describes the earlier Claude Desktop and terminal handoff. It is not the current Dustin release plan. The native Mac transition, preservation requirements, known limitations, and acceptance gate are maintained in [docs/DESKTOP-RELEASE.md](docs/DESKTOP-RELEASE.md). Dustin should not receive the current development branch until that gate passes.
+
 ## What This Is
 
 Geoffrey is packaged for Claude Desktop and Claude Code.

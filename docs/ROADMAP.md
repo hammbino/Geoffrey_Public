@@ -1,30 +1,65 @@
-# Geoffrey OS Roadmap
+# Geoffrey Desktop Roadmap
 
-## Now: Pilot-Ready Foundation
+Updated: October 15, 2026
 
-- [x] Public installer and GitHub-based distribution
-- [x] Geoffrey Mac app
-- [x] Gmail and Microsoft/Outlook account paths
-- [x] GitHub-backed memory
-- [x] Daily briefing feedback and skill recommendations
-- [x] Quiet update checking
-- [ ] Document two guided pilot sessions
+The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
-## Next: Make It Feel White Glove
+## Phase 0: Recover a Trustworthy Baseline — Complete
 
-1. Build a real in-app first-run wizard.
-2. Add a connection center: add, test, repair, and remove accounts.
-3. Add a readiness screen that clearly verifies Claude sign-in, GitHub memory, and each connection.
-4. Add useful update notes and a one-click repair option.
+- [x] Audit the earlier work instead of assuming it is valid.
+- [x] Remove real-data screenshots and the stale private-beta app archive from the current branch.
+- [x] Add explicit package allowlists and sensitive-material checks.
+- [x] Establish one repeatable verification command.
 
-## Then: Make Geoffrey a Better Chief of Staff
+## Phase 1: Build the Test Foundation — Complete
 
-1. Replace one-shot requests with a persistent, readable conversation.
-2. Make every consequential action visible and approval-based.
-3. Let Geoffrey turn repeated work into suggested skills and workflows.
-4. Add purpose-built connection flows for calendar, files, marketing, and communication tools.
-5. Add a simple work queue: what Geoffrey noticed, what it recommends, and what it is waiting on.
+- [x] Isolate Mac checks from the developer's real home directory and Claude state.
+- [x] Add behavioral tests for capability inventory, multi-account behavior, Outlook safety, graceful degradation, and migration secrecy.
+- [x] Verify Claude distribution packages, Mac payloads, and code signatures.
 
-## Release Gate
+## Phase 2: Preserve the Terminal Installation — Complete
 
-Geoffrey is ready for broad friend sharing when a nontechnical tester can independently install it, connect one account, get a useful briefing, give feedback, and recover from one expected mistake.
+- [x] Discover the legacy workspace, account registry, memory pointer, GitHub memory, and automation candidates.
+- [x] Back up state before migration.
+- [x] Write a secret-free migration manifest.
+- [x] Install the app engine atomically in Application Support while leaving private state intact.
+
+## Phase 3: Claude Conversation and Capability Center — In Progress
+
+- [x] Detect Claude CLI authentication and provide the supported login flow.
+- [x] Capture and resume Claude session IDs.
+- [x] Inventory skills, plugins, and MCP servers.
+- [ ] Prove a live authenticated two-turn conversation.
+- [ ] Add streaming, cancellation, readable tool activity, and clear approval moments.
+- [ ] Finish readiness, recommendation, and repair experiences.
+
+## Phase 4: Hybrid Automation — Pending
+
+- [ ] Inventory and classify Dustin's existing social briefing automation.
+- [ ] Surface imported routines and schedules in Geoffrey.
+- [ ] Route cloud-compatible work to supported Claude cloud automation.
+- [ ] Queue local-only work while the Mac is off and catch it up visibly.
+- [ ] Record run history, failures, retry state, and owner approvals.
+
+## Phase 5: Portable State and Security — Pending
+
+- [ ] Define and implement the GitHub schema for memory, skills, connectors, automation manifests, and results.
+- [ ] Move credentials and tokens to macOS Keychain.
+- [ ] Prove sync success, visible failure, conflict handling, backup, and restore.
+- [ ] Decide whether old Git history must be rewritten and rotate any exposed credentials if necessary.
+
+## Phase 6: White-Glove UX — Pending
+
+- [ ] Complete first-run setup without Terminal use.
+- [ ] Finish add/test/repair/remove connection flows for multiple accounts.
+- [ ] Add accessible states, useful empty states, understandable errors, and recovery actions.
+- [ ] Test core workflows with a nontechnical user who has no developer assistance.
+
+## Phase 7: Distribution and Dustin Pilot — Pending
+
+- [ ] Implement an app-native signed updater with release notes and rollback.
+- [ ] Sign with Developer ID, notarize, and verify Gatekeeper on a clean Mac.
+- [ ] Publish a release candidate ZIP or DMG and checksum.
+- [ ] Deliver the transition through Dustin's existing GitHub-based updater.
+- [ ] Validate his memory, accounts, skills, connectors, and three-times-daily briefing end to end.
+- [ ] Record acceptance evidence and only then mark the Dustin release complete.

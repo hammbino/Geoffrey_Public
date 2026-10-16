@@ -1,5 +1,7 @@
 # Geoffrey White-Glove Setup
 
+> **Desktop release status:** Geoffrey is being converted from the terminal iteration into the native Mac product for Dustin. The branch is not yet a release candidate. See the [authoritative desktop release record](docs/DESKTOP-RELEASE.md) and [current status](docs/CURRENT-STATUS.md).
+
 Start here if you are giving Geoffrey to yourself or a friend:
 
 - [START_HERE.md](START_HERE.md)
@@ -67,7 +69,7 @@ the owner's approval.
 In Geoffrey Settings, owners can choose Automatic, Faster, or Deep thinking
 Claude behavior for their work without using Terminal.
 
-The Terminal launchers remain available for advanced use or support:
+The current Terminal launchers remain available only for the legacy build and transition support. They are not the intended Geoffrey user experience:
 
 Double-click this file on the Desktop:
 
