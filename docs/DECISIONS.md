@@ -19,6 +19,9 @@
 | Existing state is migrated non-destructively | Geoffrey backs up and inventories the old setup before using it in place. | Implemented |
 | Cloud-first automation with a local queue | Cloud-capable workflows should run while the Mac is off; local-only dependencies wait and catch up visibly. | Discovery and queue implemented; execution pending |
 | Automation discovery never changes a schedule | Legacy candidates and portable manifests can be inventoried safely before timing, tools, and destination are approved. | Implemented |
+| Automation approval belongs in Geoffrey | Owners can review or create a definition, timing, route, and private result destination without opening Terminal or editing JSON. | Implemented |
+| Saving a cloud definition does not create a cloud schedule | Approval makes the portable intent explicit, while live Claude scheduling remains a separate supported setup and verification step. | Implemented |
+| Workflow definitions reject credentials | Geoffrey refuses common tokens, keys, passwords, and bearer credentials before atomically updating the portable manifest. | Implemented |
 | “Cloud capable” is not “running in cloud” | Geoffrey only claims active cloud execution after an approved Claude deployment is connected and verified. | Implemented |
 | Local recurring work runs read-only | Queued work may retrieve, analyze, and prepare results, but cannot send, publish, spend, delete, change access, or bypass Claude permissions. | Implemented |
 | Automation results and history are portable | Owner-ready results and non-secret run metadata sync with private GitHub memory; operational queue state stays local. | Implemented |

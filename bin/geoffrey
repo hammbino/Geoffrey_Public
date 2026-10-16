@@ -47,6 +47,7 @@ Usage:
   ./bin/geoffrey app-automations
   ./bin/geoffrey app-automation-queue
   ./bin/geoffrey app-automation-run --workflow ID [--retry|--now]
+  ./bin/geoffrey app-automation-save --payload BASE64_JSON
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill|build-skill [--request "..."]
   ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
@@ -95,6 +96,7 @@ Commands:
   app-automations Discover recurring work without creating or changing schedules.
   app-automation-queue Queue missed approved local work without running it.
   app-automation-run Run one approved local workflow and record its result.
+  app-automation-save Save a reviewed workflow to private GitHub-backed memory.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-context  Prepare the read-only private context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
@@ -2280,6 +2282,10 @@ app_automation_run() {
   node "$MCP_DIR/bin/automation-run.js" "$@"
 }
 
+app_automation_save() {
+  node "$MCP_DIR/bin/automation-save.js" "$@"
+}
+
 app_prompt() {
   task="ask"
   request=""
@@ -3419,6 +3425,10 @@ case "${1:-}" in
   app-automation-run)
     shift
     app_automation_run "$@"
+    ;;
+  app-automation-save)
+    shift
+    app_automation_save "$@"
     ;;
   app-prompt)
     shift

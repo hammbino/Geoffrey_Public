@@ -88,6 +88,9 @@ These items may still exist in older Git history or tags. Before any public rele
 - Added read-only discovery for declared workflows and terminal-era files whose names indicate briefings, schedules, routines, or automations.
 - Added safe routing into `cloud`, `local`, or `review` based on declared local paths, cloud compatibility, approval, and capability readiness.
 - Added an Automation Center that shows cadence, route, source, queued runs, and the approval boundary in plain language.
+- Added an in-app sheet to create or edit a recurring workflow, review its purpose and read-only task, choose cloud or local execution, set one to three daily times, and save a disabled draft or an explicitly approved definition.
+- Portable workflow saves are atomic and owner-only, reject common credential forms before writing, preserve imported source identity to prevent duplicate candidates, and use the existing private-memory sync path after a successful save.
+- An approved cloud definition remains `not_connected`; the review sheet explicitly states that saving it does not create a Claude Routine.
 - Added a bounded, duplicate-safe local missed-run queue for enabled workflows with explicit approval. Queue creation does not execute Claude or touch a cloud schedule.
 - Added explicit Run queued, Run now, Retry, and Open last result actions for approved local work.
 - Local execution uses Claude's `plan` permission mode, refuses unapproved and cloud-routed workflows before starting Claude, and never uses a permission-bypass flag.
@@ -118,7 +121,7 @@ The current verified result is:
 
 - shell syntax checks: pass;
 - JavaScript syntax checks: pass;
-- behavioral tests: 14 passed, 0 failed;
+- behavioral tests: 16 passed, 0 failed;
 - isolated Claude stream parser tests: pass for session identity, partial text, tool activity, final results, structured failures, and non-JSON diagnostics;
 - isolated readiness tests: pass for all-ready, multi-account repair, signed-out, first-use, empty-inventory, and capability-attention states;
 - isolated automation presentation tests: pass for cloud-capable, active-cloud, Mac-required, and review labels;
@@ -127,7 +130,7 @@ The current verified result is:
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
 - strict code-signature verification: pass using an ad hoc signature.
 
-The behavioral tests cover automation discovery, secret exclusion, cloud/local/review routing, bounded missed-run queuing, approval enforcement, successful local execution, failure and retry, concurrency refusal, result portability, credential redaction, capability inventory aggregation and repair classification, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, migration without token leakage, Claude stream parsing, and owner-facing readiness decisions. The built Ask Geoffrey, Improve Geoffrey, and Connections interfaces were previously inspected visually in dark mode for hierarchy, legibility, clipping, and action clarity. The rebuilt Automation Center empty state was inspected in the live app on October 16 for sidebar placement, hierarchy, metric alignment, legibility, and approval clarity. Populated run/retry cards are covered by Swift decoding and behavioral contracts but still require a fixture-backed or Dustin-state visual acceptance pass.
+The behavioral tests cover automation discovery, secret exclusion, cloud/local/review routing, bounded missed-run queuing, approval enforcement, portable draft/approval saves, imported-candidate deduplication, atomic rejection of credential-bearing definitions, successful local execution, failure and retry, concurrency refusal, result portability, credential redaction, capability inventory aggregation and repair classification, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, migration without token leakage, Claude stream parsing, and owner-facing readiness decisions. The isolated Mac check also saves a draft through the public command and proves that it round-trips through the inventory contract without becoming enabled. The built Ask Geoffrey, Improve Geoffrey, and Connections interfaces were previously inspected visually in dark mode for hierarchy, legibility, clipping, and action clarity. The rebuilt Automation Center empty state and add/review sheet were inspected in the live app on October 16 for hierarchy, required fields, schedule controls, private-memory destination, and explicit approval clarity. Populated run/retry cards are covered by Swift decoding and behavioral contracts but still require a fixture-backed or Dustin-state visual acceptance pass.
 
 ## Honest Limitations and Remaining Work
 
@@ -135,7 +138,7 @@ The following are not complete and must not be presented as finished:
 
 - **Cloud automation:** discovery, classification, local queueing/execution, portable results, and retry history are implemented. Connecting and verifying a Claude Routine that runs while the Mac is off, observing its run history, and validating Dustin's actual briefing remain.
 - **Secrets:** existing account data is preserved, but migration to macOS Keychain and recovery/export rules remain.
-- **GitHub portability:** memory exists, but the complete portable schema for skills, connectors, automation manifests, results, and restore still needs implementation and failure testing.
+- **GitHub portability:** workflow definitions, results, and bounded run history now use private memory and the existing sync path, but the complete schema for skills and connectors plus visible sync failure, conflict, and restore handling still needs implementation and testing.
 - **Connections:** add/reconnect/remove and health explanations exist, but still require clean-Mac and Dustin-state acceptance testing.
 - **Updates:** the legacy GitHub updater can deliver the first desktop transition, but the installed Application Support engine is not itself a Git checkout. A signed, app-native update mechanism with release notes and rollback must replace the current placeholder.
 - **Distribution:** the app is ad hoc signed only. Developer ID signing, notarization, final ZIP/DMG packaging, clean-Mac installation, and Gatekeeper validation remain.
@@ -178,6 +181,6 @@ No release claim is based only on an implementation assertion. Every item above 
 | `0e703e7` | Secured release packaging and added legacy-state migration. |
 | `e7a644c` | Added streaming conversation readiness and targeted capability repair. |
 | This slice | Added automation discovery, classification, UI, and bounded local queue creation. |
-| Current slice | Added approved local execution, portable results, run history, failure recovery, and credential redaction. |
+| Current slice | Added in-app automation creation, editing, review, explicit approval, secure portable saving, imported-candidate deduplication, and save round-trip proof. |
 
 This record is updated with each completed slice. A branch push is not a Dustin release and does not imply that the release gate has passed.

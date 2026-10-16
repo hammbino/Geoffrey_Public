@@ -18,3 +18,5 @@ Tokens, OAuth records, API keys, message contents, and other secrets do not belo
 Local execution always uses Claude's read-only plan permission mode. A recurring workflow cannot send, publish, spend, delete, change access, or modify an outside system. Those consequential actions require a separate, current owner approval.
 
 Imported terminal-era files appear as review candidates first. Geoffrey does not create, duplicate, enable, or change a schedule merely because it discovered a file whose name suggests an automation.
+
+The Geoffrey Mac app is the supported place to create or review these definitions. An owner can save a disabled draft or explicitly approve the proposed cadence and route. Saving an approved cloud-capable definition records intent only: it does not create a Claude Routine, and Geoffrey must not call it active until the supported cloud deployment is connected and verified.

@@ -93,6 +93,9 @@ struct GeoffreyRootView: View {
         .sheet(isPresented: $model.showingMemorySetup) {
             MemorySetupSheet()
         }
+        .sheet(isPresented: $model.showingAutomationReview) {
+            AutomationReviewSheet(automation: model.automationReviewSeed)
+        }
     }
 }
 
@@ -1945,6 +1948,11 @@ final class GeoffreyModel: ObservableObject {
     @Published var accounts: [GeoffreyAccount] = []
     @Published var capabilities: [GeoffreyCapability] = []
     @Published var automationInventory = GeoffreyAutomationInventory.empty
+    @Published var showingAutomationReview = false
+    @Published var isSavingAutomation = false
+    @Published var automationSaveOutcome: String?
+    @Published var automationSaveSucceeded = false
+    @Published var automationReviewSeed: GeoffreyAutomation?
     @Published var issueMessage = ""
     @Published var showingIssue = false
     @Published var isSigningIntoClaude = false
@@ -2544,6 +2552,57 @@ final class GeoffreyModel: ObservableObject {
         showingMemorySetup = true
     }
 
+    func presentAutomationReview(_ automation: GeoffreyAutomation? = nil) {
+        guard hasGeoffreyEngine else { launchInstaller(); return }
+        automationReviewSeed = automation
+        automationSaveOutcome = nil
+        automationSaveSucceeded = false
+        showingAutomationReview = true
+    }
+
+    func saveAutomation(_ request: GeoffreyAutomationSaveRequest) {
+        guard !isSavingAutomation else { return }
+        guard let data = try? JSONEncoder().encode(request) else {
+            automationSaveSucceeded = false
+            automationSaveOutcome = "Geoffrey could not prepare this automation safely. Nothing was saved."
+            return
+        }
+        isSavingAutomation = true
+        automationSaveOutcome = nil
+        let payload = data.base64EncodedString()
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(
+                executable: geoffreyHome + "/bin/geoffrey",
+                arguments: ["app-automation-save", "--payload", payload]
+            )
+            let response = try? JSONDecoder().decode(
+                GeoffreyAutomationSaveResponse.self,
+                from: Data(result.output.utf8)
+            )
+            if result.status == 0, response?.ok == true {
+                _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+            }
+            await MainActor.run {
+                self.isSavingAutomation = false
+                if result.status == 0, response?.ok == true {
+                    self.automationSaveSucceeded = true
+                    if request.approved && request.route == "cloud" {
+                        self.automationSaveOutcome = "The approved definition is saved in private Geoffrey memory. No Claude cloud schedule was created; Geoffrey will ask before connecting one."
+                    } else if request.approved {
+                        self.automationSaveOutcome = "The approved definition is saved in private Geoffrey memory and is ready for local queueing."
+                    } else {
+                        self.automationSaveOutcome = "The draft is saved in private Geoffrey memory. It will not run until you review and approve it."
+                    }
+                    self.refresh()
+                } else {
+                    self.automationSaveSucceeded = false
+                    self.automationSaveOutcome = response?.error
+                        ?? "Geoffrey could not save this automation. Nothing was changed."
+                }
+            }
+        }
+    }
+
     func createMemory(owner: String, business: String, github: String) {
         let cleanOwner = owner.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanBusiness = business.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2653,15 +2712,7 @@ final class GeoffreyModel: ObservableObject {
     }
 
     func reviewAutomation(_ automation: GeoffreyAutomation) {
-        if automation.execution.route == "cloud" {
-            issueMessage = "\(automation.name) is cloud capable, but no active Claude schedule is connected yet. Connecting it requires confirming the cadence, accounts, output destination, budget, and permissions. Geoffrey will not create or duplicate that schedule automatically."
-        } else if automation.approval.state == "approved" && automation.enabled && !automation.execution.canRun {
-            issueMessage = "\(automation.name) is approved, but it needs a clear task instruction in private memory before Geoffrey can run it. No work was started."
-        } else {
-            let route = automation.routePresentation.title.lowercased()
-            issueMessage = "\(automation.name) is \(route). Before Geoffrey changes anything, its schedule, required accounts, and output destination must be confirmed on this Mac. Geoffrey has only discovered and preserved it; no job was created, duplicated, or enabled."
-        }
-        showingIssue = true
+        presentAutomationReview(automation)
     }
 
     func runAutomation(_ automation: GeoffreyAutomation, retry: Bool = false) {

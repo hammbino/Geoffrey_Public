@@ -89,6 +89,7 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns
   const id = cleanText(raw.id, `workflow-${index + 1}`);
   const classification = classifyExecution(raw, readyCapabilities);
   const approvalState = cleanText(raw.approval?.state, "needs_review");
+  const preference = cleanText(raw.execution?.preference, "auto");
   const declaredDeploymentState = cleanText(raw.execution?.deployment_state, "not_connected");
   const verifiedAt = cleanText(raw.execution?.verified_at);
   const deploymentState = declaredDeploymentState === "active" && !verifiedAt ? "needs_verification" : declaredDeploymentState;
@@ -105,13 +106,16 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns
     id,
     name: cleanText(raw.name, "Untitled workflow"),
     purpose: cleanText(raw.purpose, "Recurring work to review with Geoffrey."),
+    task: cleanText(raw.task) || null,
     enabled,
     cadence: {
       summary: scheduleSummary(raw.cadence),
       timezone: cleanText(raw.cadence?.timezone) || null,
+      times: cleanList(raw.cadence?.times),
     },
     execution: {
       route: classification.route,
+      preference,
       reason: classification.reason,
       deployment_state: deploymentState,
       verified_at: verifiedAt || null,
@@ -120,11 +124,13 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns
     },
     approval: {
       state: approvalState,
+      approved_at: cleanText(raw.approval?.approved_at) || null,
     },
     source: {
       kind: cleanText(raw.source?.kind, "memory_manifest"),
       path: cleanText(raw.source?.path) || null,
     },
+    result_destination: cleanText(raw.result_destination, "private_memory"),
     status: {
       state,
       last_run_at: cleanText(latestRun?.finished_at ?? raw.status?.last_run_at) || null,

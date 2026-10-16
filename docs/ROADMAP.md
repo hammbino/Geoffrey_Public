@@ -37,6 +37,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 
 - [x] Discover and classify portable workflows and likely terminal-era automation files without changing schedules.
 - [x] Surface imported routines and schedules in Geoffrey with cloud, Mac-required, and review states.
+- [x] Add an in-app create, edit, review, draft, and explicit-approval flow for portable workflow definitions.
 - [ ] Route cloud-compatible work to supported Claude cloud automation.
 - [x] Queue missed occurrences of approved local-only work safely and show the queue count.
 - [x] Execute approved queued local work in read-only mode when Geoffrey returns and show its result.
@@ -44,9 +45,11 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [ ] Verify cloud run history, failures, and routine health through a supported Claude interface.
 - [ ] Validate and bind Dustin's actual three-times-daily social briefing during release-candidate acceptance.
 
-## Phase 5: Portable State and Security — Pending
+## Phase 5: Portable State and Security — In Progress
 
-- [ ] Define and implement the GitHub schema for memory, skills, connectors, automation manifests, and results.
+- [x] Define and implement the portable automation manifest, bounded history, and owner-ready result subset.
+- [ ] Complete the GitHub schema for approved skills, connector definitions, and restore metadata.
+- [ ] Surface GitHub sync failure and conflict recovery inside the app.
 - [ ] Move credentials and tokens to macOS Keychain.
 - [ ] Prove sync success, visible failure, conflict handling, backup, and restore.
 - [ ] Decide whether old Git history must be rewritten and rotate any exposed credentials if necessary.
@@ -54,6 +57,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 ## Phase 6: White-Glove UX — Pending
 
 - [ ] Complete first-run setup without Terminal use.
+- [x] Keep automation definition and approval inside the Mac app with plain-language safety boundaries.
 - [ ] Finish add/test/repair/remove connection flows for multiple accounts.
 - [ ] Add accessible states, useful empty states, understandable errors, and recovery actions.
 - [ ] Test core workflows with a nontechnical user who has no developer assistance.

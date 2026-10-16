@@ -12,11 +12,13 @@ struct GeoffreyAutomationsTests {
             "id": "social-briefing",
             "name": "Social briefing",
             "purpose": "Prepare the briefing",
+            "task": null,
             "enabled": false,
-            "cadence": {"summary": "Daily at 08:00, 13:00, 17:00", "timezone": "America/Denver"},
-            "execution": {"route": "cloud", "reason": "Cloud safe", "deployment_state": "not_connected", "verified_at": null, "missing_capabilities": [], "can_run": false},
-            "approval": {"state": "needs_review"},
+            "cadence": {"summary": "Daily at 08:00, 13:00, 17:00", "timezone": "America/Denver", "times": ["08:00", "13:00", "17:00"]},
+            "execution": {"route": "cloud", "preference": "cloud", "reason": "Cloud safe", "deployment_state": "not_connected", "verified_at": null, "missing_capabilities": [], "can_run": false},
+            "approval": {"state": "needs_review", "approved_at": null},
             "source": {"kind": "legacy_memory", "path": "memory/social-briefing.md"},
+            "result_destination": "private_memory",
             "status": {"state": "needs_review", "last_run_at": null, "last_run_status": null, "next_run_at": null, "queued_runs": 0, "failed_runs": 0, "last_result_path": null, "last_error": null}
           }],
           "summary": {"total": 1, "cloud": 1, "local": 0, "needs_review": 1, "queued_runs": 0, "failed_runs": 0}
@@ -25,6 +27,22 @@ struct GeoffreyAutomationsTests {
         let inventory = try JSONDecoder().decode(GeoffreyAutomationInventory.self, from: data)
         expect(inventory.workflows.first?.routePresentation.title == "Cloud capable", "unconnected cloud label")
         expect(inventory.summary.needsReview == 1, "review count")
+        expect(inventory.workflows.first?.cadence.times.count == 3, "editable schedule times")
+
+        let request = GeoffreyAutomationSaveRequest(
+            id: "social-briefing",
+            name: "Social briefing",
+            purpose: "Prepare the briefing",
+            task: "Review connected sources.",
+            route: "cloud",
+            timezone: "America/Denver",
+            times: ["08:00"],
+            resultDestination: "private_memory",
+            approved: true,
+            source: GeoffreyAutomationSource(kind: "user_created", path: nil)
+        )
+        let requestObject = try JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any]
+        expect(requestObject?["result_destination"] as? String == "private_memory", "portable save contract")
 
         let active = GeoffreyAutomationRoutePresentation(route: "cloud", deploymentState: "active", approvalState: "approved")
         expect(active.title == "Runs in Claude cloud", "active cloud label")

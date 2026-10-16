@@ -45,12 +45,19 @@ struct GeoffreyAutomation: Codable, Identifiable {
     let id: String
     let name: String
     let purpose: String
+    let task: String?
     let enabled: Bool
     let cadence: GeoffreyAutomationCadence
     let execution: GeoffreyAutomationExecution
     let approval: GeoffreyAutomationApproval
     let source: GeoffreyAutomationSource
     let status: GeoffreyAutomationStatus
+    let resultDestination: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, purpose, task, enabled, cadence, execution, approval, source, status
+        case resultDestination = "result_destination"
+    }
 
     var routePresentation: GeoffreyAutomationRoutePresentation {
         GeoffreyAutomationRoutePresentation(
@@ -64,10 +71,12 @@ struct GeoffreyAutomation: Codable, Identifiable {
 struct GeoffreyAutomationCadence: Codable {
     let summary: String
     let timezone: String?
+    let times: [String]
 }
 
 struct GeoffreyAutomationExecution: Codable {
     let route: String
+    let preference: String
     let reason: String
     let deploymentState: String
     let verifiedAt: String?
@@ -75,7 +84,7 @@ struct GeoffreyAutomationExecution: Codable {
     let canRun: Bool
 
     enum CodingKeys: String, CodingKey {
-        case route, reason
+        case route, preference, reason
         case deploymentState = "deployment_state"
         case verifiedAt = "verified_at"
         case missingCapabilities = "missing_capabilities"
@@ -85,6 +94,12 @@ struct GeoffreyAutomationExecution: Codable {
 
 struct GeoffreyAutomationApproval: Codable {
     let state: String
+    let approvedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case state
+        case approvedAt = "approved_at"
+    }
 }
 
 struct GeoffreyAutomationSource: Codable {
@@ -111,6 +126,38 @@ struct GeoffreyAutomationStatus: Codable {
         case failedRuns = "failed_runs"
         case lastResultPath = "last_result_path"
         case lastError = "last_error"
+    }
+}
+
+struct GeoffreyAutomationSaveRequest: Codable {
+    let id: String
+    let name: String
+    let purpose: String
+    let task: String
+    let route: String
+    let timezone: String
+    let times: [String]
+    let resultDestination: String
+    let approved: Bool
+    let source: GeoffreyAutomationSource
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, purpose, task, route, timezone, times, approved, source
+        case resultDestination = "result_destination"
+    }
+}
+
+struct GeoffreyAutomationSaveResponse: Codable {
+    let ok: Bool
+    let workflowID: String?
+    let approvalState: String?
+    let route: String?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case ok, route, error
+        case workflowID = "workflow_id"
+        case approvalState = "approval_state"
     }
 }
 
@@ -163,6 +210,10 @@ struct AutomationCenterView: View {
                             .frame(maxWidth: 740, alignment: .leading)
                     }
                     Spacer()
+                    Button { model.presentAutomationReview() } label: {
+                        Label("Add automation", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
                     Button { model.refresh() } label: {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
@@ -311,6 +362,9 @@ private struct AutomationCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button("Edit") { model.presentAutomationReview(automation) }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 if let resultPath = automation.status.lastResultPath {
                     Button("Open last result") { model.openAutomationResult(resultPath) }
                         .buttonStyle(.bordered)
@@ -365,6 +419,175 @@ struct GeoffreyAutomationRunResponse: Codable {
         case workflowID = "workflow_id"
         case runID = "run_id"
         case resultPath = "result_path"
+    }
+}
+
+struct AutomationReviewSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var workflowID: String
+    @State private var name: String
+    @State private var purpose: String
+    @State private var task: String
+    @State private var route: String
+    @State private var runCount: Int
+    @State private var runTimes: [Date]
+    @State private var approved: Bool
+    private let source: GeoffreyAutomationSource
+    private let timezone: String
+
+    init(automation: GeoffreyAutomation?) {
+        let calendar = Calendar.current
+        let defaults = [8, 13, 17].map { hour in
+            calendar.date(bySettingHour: hour, minute: 0, second: 0, of: Date()) ?? Date()
+        }
+        let parsedTimes = (automation?.cadence.times ?? []).compactMap(Self.date(from:))
+        let initialTimes = parsedTimes.isEmpty ? defaults : parsedTimes + Array(defaults.dropFirst(parsedTimes.count))
+        _workflowID = State(initialValue: automation?.id ?? "workflow-\(UUID().uuidString.lowercased())")
+        _name = State(initialValue: automation?.name ?? "")
+        _purpose = State(initialValue: automation?.purpose ?? "")
+        _task = State(initialValue: automation?.task ?? "")
+        _route = State(initialValue: automation?.execution.preference == "local" ? "local" : "cloud")
+        _runCount = State(initialValue: max(1, min(3, parsedTimes.isEmpty ? 3 : parsedTimes.count)))
+        _runTimes = State(initialValue: Array(initialTimes.prefix(3)))
+        _approved = State(initialValue: automation?.approval.state == "approved")
+        source = automation?.source ?? GeoffreyAutomationSource(kind: "user_created", path: nil)
+        timezone = automation?.cadence.timezone ?? TimeZone.current.identifier
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !purpose.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if let outcome = model.automationSaveOutcome {
+                    Image(systemName: model.automationSaveSucceeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.system(size: 34))
+                        .foregroundStyle(model.automationSaveSucceeded ? Color.green : Color.orange)
+                    Text(model.automationSaveSucceeded ? "Automation saved" : "Automation needs attention")
+                        .font(.title2.weight(.semibold))
+                    Text(outcome).foregroundStyle(.secondary)
+                    HStack {
+                        if !model.automationSaveSucceeded {
+                            Button("Back") { model.automationSaveOutcome = nil }
+                        }
+                        Spacer()
+                        Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
+                    }
+                } else {
+                    Text(name.isEmpty ? "Add an automation" : "Review automation")
+                        .font(.title2.weight(.semibold))
+                    Text("Define the recurring result in plain language. Geoffrey saves the approved definition to private memory and will not silently create a cloud schedule.")
+                        .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("Name").font(.headline)
+                        TextField("For example: Social media briefing", text: $name)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("What is this for?").font(.headline)
+                        TextField("For example: Surface social activity that needs attention", text: $purpose)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("What should Geoffrey do?").font(.headline)
+                        TextEditor(text: $task)
+                            .padding(8)
+                            .frame(height: 120)
+                            .background(Color(nsColor: .textBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        Text("Do not include passwords, tokens, or API keys. Recurring work stays read-only.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Where should it run?").font(.headline)
+                        Picker("Execution", selection: $route) {
+                            Text("Claude cloud — works while this Mac is off").tag("cloud")
+                            Text("This Mac — runs when Geoffrey is available").tag("local")
+                        }
+                        .pickerStyle(.radioGroup)
+                        if route == "cloud" {
+                            Text("Saving this definition does not create a Claude Routine. Geoffrey will ask before connecting a real cloud schedule.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Daily schedule").font(.headline)
+                            Spacer()
+                            Picker("Runs", selection: $runCount) {
+                                Text("Once daily").tag(1)
+                                Text("Twice daily").tag(2)
+                                Text("Three times daily").tag(3)
+                            }
+                            .pickerStyle(.menu)
+                        }
+                        ForEach(0..<runCount, id: \.self) { index in
+                            DatePicker("Run \(index + 1)", selection: $runTimes[index], displayedComponents: .hourAndMinute)
+                        }
+                        Text("Timezone: \(timezone)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(16)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "lock.shield.fill").foregroundStyle(Color(red: 0.08, green: 0.45, blue: 0.36))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Results stay in private Geoffrey memory").font(.headline)
+                            Text("Run history and owner-ready results can sync to the owner’s private GitHub repository. Credentials never belong there.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Toggle("I approve this recurring workflow and proposed schedule", isOn: $approved)
+                        .toggleStyle(.checkbox)
+
+                    HStack {
+                        Button("Cancel") { dismiss() }
+                        Spacer()
+                        if model.isSavingAutomation { ProgressView().controlSize(.small) }
+                        Button(approved ? "Save approved workflow" : "Save draft") { save() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!canSave || model.isSavingAutomation)
+                    }
+                }
+            }
+            .padding(24)
+        }
+        .frame(width: 620, height: 720)
+    }
+
+    private func save() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        formatter.timeZone = TimeZone(identifier: timezone)
+        let request = GeoffreyAutomationSaveRequest(
+            id: workflowID,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            purpose: purpose.trimmingCharacters(in: .whitespacesAndNewlines),
+            task: task.trimmingCharacters(in: .whitespacesAndNewlines),
+            route: route,
+            timezone: timezone,
+            times: runTimes.prefix(runCount).map { formatter.string(from: $0) },
+            resultDestination: "private_memory",
+            approved: approved,
+            source: source
+        )
+        model.saveAutomation(request)
+    }
+
+    private static func date(from value: String) -> Date? {
+        let parts = value.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return nil }
+        return Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: Date())
     }
 }
 #endif
