@@ -88,3 +88,16 @@ Keep the GitHub repo private by default.
 
 Do not store passwords, one-time codes, API keys, private tokens, card numbers,
 or account recovery details in Geoffrey memory.
+
+The Mac app's Memory screen is the supported sync surface. It distinguishes a
+confirmed GitHub backup from a local-only save, an unreachable remote, and a
+real two-sided conflict. Sync now fast-forwards remote-only changes and rebases
+independent work. If the same content changed on both sides, Geoffrey aborts
+the rebase and leaves the original local branch intact instead of choosing a
+winner. The app records the last result locally in
+`~/.geoffrey/memory-sync.json`; that operational status is not committed to the
+memory repository.
+
+Before an automatic commit, Geoffrey checks changed files for common credential
+patterns and filenames, symbolic links, and files beyond its safe inspection
+limit. A blocked file stays on the Mac and is not deleted, committed, or pushed.

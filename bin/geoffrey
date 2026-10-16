@@ -56,6 +56,7 @@ Usage:
   ./bin/geoffrey app-priority-feedback --assessment right|higher|lower|not-useful [--item "..."] [--missing "..."]
   ./bin/geoffrey app-record-briefing --kind daily|inbox|follow-up|open-loops --text "..."
   ./bin/geoffrey app-sync
+  ./bin/geoffrey app-sync-status
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
@@ -106,7 +107,8 @@ Commands:
   app-complete-item Record an item as handled in Geoffrey's private memory.
   app-priority-feedback Save priority ratings and missed priorities in private memory.
   app-record-briefing Save a completed briefing to private memory and GitHub.
-  app-sync     Save approved Geoffrey.app changes to private memory and GitHub.
+  app-sync     Save approved Geoffrey.app changes and report GitHub backup status.
+  app-sync-status Read the most recent private-memory backup status without using the network.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
@@ -1369,21 +1371,14 @@ sync_memory_repo() {
     return 0
   fi
 
-  commit_memory_changes "$memory_path" "Update Geoffrey memory"
-
-  if git -C "$memory_path" remote get-url origin >/dev/null 2>&1; then
-    say "Syncing Geoffrey memory with GitHub ($phase)..."
-    git -C "$memory_path" pull --rebase --autostash >/dev/null 2>&1 || {
-      say "NOTE  Geoffrey could not pull memory updates automatically."
-      say "Continue anyway, then ask Geoffrey to review Git sync."
-      return 0
-    }
-    git -C "$memory_path" push >/dev/null 2>&1 || {
-      say "NOTE  Geoffrey could not push memory updates automatically."
-      say "Continue anyway, then ask Geoffrey to review Git sync."
-      return 0
-    }
+  say "Syncing Geoffrey memory with GitHub ($phase)..."
+  if node "$MCP_DIR/bin/memory-sync.js" --phase "$phase" >/dev/null; then
+    say "OK  Geoffrey memory backup is current."
+  else
+    say "NOTE  Geoffrey saved memory on this Mac, but GitHub backup needs attention."
+    say "Open Memory in Geoffrey to see the reason and recovery step."
   fi
+  return 0
 }
 
 ensure_launch_memory_files() {
@@ -2649,9 +2644,11 @@ app_sync() {
     say "Geoffrey memory is not ready yet. Finish setup first."
     return 1
   fi
-  commit_memory_changes "$memory_path" "Save Geoffrey app changes"
-  sync_memory_repo "$memory_path" "after Geoffrey app change"
-  say "Geoffrey saved the approved change to private memory."
+  node "$MCP_DIR/bin/memory-sync.js" --phase "after Geoffrey app change"
+}
+
+app_sync_status() {
+  node "$MCP_DIR/bin/memory-sync.js" --status
 }
 
 dashboard_line() {
@@ -3475,6 +3472,9 @@ case "${1:-}" in
     ;;
   app-sync)
     app_sync
+    ;;
+  app-sync-status)
+    app_sync_status
     ;;
   app-add-account)
     shift

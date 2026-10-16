@@ -185,6 +185,13 @@ rg -F '.geoffrey-engine-version' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fai
 rg -F '["app-migrate"]' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The app must migrate the terminal-era state automatically."
 ok "Installation uses a versioned self-contained engine and automatic migration"
 
+rg -F 'Button("Sync now")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Private-memory backup needs an explicit in-app retry action."
+rg -F 'Two versions need review' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Memory conflicts must be visible in plain language."
+rg -F 'app-sync-status' "$ROOT/app/GeoffreyApp.swift" "$ROOT/bin/geoffrey" >/dev/null || fail "Memory backup status must load without a network mutation."
+rg -F '["rebase", "--abort"]' "$ROOT/geoffrey-mcp/bin/memory-sync.js" >/dev/null || fail "Conflicting memory sync must restore the original local branch."
+rg -F 'blocked_secret' "$ROOT/geoffrey-mcp/bin/memory-sync.js" "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Credential-like memory files must stay off GitHub and surface in the app."
+ok "Private-memory backup status and conflict recovery are visible"
+
 rg -F 'if task.isDailyBriefing {' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Only the daily briefing may replace the briefing dashboard."
 rg -F 'self.latestBriefing = response' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Daily briefing must retain the dashboard state."
 rg -F 'rateSection: {' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing sections must support learning feedback."

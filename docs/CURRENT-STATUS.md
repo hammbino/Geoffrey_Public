@@ -6,7 +6,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## Proven Now
 
-- Native Mac app builds as Geoffrey `0.9.0` (build 10).
+- Native Mac app builds as Geoffrey `0.10.0` (build 11).
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
@@ -34,6 +34,9 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Routine and run links plus owner-review timestamps can sync in private memory; API trigger tokens and other credentials are rejected from this portable path.
 - The guided Routine brief now includes a deterministic, workflow-specific `claude/` result branch and a strict JSON envelope contract.
 - A connected cloud workflow exposes Check results in Geoffrey. The importer fetches only that exact remote branch, never checks it out or merges it, validates bounded envelopes, rejects malformed or mismatched files, redacts common credential forms, deduplicates prior imports, and writes accepted briefings plus run history into normal private GitHub-backed memory.
+- The Memory screen now shows whether private memory is backed up, has local changes waiting, is only local, is conflicted, is blocked for credential safety, or otherwise needs attention, with a visible Sync now action and a plain-language recovery step.
+- Private-memory sync produces a permission-restricted machine-readable status record, fast-forwards remote-only changes, rebases independent changes, pushes local versions, and aborts a real same-file conflict while proving the original local branch and file remain intact.
+- Sync refuses common token, key, password, credential-file, symlink, and uninspectably large-file risks before commit or push; the local file remains untouched and the app explains why it stayed off GitHub.
 - The owner can run queued work or request a run now from the Automation Center. Local automation uses Claude's read-only plan mode and refuses unapproved or cloud-routed workflows before Claude starts.
 - Successful local runs produce an owner-ready result plus bounded run history in private GitHub-backed memory. Failed runs remain visible and retryable.
 - A local execution lock prevents overlapping runs from corrupting queue or history state, and stale locks can recover after the bounded runner timeout.
@@ -44,7 +47,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 ## In Progress
 
 - Completing a real Claude Routine setup and reviewed test run against a pilot workflow.
-- Portable GitHub state for approved skills, connector definitions, automation manifests, results, and recovery.
+- Portable GitHub schemas for approved skills, connector definitions, and restore metadata.
 - Keychain-backed secret storage and connection repair.
 - A signed, app-native updater that supersedes the initial legacy GitHub transition.
 
@@ -54,6 +57,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Actual cloud execution while Dustin's Mac is off.
 - End-to-end publication and import from a real Claude Routine using Dustin's actual briefing; the transport and importer are implemented and synthetically proven, but real cloud execution is not yet proven.
 - Automatic background polling for cloud results; the pilot currently uses the visible Check results action.
+- App-guided backup export and restore verification across a second clean environment.
 - Clean-Mac installation, Developer ID signing, notarization, Gatekeeper acceptance, and rollback.
 - End-to-end migration against Dustin's actual machine.
 

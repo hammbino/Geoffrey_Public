@@ -1357,6 +1357,62 @@ struct ManagedAccountRow: View {
     }
 }
 
+struct GeoffreyMemorySyncStatus: Codable {
+    let state: String
+    let checkedAt: String?
+    let branch: String?
+    let head: String?
+    let ahead: Int
+    let behind: Int
+    let dirty: Bool
+    let message: String
+    let recovery: String?
+
+    enum CodingKeys: String, CodingKey {
+        case state, branch, head, ahead, behind, dirty, message, recovery
+        case checkedAt = "checked_at"
+    }
+
+    static let notChecked = GeoffreyMemorySyncStatus(
+        state: "not_checked",
+        checkedAt: nil,
+        branch: nil,
+        head: nil,
+        ahead: 0,
+        behind: 0,
+        dirty: false,
+        message: "Geoffrey has not checked the GitHub backup yet.",
+        recovery: nil
+    )
+
+    var title: String {
+        switch state {
+        case "synced": return "Backed up"
+        case "local_only": return "Saved on this Mac"
+        case "local_changes": return "Changes waiting to back up"
+        case "conflict": return "Two versions need review"
+        case "blocked_secret": return "Credential kept off GitHub"
+        case "needs_attention": return "Backup needs attention"
+        case "not_configured": return "Backup not configured"
+        default: return "Backup not checked"
+        }
+    }
+
+    var icon: String {
+        switch state {
+        case "synced": return "checkmark.icloud.fill"
+        case "conflict": return "arrow.triangle.branch"
+        case "needs_attention": return "exclamationmark.icloud.fill"
+        case "blocked_secret": return "lock.shield.fill"
+        case "local_only": return "externaldrive.fill"
+        case "local_changes": return "arrow.up.circle.fill"
+        default: return "icloud.slash"
+        }
+    }
+
+    var isHealthy: Bool { state == "synced" }
+}
+
 struct MemoryView: View {
     @EnvironmentObject private var model: GeoffreyModel
 
@@ -1370,8 +1426,30 @@ struct MemoryView: View {
 
             if model.hasMemory {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Memory home", systemImage: "lock.fill")
-                        .font(.headline)
+                    HStack {
+                        Label(model.memorySyncStatus.title, systemImage: model.memorySyncStatus.icon)
+                            .font(.headline)
+                            .foregroundStyle(model.memorySyncStatus.isHealthy ? Color.green : Color.orange)
+                        Spacer()
+                        if model.isSyncingMemory { ProgressView().controlSize(.small) }
+                        Button("Sync now") { model.syncMemory() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(model.isSyncingMemory)
+                    }
+                    Text(model.memorySyncStatus.message)
+                        .font(.callout)
+                    if let recovery = model.memorySyncStatus.recovery {
+                        Text(recovery)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let branch = model.memorySyncStatus.branch {
+                        Text("Branch: \(branch)" + (model.memorySyncStatus.dirty ? " · Local changes waiting" : ""))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Divider().padding(.vertical, 4)
+                    Label("Memory home", systemImage: "lock.fill").font(.subheadline.weight(.semibold))
                     Text(model.memoryDetail).font(.callout).foregroundStyle(.secondary)
                     Button("Open memory folder") { model.openMemory() }
                         .buttonStyle(.bordered)
@@ -1938,6 +2016,8 @@ final class GeoffreyModel: ObservableObject {
     @Published var showingMemorySetup = false
     @Published var isCreatingMemory = false
     @Published var memorySetupOutcome: String?
+    @Published var memorySyncStatus = GeoffreyMemorySyncStatus.notChecked
+    @Published var isSyncingMemory = false
     @Published var conversation: [GeoffreyConversationMessage] = []
     @Published var streamingResponse = ""
     @Published var conversationStatus = "Preparing your request..."
@@ -2148,11 +2228,14 @@ final class GeoffreyModel: ObservableObject {
             let capabilities = (try? JSONDecoder().decode([GeoffreyCapability].self, from: Data(capabilityResult.output.utf8))) ?? []
             let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"])
             let automationInventory = (try? JSONDecoder().decode(GeoffreyAutomationInventory.self, from: Data(automationResult.output.utf8))) ?? .empty
+            let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync-status"])
+            let memorySyncStatus = (try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data(syncResult.output.utf8))) ?? .notChecked
             await MainActor.run {
                 self.health = entries
                 self.accounts = accounts
                 self.capabilities = capabilities
                 self.automationInventory = automationInventory
+                self.memorySyncStatus = memorySyncStatus
                 self.isRefreshingAccounts = false
             }
         }
@@ -2745,6 +2828,29 @@ final class GeoffreyModel: ObservableObject {
         }
     }
 
+    func syncMemory() {
+        guard hasMemory, !isSyncingMemory else { return }
+        isSyncingMemory = true
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+            let status = try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data(result.output.utf8))
+            await MainActor.run {
+                self.isSyncingMemory = false
+                self.memorySyncStatus = status ?? GeoffreyMemorySyncStatus(
+                    state: "needs_attention",
+                    checkedAt: nil,
+                    branch: nil,
+                    head: nil,
+                    ahead: 0,
+                    behind: 0,
+                    dirty: false,
+                    message: "Geoffrey could not read the private-memory backup status.",
+                    recovery: "Your local memory was not removed. Try Sync now again."
+                )
+            }
+        }
+    }
+
     func openSetup(_ command: String) {
         guard hasGeoffreyEngine else { launchInstaller(); return }
         if command == "add-email" || accounts.isEmpty {
@@ -2842,11 +2948,15 @@ final class GeoffreyModel: ObservableObject {
             else if automation.status.queuedRuns == 0 { arguments.append("--now") }
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: arguments)
             let response = try? JSONDecoder().decode(GeoffreyAutomationRunResponse.self, from: Data(result.output.utf8))
-            _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+            let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+            let syncStatus = try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data(syncResult.output.utf8))
             await MainActor.run {
                 self.runningAutomationIDs.remove(automation.id)
+                if let syncStatus { self.memorySyncStatus = syncStatus }
                 if result.status == 0, response?.ok == true {
-                    self.issueMessage = "\(automation.name) finished. Its result and run record were saved to private, GitHub-backed memory."
+                    self.issueMessage = syncStatus?.state == "synced"
+                        ? "\(automation.name) finished. Its result and run record were saved and backed up to private GitHub memory."
+                        : "\(automation.name) finished and is saved on this Mac. The GitHub backup needs attention in Memory."
                 } else {
                     self.issueMessage = response?.error ?? "\(automation.name) could not finish. The run remains available to retry, and no outside records were changed."
                 }
