@@ -24,6 +24,7 @@
 | Claude Routine creation stays in Claude | The supported web, Desktop, and interactive CLI surfaces expose repositories, environments, usage, connectors, and autonomous permissions that Geoffrey must not hide or bypass. | Implemented |
 | A saved Routine link is connected, not active | Geoffrey only shows cloud-run evidence after the owner reviews a real Run now session and confirms the actual result, not merely a green infrastructure status. | Implemented |
 | Routine API tokens never enter portable memory | Private GitHub memory may hold clean non-secret Claude links and review timestamps, but not bearer tokens or trigger credentials. | Implemented |
+| Cloud results cross a validated Git branch, not a merge | Each workflow gets a deterministic `claude/` result branch. Geoffrey fetches and validates only strict result envelopes, then copies accepted output into normal private memory without checking out, merging, or executing cloud changes. | Implemented |
 | Workflow definitions reject credentials | Geoffrey refuses common tokens, keys, passwords, and bearer credentials before atomically updating the portable manifest. | Implemented |
 | “Cloud capable” is not “running in cloud” | Geoffrey only claims active cloud execution after an approved Claude deployment is connected and verified. | Implemented |
 | Local recurring work runs read-only | Queued work may retrieve, analyze, and prepare results, but cannot send, publish, spend, delete, change access, or bypass Claude permissions. | Implemented |

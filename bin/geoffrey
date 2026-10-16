@@ -48,6 +48,7 @@ Usage:
   ./bin/geoffrey app-automation-queue
   ./bin/geoffrey app-automation-run --workflow ID [--retry|--now]
   ./bin/geoffrey app-automation-save --payload BASE64_JSON
+  ./bin/geoffrey app-automation-cloud-import --workflow ID
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill|build-skill [--request "..."]
   ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
@@ -98,6 +99,7 @@ Commands:
   app-automation-run Run one approved local workflow and record its result.
   app-automation-save Save a reviewed workflow to private GitHub-backed memory.
   app-automation-cloud-link Record owner-reviewed Claude Routine evidence.
+  app-automation-cloud-import Import validated Claude Routine results without merging cloud changes.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-context  Prepare the read-only private context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
@@ -2291,6 +2293,10 @@ app_automation_cloud_link() {
   node "$MCP_DIR/bin/automation-cloud-link.js" "$@"
 }
 
+app_automation_cloud_import() {
+  node "$MCP_DIR/bin/automation-cloud-import.js" "$@"
+}
+
 app_prompt() {
   task="ask"
   request=""
@@ -3438,6 +3444,10 @@ case "${1:-}" in
   app-automation-cloud-link)
     shift
     app_automation_cloud_link "$@"
+    ;;
+  app-automation-cloud-import)
+    shift
+    app_automation_cloud_import "$@"
     ;;
   app-prompt)
     shift

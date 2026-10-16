@@ -1963,6 +1963,9 @@ final class GeoffreyModel: ObservableObject {
     @Published var cloudAutomationOutcome: String?
     @Published var cloudAutomationSucceeded = false
     @Published var cloudAutomationSeed: GeoffreyAutomation?
+    @Published var checkingCloudAutomationIDs = Set<String>()
+    @Published var cloudImportOutcomes: [String: String] = [:]
+    @Published var cloudImportSucceededIDs = Set<String>()
     @Published var issueMessage = ""
     @Published var showingIssue = false
     @Published var isSigningIntoClaude = false
@@ -2665,6 +2668,50 @@ final class GeoffreyModel: ObservableObject {
                     self.cloudAutomationSucceeded = false
                     self.cloudAutomationOutcome = response?.error
                         ?? "Geoffrey could not record this Claude Routine connection. Nothing was changed."
+                }
+            }
+        }
+    }
+
+    func importCloudAutomationResults(_ automation: GeoffreyAutomation) {
+        guard !checkingCloudAutomationIDs.contains(automation.id) else { return }
+        checkingCloudAutomationIDs.insert(automation.id)
+        cloudImportOutcomes[automation.id] = nil
+        cloudImportSucceededIDs.remove(automation.id)
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(
+                executable: geoffreyHome + "/bin/geoffrey",
+                arguments: ["app-automation-cloud-import", "--workflow", automation.id]
+            )
+            let response = try? JSONDecoder().decode(
+                GeoffreyAutomationCloudImportResponse.self,
+                from: Data(result.output.utf8)
+            )
+            if result.status == 0, response?.ok == true, (response?.imported ?? 0) > 0 {
+                _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+            }
+            await MainActor.run {
+                self.checkingCloudAutomationIDs.remove(automation.id)
+                if result.status == 0, let response, response.ok {
+                    let imported = response.imported ?? 0
+                    let rejected = response.rejected ?? 0
+                    if response.branchExists == false {
+                        self.cloudImportOutcomes[automation.id] = "No result has been published yet. Run the Routine once, then check again."
+                        self.cloudImportSucceededIDs.insert(automation.id)
+                    } else if imported > 0 {
+                        let warning = rejected > 0 ? " \(rejected) invalid envelope\(rejected == 1 ? " was" : "s were") ignored." : ""
+                        self.cloudImportOutcomes[automation.id] = "Imported \(imported) new cloud result\(imported == 1 ? "" : "s") into private memory.\(warning)"
+                        self.cloudImportSucceededIDs.insert(automation.id)
+                        self.refresh()
+                    } else if rejected > 0 {
+                        self.cloudImportOutcomes[automation.id] = "No result was imported. Geoffrey rejected \(rejected) invalid envelope\(rejected == 1 ? "" : "s"). Review the Claude run."
+                    } else {
+                        self.cloudImportOutcomes[automation.id] = "No new cloud results. Previously imported results are already in private memory."
+                        self.cloudImportSucceededIDs.insert(automation.id)
+                    }
+                } else {
+                    self.cloudImportOutcomes[automation.id] = response?.error
+                        ?? "Geoffrey could not check cloud results. Nothing was imported."
                 }
             }
         }

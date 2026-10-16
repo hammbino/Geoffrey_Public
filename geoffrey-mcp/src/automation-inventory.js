@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { basename, extname } from "node:path";
+import { cloudResultBranch } from "./cloud-result-inbox.js";
 
 const ROUTES = new Set(["cloud", "local", "review"]);
 
@@ -123,6 +124,9 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns
       deployment_state: deploymentState,
       verified_at: verifiedAt || null,
       routine_url: routineURL || null,
+      result_branch: classification.route === "cloud" && /^[a-z0-9][a-z0-9._-]{2,83}$/.test(id)
+        ? cloudResultBranch(id)
+        : null,
       verification_method: verificationMethod || null,
       verification_run_url: verificationRunURL || null,
       missing_capabilities: classification.missing_capabilities,

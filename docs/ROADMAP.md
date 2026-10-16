@@ -39,6 +39,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Surface imported routines and schedules in Geoffrey with cloud, Mac-required, and review states.
 - [x] Add an in-app create, edit, review, draft, and explicit-approval flow for portable workflow definitions.
 - [x] Add a guided Claude Routine handoff with connector review, cadence confirmation, and owner-reviewed run evidence.
+- [x] Add a validated, no-merge GitHub result inbox and an in-app Check results action for connected Claude Routines.
 - [ ] Route cloud-compatible work to supported Claude cloud automation.
 - [x] Queue missed occurrences of approved local-only work safely and show the queue count.
 - [x] Execute approved queued local work in read-only mode when Geoffrey returns and show its result.

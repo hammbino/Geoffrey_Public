@@ -15,7 +15,7 @@ struct GeoffreyAutomationsTests {
             "task": null,
             "enabled": false,
             "cadence": {"summary": "Daily at 08:00, 13:00, 17:00", "timezone": "America/Denver", "times": ["08:00", "13:00", "17:00"]},
-            "execution": {"route": "cloud", "preference": "cloud", "reason": "Cloud safe", "deployment_state": "not_connected", "verified_at": null, "routine_url": null, "verification_method": null, "verification_run_url": null, "missing_capabilities": [], "can_run": false},
+            "execution": {"route": "cloud", "preference": "cloud", "reason": "Cloud safe", "deployment_state": "not_connected", "verified_at": null, "routine_url": null, "result_branch": "claude/geoffrey-results-social-briefing-test", "verification_method": null, "verification_run_url": null, "missing_capabilities": [], "can_run": false},
             "approval": {"state": "needs_review", "approved_at": null},
             "source": {"kind": "legacy_memory", "path": "memory/social-briefing.md"},
             "result_destination": "private_memory",
@@ -28,6 +28,7 @@ struct GeoffreyAutomationsTests {
         expect(inventory.workflows.first?.routePresentation.title == "Cloud capable", "unconnected cloud label")
         expect(inventory.summary.needsReview == 1, "review count")
         expect(inventory.workflows.first?.cadence.times.count == 3, "editable schedule times")
+        expect(inventory.workflows.first?.execution.resultBranch == "claude/geoffrey-results-social-briefing-test", "cloud result branch contract")
 
         let request = GeoffreyAutomationSaveRequest(
             id: "social-briefing",
