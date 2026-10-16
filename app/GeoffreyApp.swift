@@ -96,6 +96,11 @@ struct GeoffreyRootView: View {
         .sheet(isPresented: $model.showingAutomationReview) {
             AutomationReviewSheet(automation: model.automationReviewSeed)
         }
+        .sheet(isPresented: $model.showingCloudAutomationSetup) {
+            if let automation = model.cloudAutomationSeed {
+                CloudAutomationSetupSheet(automation: automation)
+            }
+        }
     }
 }
 
@@ -1953,6 +1958,11 @@ final class GeoffreyModel: ObservableObject {
     @Published var automationSaveOutcome: String?
     @Published var automationSaveSucceeded = false
     @Published var automationReviewSeed: GeoffreyAutomation?
+    @Published var showingCloudAutomationSetup = false
+    @Published var isSavingCloudAutomation = false
+    @Published var cloudAutomationOutcome: String?
+    @Published var cloudAutomationSucceeded = false
+    @Published var cloudAutomationSeed: GeoffreyAutomation?
     @Published var issueMessage = ""
     @Published var showingIssue = false
     @Published var isSigningIntoClaude = false
@@ -2603,6 +2613,63 @@ final class GeoffreyModel: ObservableObject {
         }
     }
 
+    func presentCloudAutomationSetup(_ automation: GeoffreyAutomation) {
+        guard hasGeoffreyEngine else { launchInstaller(); return }
+        cloudAutomationSeed = automation
+        cloudAutomationOutcome = nil
+        cloudAutomationSucceeded = false
+        showingCloudAutomationSetup = true
+    }
+
+    func openClaudeRoutines(_ savedLink: String? = nil) {
+        let fallback = URL(string: "https://claude.ai/code/routines")!
+        let clean = savedLink?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let candidate = URL(string: clean)
+        let destination = candidate?.scheme == "https" && candidate?.host == "claude.ai" && candidate?.path.hasPrefix("/code/") == true
+            ? candidate!
+            : fallback
+        NSWorkspace.shared.open(destination)
+    }
+
+    func saveCloudAutomationLink(_ request: GeoffreyAutomationCloudLinkRequest) {
+        guard !isSavingCloudAutomation else { return }
+        guard let data = try? JSONEncoder().encode(request) else {
+            cloudAutomationSucceeded = false
+            cloudAutomationOutcome = "Geoffrey could not prepare this cloud connection safely. Nothing was saved."
+            return
+        }
+        isSavingCloudAutomation = true
+        cloudAutomationOutcome = nil
+        let payload = data.base64EncodedString()
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(
+                executable: geoffreyHome + "/bin/geoffrey",
+                arguments: ["app-automation-cloud-link", "--payload", payload]
+            )
+            let response = try? JSONDecoder().decode(
+                GeoffreyAutomationCloudLinkResponse.self,
+                from: Data(result.output.utf8)
+            )
+            if result.status == 0, response?.ok == true {
+                _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+            }
+            await MainActor.run {
+                self.isSavingCloudAutomation = false
+                if result.status == 0, response?.ok == true {
+                    self.cloudAutomationSucceeded = true
+                    self.cloudAutomationOutcome = response?.deploymentState == "active"
+                        ? "Cloud run evidence is saved in private Geoffrey memory. Geoffrey can now show that you reviewed a real Claude cloud run."
+                        : "The Claude Routine link and setup review are saved. Run it once in Claude, inspect the result, then return here with the run session link to verify it."
+                    self.refresh()
+                } else {
+                    self.cloudAutomationSucceeded = false
+                    self.cloudAutomationOutcome = response?.error
+                        ?? "Geoffrey could not record this Claude Routine connection. Nothing was changed."
+                }
+            }
+        }
+    }
+
     func createMemory(owner: String, business: String, github: String) {
         let cleanOwner = owner.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanBusiness = business.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2743,10 +2810,7 @@ final class GeoffreyModel: ObservableObject {
     }
 
     func openCloudAutomationSetup(_ automation: GeoffreyAutomation) {
-        guard let url = URL(string: "https://claude.ai/code/routines") else { return }
-        NSWorkspace.shared.open(url)
-        issueMessage = "Claude Routines is open for \(automation.name). Review the workflow's cadence, connected services, output destination, usage, and permissions there. Geoffrey will only show it as running in Claude cloud after an approved routine reference is recorded and verified."
-        showingIssue = true
+        presentCloudAutomationSetup(automation)
     }
 
     func openAutomationResult(_ relativePath: String) {

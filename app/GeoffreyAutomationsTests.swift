@@ -15,7 +15,7 @@ struct GeoffreyAutomationsTests {
             "task": null,
             "enabled": false,
             "cadence": {"summary": "Daily at 08:00, 13:00, 17:00", "timezone": "America/Denver", "times": ["08:00", "13:00", "17:00"]},
-            "execution": {"route": "cloud", "preference": "cloud", "reason": "Cloud safe", "deployment_state": "not_connected", "verified_at": null, "missing_capabilities": [], "can_run": false},
+            "execution": {"route": "cloud", "preference": "cloud", "reason": "Cloud safe", "deployment_state": "not_connected", "verified_at": null, "routine_url": null, "verification_method": null, "verification_run_url": null, "missing_capabilities": [], "can_run": false},
             "approval": {"state": "needs_review", "approved_at": null},
             "source": {"kind": "legacy_memory", "path": "memory/social-briefing.md"},
             "result_destination": "private_memory",
@@ -45,7 +45,9 @@ struct GeoffreyAutomationsTests {
         expect(requestObject?["result_destination"] as? String == "private_memory", "portable save contract")
 
         let active = GeoffreyAutomationRoutePresentation(route: "cloud", deploymentState: "active", approvalState: "approved")
-        expect(active.title == "Runs in Claude cloud", "active cloud label")
+        expect(active.title == "Cloud run reviewed", "active cloud label")
+        let connected = GeoffreyAutomationRoutePresentation(route: "cloud", deploymentState: "connected", approvalState: "approved")
+        expect(connected.title == "Cloud setup recorded", "connected cloud label")
         let local = GeoffreyAutomationRoutePresentation(route: "local", deploymentState: "not_connected", approvalState: "approved")
         expect(local.title == "Runs when this Mac is available", "local label")
         let review = GeoffreyAutomationRoutePresentation(route: "review", deploymentState: "not_connected", approvalState: "needs_review")

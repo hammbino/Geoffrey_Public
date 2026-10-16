@@ -93,6 +93,9 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns
   const declaredDeploymentState = cleanText(raw.execution?.deployment_state, "not_connected");
   const verifiedAt = cleanText(raw.execution?.verified_at);
   const deploymentState = declaredDeploymentState === "active" && !verifiedAt ? "needs_verification" : declaredDeploymentState;
+  const routineURL = cleanText(raw.execution?.routine_url);
+  const verificationMethod = cleanText(raw.execution?.verification?.method);
+  const verificationRunURL = cleanText(raw.execution?.verification?.run_url);
   const enabled = raw.enabled === true && approvalState === "approved";
   const stats = queueStats.get(id) ?? { queued: 0, failed: 0, running: 0 };
   const latestRun = latestRuns.get(id);
@@ -119,6 +122,9 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns
       reason: classification.reason,
       deployment_state: deploymentState,
       verified_at: verifiedAt || null,
+      routine_url: routineURL || null,
+      verification_method: verificationMethod || null,
+      verification_run_url: verificationRunURL || null,
       missing_capabilities: classification.missing_capabilities,
       can_run: canRun,
     },

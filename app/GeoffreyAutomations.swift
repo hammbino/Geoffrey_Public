@@ -1,5 +1,6 @@
 import Foundation
 #if !AUTOMATION_LOGIC_ONLY
+import AppKit
 import SwiftUI
 #endif
 
@@ -80,6 +81,9 @@ struct GeoffreyAutomationExecution: Codable {
     let reason: String
     let deploymentState: String
     let verifiedAt: String?
+    let routineURL: String?
+    let verificationMethod: String?
+    let verificationRunURL: String?
     let missingCapabilities: [String]
     let canRun: Bool
 
@@ -87,6 +91,9 @@ struct GeoffreyAutomationExecution: Codable {
         case route, preference, reason
         case deploymentState = "deployment_state"
         case verifiedAt = "verified_at"
+        case routineURL = "routine_url"
+        case verificationMethod = "verification_method"
+        case verificationRunURL = "verification_run_url"
         case missingCapabilities = "missing_capabilities"
         case canRun = "can_run"
     }
@@ -161,6 +168,39 @@ struct GeoffreyAutomationSaveResponse: Codable {
     }
 }
 
+struct GeoffreyAutomationCloudLinkRequest: Codable {
+    let workflowID: String
+    let routineURL: String
+    let connectorsReviewed: Bool
+    let scheduleConfirmed: Bool
+    let runURL: String
+    let runReviewed: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case workflowID = "workflow_id"
+        case routineURL = "routine_url"
+        case connectorsReviewed = "connectors_reviewed"
+        case scheduleConfirmed = "schedule_confirmed"
+        case runURL = "run_url"
+        case runReviewed = "run_reviewed"
+    }
+}
+
+struct GeoffreyAutomationCloudLinkResponse: Codable {
+    let ok: Bool
+    let workflowID: String?
+    let deploymentState: String?
+    let verifiedAt: String?
+    let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case ok, error
+        case workflowID = "workflow_id"
+        case deploymentState = "deployment_state"
+        case verifiedAt = "verified_at"
+    }
+}
+
 struct GeoffreyAutomationRoutePresentation {
     let title: String
     let icon: String
@@ -169,7 +209,13 @@ struct GeoffreyAutomationRoutePresentation {
     init(route: String, deploymentState: String, approvalState: String) {
         switch route {
         case "cloud":
-            title = deploymentState == "active" && approvalState == "approved" ? "Runs in Claude cloud" : "Cloud capable"
+            if deploymentState == "active" && approvalState == "approved" {
+                title = "Cloud run reviewed"
+            } else if deploymentState == "connected" {
+                title = "Cloud setup recorded"
+            } else {
+                title = "Cloud capable"
+            }
             icon = "cloud.fill"
             colorName = "blue"
         case "local":
@@ -377,8 +423,10 @@ private struct AutomationCard: View {
                     Button("Review") { model.reviewAutomation(automation) }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
-                } else if automation.execution.route == "cloud" && automation.execution.deploymentState != "active" {
-                    Button("Connect cloud") { model.openCloudAutomationSetup(automation) }
+                } else if automation.execution.route == "cloud" {
+                    Button(automation.execution.deploymentState == "active" ? "Review cloud" : automation.execution.deploymentState == "connected" ? "Verify cloud" : "Connect cloud") {
+                        model.openCloudAutomationSetup(automation)
+                    }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                 } else if automation.execution.route == "local" && automation.status.failedRuns > 0 {
@@ -419,6 +467,159 @@ struct GeoffreyAutomationRunResponse: Codable {
         case workflowID = "workflow_id"
         case runID = "run_id"
         case resultPath = "result_path"
+    }
+}
+
+struct CloudAutomationSetupSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+    let automation: GeoffreyAutomation
+    @State private var routineURL: String
+    @State private var runURL: String
+    @State private var connectorsReviewed: Bool
+    @State private var scheduleConfirmed: Bool
+    @State private var runReviewed: Bool
+    @State private var copied = false
+
+    init(automation: GeoffreyAutomation) {
+        self.automation = automation
+        let hasConnection = automation.execution.routineURL != nil
+        _routineURL = State(initialValue: automation.execution.routineURL ?? "")
+        _runURL = State(initialValue: automation.execution.verificationRunURL ?? "")
+        _connectorsReviewed = State(initialValue: hasConnection)
+        _scheduleConfirmed = State(initialValue: hasConnection)
+        _runReviewed = State(initialValue: automation.execution.verificationMethod == "owner_reviewed_run")
+    }
+
+    private var canSave: Bool {
+        let hasRoutine = !routineURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasRun = !runURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasRoutine && connectorsReviewed && scheduleConfirmed && (hasRun == runReviewed)
+    }
+
+    private var setupBrief: String {
+        let task = automation.task ?? "Review this task in Geoffrey before cloud setup."
+        return """
+        Name: \(automation.name)
+        Outcome: \(automation.purpose)
+        Instructions: \(task)
+        Schedule: \(automation.cadence.summary)
+        Timezone: \(automation.cadence.timezone ?? TimeZone.current.identifier)
+        Result: Return the private briefing in the Claude run session for owner review.
+        Safety boundary: Do not send, post, publish, spend, delete, change access, or modify an outside system.
+        """
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if let outcome = model.cloudAutomationOutcome {
+                    Image(systemName: model.cloudAutomationSucceeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.system(size: 34))
+                        .foregroundStyle(model.cloudAutomationSucceeded ? Color.green : Color.orange)
+                    Text(model.cloudAutomationSucceeded ? "Cloud evidence saved" : "Cloud setup needs attention")
+                        .font(.title2.weight(.semibold))
+                    Text(outcome).foregroundStyle(.secondary)
+                    HStack {
+                        if !model.cloudAutomationSucceeded {
+                            Button("Back") { model.cloudAutomationOutcome = nil }
+                        }
+                        Spacer()
+                        Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
+                    }
+                } else {
+                    Text("Connect to Claude cloud")
+                        .font(.title2.weight(.semibold))
+                    Text("Claude Routines can run while this Mac is off. Routine creation remains in Claude so you can review its repositories, environment, usage, connectors, and schedule before it starts.")
+                        .foregroundStyle(.secondary)
+                    Text("Routines require a supported Claude plan and may be disabled by an organization owner.")
+                        .font(.caption).foregroundStyle(.secondary)
+
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "exclamationmark.shield.fill").foregroundStyle(.orange)
+                        Text("Routines run autonomously. Claude includes connected tools by default, and those tools may be able to write without another approval. Remove every connector this briefing does not need.")
+                            .font(.callout)
+                    }
+                    .padding(14)
+                    .background(Color.orange.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("1. Prepare the routine").font(.headline)
+                        Text(setupBrief)
+                            .font(.callout)
+                            .textSelection(.enabled)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(nsColor: .textBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        HStack {
+                            Button(copied ? "Copied" : "Copy setup brief") { copyBrief() }
+                            Button(automation.execution.routineURL == nil ? "Open Claude Routines" : "Open saved routine") {
+                                model.openClaudeRoutines(automation.execution.routineURL)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("2. Record what you approved").font(.headline)
+                        TextField("https://claude.ai/code/routines/...", text: $routineURL)
+                            .textFieldStyle(.roundedBorder)
+                        Toggle("I confirmed Claude shows the approved times and timezone", isOn: $scheduleConfirmed)
+                            .toggleStyle(.checkbox)
+                        Toggle("I reviewed the included connectors and removed everything this routine does not need", isOn: $connectorsReviewed)
+                            .toggleStyle(.checkbox)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("3. Verify a real result").font(.headline)
+                        Text("In Claude, choose Run now. Open the completed session and confirm the result—not only the green status—then paste that session link here. You can save the connection first and return after the test run.")
+                            .font(.callout).foregroundStyle(.secondary)
+                        TextField("Optional: https://claude.ai/code/session_...", text: $runURL)
+                            .textFieldStyle(.roundedBorder)
+                        Toggle("I opened this run and confirmed it produced the expected result", isOn: $runReviewed)
+                            .toggleStyle(.checkbox)
+                    }
+                    .padding(16)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    Text("Geoffrey stores only these non-secret Claude links and your review timestamps in private memory. It never stores a Routine API token in GitHub.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text("Pilot boundary: the cloud result remains in its Claude session. Automatic import of that result into Geoffrey private memory is not connected yet.")
+                        .font(.caption.weight(.medium)).foregroundStyle(.orange)
+
+                    HStack {
+                        Button("Cancel") { dismiss() }
+                        Spacer()
+                        if model.isSavingCloudAutomation { ProgressView().controlSize(.small) }
+                        Button(runReviewed ? "Save verified run" : "Save connection") { save() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!canSave || model.isSavingCloudAutomation)
+                    }
+                }
+            }
+            .padding(24)
+        }
+        .frame(width: 660, height: 760)
+    }
+
+    private func copyBrief() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(setupBrief, forType: .string)
+        copied = true
+    }
+
+    private func save() {
+        model.saveCloudAutomationLink(GeoffreyAutomationCloudLinkRequest(
+            workflowID: automation.id,
+            routineURL: routineURL.trimmingCharacters(in: .whitespacesAndNewlines),
+            connectorsReviewed: connectorsReviewed,
+            scheduleConfirmed: scheduleConfirmed,
+            runURL: runURL.trimmingCharacters(in: .whitespacesAndNewlines),
+            runReviewed: runReviewed
+        ))
     }
 }
 

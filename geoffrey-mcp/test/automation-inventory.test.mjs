@@ -29,7 +29,16 @@ test("automation inventory discovers migrated work and classifies cloud, local, 
           name: "Cloud briefing",
           purpose: "Prepare a briefing",
           cadence: { times: ["08:00", "13:00", "17:00"], timezone: "America/Denver" },
-          execution: { preference: "cloud" },
+          execution: {
+            preference: "cloud",
+            deployment_state: "active",
+            verified_at: "2026-10-16T12:00:00.000Z",
+            routine_url: "https://claude.ai/code/routines/routine_123",
+            verification: {
+              method: "owner_reviewed_run",
+              run_url: "https://claude.ai/code/session_01TEST",
+            },
+          },
           requirements: { cloud_compatible: true, capabilities: ["mcp:social"] },
           approval: { state: "approved" },
           enabled: true,
@@ -70,6 +79,8 @@ test("automation inventory discovers migrated work and classifies cloud, local, 
     const result = JSON.parse(output);
     assert.equal(result.workflows.length, 4);
     assert.equal(result.workflows.find(({ id }) => id === "cloud-brief").execution.route, "cloud");
+    assert.equal(result.workflows.find(({ id }) => id === "cloud-brief").execution.deployment_state, "active");
+    assert.equal(result.workflows.find(({ id }) => id === "cloud-brief").execution.verification_method, "owner_reviewed_run");
     assert.equal(result.workflows.find(({ id }) => id === "local-files").execution.route, "local");
     assert.equal(result.workflows.find(({ id }) => id === "local-files").status.queued_runs, 2);
     assert.equal(result.workflows.find(({ id }) => id === "local-files").status.failed_runs, 1);

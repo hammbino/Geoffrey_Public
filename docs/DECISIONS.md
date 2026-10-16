@@ -21,6 +21,9 @@
 | Automation discovery never changes a schedule | Legacy candidates and portable manifests can be inventoried safely before timing, tools, and destination are approved. | Implemented |
 | Automation approval belongs in Geoffrey | Owners can review or create a definition, timing, route, and private result destination without opening Terminal or editing JSON. | Implemented |
 | Saving a cloud definition does not create a cloud schedule | Approval makes the portable intent explicit, while live Claude scheduling remains a separate supported setup and verification step. | Implemented |
+| Claude Routine creation stays in Claude | The supported web, Desktop, and interactive CLI surfaces expose repositories, environments, usage, connectors, and autonomous permissions that Geoffrey must not hide or bypass. | Implemented |
+| A saved Routine link is connected, not active | Geoffrey only shows cloud-run evidence after the owner reviews a real Run now session and confirms the actual result, not merely a green infrastructure status. | Implemented |
+| Routine API tokens never enter portable memory | Private GitHub memory may hold clean non-secret Claude links and review timestamps, but not bearer tokens or trigger credentials. | Implemented |
 | Workflow definitions reject credentials | Geoffrey refuses common tokens, keys, passwords, and bearer credentials before atomically updating the portable manifest. | Implemented |
 | “Cloud capable” is not “running in cloud” | Geoffrey only claims active cloud execution after an approved Claude deployment is connected and verified. | Implemented |
 | Local recurring work runs read-only | Queued work may retrieve, analyze, and prepare results, but cannot send, publish, spend, delete, change access, or bypass Claude permissions. | Implemented |

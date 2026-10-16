@@ -6,7 +6,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## Proven Now
 
-- Native Mac app builds as Geoffrey `0.7.0` (build 8).
+- Native Mac app builds as Geoffrey `0.8.0` (build 9).
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
@@ -29,6 +29,9 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Owners can add a workflow or open an imported workflow in an in-app review sheet, edit its plain-language purpose and task, choose Claude cloud or this Mac, choose one to three daily times, and save either a disabled draft or an explicitly approved definition.
 - Saving uses an atomic, owner-only portable manifest update, rejects common credential formats without overwriting the prior definition, deduplicates imported candidates by their source path, and attempts the existing private-memory GitHub sync.
 - Approving a cloud-capable definition does not create or claim a live Claude schedule; its deployment remains `not_connected` until a separate supported cloud setup is verified.
+- Approved cloud-capable workflows now open a guided Geoffrey setup sheet with a copyable Claude Routine brief, least-privilege connector review, cadence confirmation, and clean Claude link validation.
+- Geoffrey records a Routine as `connected` without calling it active. It only shows “Cloud run reviewed” after the owner uses Run now in Claude, opens the resulting session, confirms the actual result, and records that session link.
+- Routine and run links plus owner-review timestamps can sync in private memory; API trigger tokens and other credentials are rejected from this portable path.
 - The owner can run queued work or request a run now from the Automation Center. Local automation uses Claude's read-only plan mode and refuses unapproved or cloud-routed workflows before Claude starts.
 - Successful local runs produce an owner-ready result plus bounded run history in private GitHub-backed memory. Failed runs remain visible and retryable.
 - A local execution lock prevents overlapping runs from corrupting queue or history state, and stale locks can recover after the bounded runner timeout.
@@ -38,7 +41,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## In Progress
 
-- Connecting and verifying an approved cloud-capable workflow through Claude Routines.
+- Completing a real Claude Routine setup and reviewed test run against a pilot workflow.
 - Portable GitHub state for approved skills, connector definitions, automation manifests, results, and recovery.
 - Keychain-backed secret storage and connection repair.
 - A signed, app-native updater that supersedes the initial legacy GitHub transition.
@@ -47,6 +50,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 - Import and execution of Dustin's three-times-daily social briefing.
 - Actual cloud execution while Dustin's Mac is off.
+- Automatic import of a Claude Routine run result into Geoffrey's private memory and Automation Center.
 - Clean-Mac installation, Developer ID signing, notarization, Gatekeeper acceptance, and rollback.
 - End-to-end migration against Dustin's actual machine.
 

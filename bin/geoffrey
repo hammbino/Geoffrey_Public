@@ -97,6 +97,7 @@ Commands:
   app-automation-queue Queue missed approved local work without running it.
   app-automation-run Run one approved local workflow and record its result.
   app-automation-save Save a reviewed workflow to private GitHub-backed memory.
+  app-automation-cloud-link Record owner-reviewed Claude Routine evidence.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-context  Prepare the read-only private context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
@@ -2286,6 +2287,10 @@ app_automation_save() {
   node "$MCP_DIR/bin/automation-save.js" "$@"
 }
 
+app_automation_cloud_link() {
+  node "$MCP_DIR/bin/automation-cloud-link.js" "$@"
+}
+
 app_prompt() {
   task="ask"
   request=""
@@ -3429,6 +3434,10 @@ case "${1:-}" in
   app-automation-save)
     shift
     app_automation_save "$@"
+    ;;
+  app-automation-cloud-link)
+    shift
+    app_automation_cloud_link "$@"
     ;;
   app-prompt)
     shift
