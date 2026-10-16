@@ -38,6 +38,39 @@ enum GeoffreySection: Hashable {
     case today, ask, automations, improve, connections, memory, settings
 }
 
+struct GeoffreyBrandHeader: View {
+    private var icon: NSImage {
+        guard let url = Bundle.main.url(forResource: "Geoffrey", withExtension: "icns") else {
+            return NSApplication.shared.applicationIconImage
+        }
+        return NSImage(contentsOf: url) ?? NSApplication.shared.applicationIconImage
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(nsImage: icon)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 38, height: 38)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Geoffrey")
+                    .font(.headline)
+                Text("Your AI chief of staff")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Geoffrey, your AI chief of staff")
+    }
+}
+
 struct GeoffreyRootView: View {
     @EnvironmentObject private var model: GeoffreyModel
     @State private var selection: GeoffreySection? = .today
@@ -45,6 +78,10 @@ struct GeoffreyRootView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
+                GeoffreyBrandHeader()
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+
                 Section {
                     Label("Today", systemImage: "sun.max.fill").tag(GeoffreySection.today)
                     Label("Ask Geoffrey", systemImage: "message.fill").tag(GeoffreySection.ask)
@@ -60,6 +97,7 @@ struct GeoffreyRootView: View {
                 }
             }
             .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
             .navigationTitle("Geoffrey")
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 8) {

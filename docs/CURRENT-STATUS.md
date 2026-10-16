@@ -6,7 +6,8 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## Proven Now
 
-- Native Mac app builds as Geoffrey `0.10.0` (build 11).
+- Native Mac app builds as Geoffrey `0.10.1` (build 12).
+- Geoffrey's revised illustrated identity is packaged in native Mac icon sizes and appears in the sidebar as “Geoffrey — Your AI chief of staff”; the original portrait asset remains preserved.
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.

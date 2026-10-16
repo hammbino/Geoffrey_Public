@@ -134,6 +134,14 @@ if rg -F 'dangerously-skip-permissions' "$ROOT/geoffrey-mcp/src/automation-runne
   fail "Automation execution must not bypass Claude permission controls."
 fi
 ok "Automation Center creates, reviews, approves, runs, retries, and preserves recurring work"
+[ -f "$ROOT/app/Assets/GeoffreyIcon-v2.png" ] || fail "Geoffrey's production brand artwork is missing."
+rg -F 'GeoffreyBrandHeader()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Geoffrey's identity must be visible inside the app."
+rg -F 'Bundle.main.url(forResource: "Geoffrey", withExtension: "icns")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The in-app brand must use the packaged Geoffrey icon."
+rg -F '.navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The sidebar must remain wide enough to show Geoffrey's identity and navigation labels."
+node "$ROOT/scripts/build-app-icon.js" "$ROOT/app/Assets/GeoffreyIcon-v2.png" "$TEST_HOME/Geoffrey.icns" >/dev/null
+cmp "$ROOT/app/Geoffrey.icns" "$TEST_HOME/Geoffrey.icns" >/dev/null || fail "Geoffrey.icns must be regenerated from the approved production artwork."
+cmp "$ROOT/app/Geoffrey.icns" "$APP/Contents/Resources/Geoffrey.icns" >/dev/null || fail "The packaged app icon does not match Geoffrey's approved icon."
+ok "Geoffrey's app icon and in-app brand identity are packaged together"
 rg -F 'Recommend my next step' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs an outcome-first recommendation action."
 rg -F 'Recommend a skill for me' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs a focused skill recommendation action."
 rg -F 'I already know which app I use' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connection planning must keep app selection optional."
