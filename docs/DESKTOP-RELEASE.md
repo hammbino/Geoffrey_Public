@@ -1,6 +1,6 @@
 # Geoffrey Desktop Release Record
 
-Updated: October 15, 2026
+Updated: October 16, 2026
 
 This is the authoritative record for the Mac desktop release being prepared for Dustin. It defines the intended product, what is already proven, what remains unproven, and the gate Geoffrey must pass before Dustin is asked to update.
 
@@ -82,6 +82,17 @@ These items may still exist in older Git history or tags. Before any public rele
 - Improve Geoffrey summarizes the readiness of Claude, multiple email/calendar accounts, private memory, GitHub portability, and Claude capabilities before recommending expansion.
 - Disabled plugins can be explicitly enabled, MCP login failures can be reconnected, pending approvals receive precise guidance, unhealthy accounts route to reconnect, and GitHub has an in-app browser login path.
 
+### Hybrid automation foundation
+
+- Added a secret-free automation manifest under private GitHub-backed memory and documented which fields are portable.
+- Added read-only discovery for declared workflows and terminal-era files whose names indicate briefings, schedules, routines, or automations.
+- Added safe routing into `cloud`, `local`, or `review` based on declared local paths, cloud compatibility, approval, and capability readiness.
+- Added an Automation Center that shows cadence, route, source, queued runs, and the approval boundary in plain language.
+- Added a bounded, duplicate-safe local missed-run queue for enabled workflows with explicit approval. Queue creation does not execute Claude or touch a cloud schedule.
+- Verified from Anthropic's current documentation that supported off-Mac execution exists through Claude Code routines and Claude Managed Agents scheduled deployments. Managed Agents scheduling is beta and requires an agent, environment, per-run initial event, POSIX cron expression, IANA timezone, credentials/vault configuration, and appropriate budgets and permissions. Geoffrey does not silently provision those resources.
+
+Primary references: [Claude Code routines](https://code.claude.com/docs/en/routines), [Claude Managed Agents scheduled deployments](https://platform.claude.com/docs/en/managed-agents/scheduled-deployments), and [secure deployment guidance](https://platform.claude.com/docs/en/managed-agents/secure-deployment).
+
 Live authentication evidence on October 15, 2026:
 
 - Claude Code `2.1.301` authenticated successfully through Claude's supported browser flow.
@@ -101,21 +112,22 @@ The current verified result is:
 
 - shell syntax checks: pass;
 - JavaScript syntax checks: pass;
-- behavioral tests: 7 passed, 0 failed;
+- behavioral tests: 10 passed, 0 failed;
 - isolated Claude stream parser tests: pass for session identity, partial text, tool activity, final results, structured failures, and non-JSON diagnostics;
 - isolated readiness tests: pass for all-ready, multi-account repair, signed-out, first-use, empty-inventory, and capability-attention states;
+- isolated automation presentation tests: pass for cloud-capable, active-cloud, Mac-required, and review labels;
 - Claude package safety/currentness: pass;
 - Mac app build and payload safety: pass;
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
 - strict code-signature verification: pass using an ad hoc signature.
 
-The behavioral tests cover capability inventory aggregation and repair classification, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, migration without token leakage, Claude stream parsing, and owner-facing readiness decisions. The built Ask Geoffrey, Improve Geoffrey, and Connections interfaces were also inspected visually in dark mode for hierarchy, legibility, clipping, and action clarity.
+The behavioral tests cover automation discovery, secret exclusion, cloud/local/review routing, bounded missed-run queuing, capability inventory aggregation and repair classification, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, migration without token leakage, Claude stream parsing, and owner-facing readiness decisions. The built Ask Geoffrey, Improve Geoffrey, and Connections interfaces were previously inspected visually in dark mode for hierarchy, legibility, clipping, and action clarity. The new Automation Center compiled and passed accessibility-contract checks; macOS's UI inspection service timed out twice on this build, so a new visual-pass claim is intentionally not made yet.
 
 ## Honest Limitations and Remaining Work
 
 The following are not complete and must not be presented as finished:
 
-- **Automation:** the cloud/local execution router, existing-automation discovery, import, scheduling view, missed-run queue, and catch-up behavior remain to be built and tested.
+- **Automation execution:** discovery, classification, the scheduling view, and local queue creation are implemented. Connecting or provisioning Claude cloud schedules, executing queued local work, recording run history/retries, and validating Dustin's actual briefing remain.
 - **Secrets:** existing account data is preserved, but migration to macOS Keychain and recovery/export rules remain.
 - **GitHub portability:** memory exists, but the complete portable schema for skills, connectors, automation manifests, results, and restore still needs implementation and failure testing.
 - **Connections:** add/reconnect/remove and health explanations exist, but still require clean-Mac and Dustin-state acceptance testing.
@@ -126,7 +138,7 @@ The following are not complete and must not be presented as finished:
 
 ## Remaining Lifecycle
 
-1. Build the hybrid automation center, import Dustin-compatible workflow definitions, and prove cloud and queued-local paths.
+1. Connect approved cloud workflows through supported Claude automation, execute queued local work safely, and prove both run paths.
 2. Complete GitHub portability, Keychain secret storage, backup, restore, and recovery tests.
 3. Finish first-run setup, accessibility, and error recovery.
 4. Implement the signed app update path and release notes.
@@ -158,5 +170,7 @@ No release claim is based only on an implementation assertion. Every item above 
 | --- | --- |
 | `51aa8dc` | Added Claude capability inventory. |
 | `0e703e7` | Secured release packaging and added legacy-state migration. |
+| `e7a644c` | Added streaming conversation readiness and targeted capability repair. |
+| This slice | Added automation discovery, classification, UI, and bounded local queue creation. |
 
 This record is updated with each completed slice. A branch push is not a Dustin release and does not imply that the release gate has passed.

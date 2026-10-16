@@ -44,6 +44,8 @@ Usage:
   ./bin/geoffrey app-status
   ./bin/geoffrey app-migrate
   ./bin/geoffrey app-capabilities
+  ./bin/geoffrey app-automations
+  ./bin/geoffrey app-automation-queue
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill|build-skill [--request "..."]
   ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
@@ -89,6 +91,8 @@ Commands:
   app-status   Print the simple readiness information used by Geoffrey.app.
   app-migrate  Back up and inventory terminal-era private state for the Mac app.
   app-capabilities List the Claude skills, plugins, and MCPs Geoffrey can use.
+  app-automations Discover recurring work without creating or changing schedules.
+  app-automation-queue Queue missed approved local work without running it.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-context  Prepare the read-only private context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
@@ -2262,6 +2266,14 @@ app_capabilities() {
   node "$MCP_DIR/bin/capability-inventory.js" --engine-root "$ROOT"
 }
 
+app_automations() {
+  node "$MCP_DIR/bin/automation-inventory.js" --engine-root "$ROOT"
+}
+
+app_automation_queue() {
+  node "$MCP_DIR/bin/automation-queue.js" --write --engine-root "$ROOT"
+}
+
 app_prompt() {
   task="ask"
   request=""
@@ -3391,6 +3403,12 @@ case "${1:-}" in
     ;;
   app-capabilities)
     app_capabilities
+    ;;
+  app-automations)
+    app_automations
+    ;;
+  app-automation-queue)
+    app_automation_queue
     ;;
   app-prompt)
     shift

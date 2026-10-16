@@ -1,12 +1,12 @@
 # Current Product Status
 
-Updated: October 15, 2026
+Updated: October 16, 2026
 
 The current effort is the native Mac release for Dustin. The terminal interface is not the future product, but its state must be preserved. The authoritative scope, evidence, limitations, and release gate are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
 ## Proven Now
 
-- Native Mac app builds as Geoffrey `0.4.0` (build 4).
+- Native Mac app builds as Geoffrey `0.5.0` (build 5).
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
@@ -20,10 +20,15 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - A live authenticated two-turn Claude session successfully resumed the same session and recalled information from the first turn.
 - Geoffrey's exact `stream-json` flags were verified against the installed Claude Code `2.1.301` event format.
 - The Mac conversation interface has been visually inspected in the built app.
+- The Automation Center discovers portable workflow manifests plus likely terminal-era briefing/routine files without changing a schedule.
+- Workflows are classified as Claude-cloud capable, Mac-required, or needing review based on declared dependencies and connection readiness.
+- Imported workflows remain disabled until explicitly approved, and the interface distinguishes “cloud capable” from an actually active Claude cloud deployment.
+- Approved local workflows can accumulate a bounded, duplicate-safe queue of missed daily occurrences when Geoffrey next opens; queue creation never runs the workflow.
+- The portable automation manifest lives in private GitHub-backed memory, while local queue state remains outside GitHub.
 
 ## In Progress
 
-- A hybrid automation center for cloud execution plus a queued local fallback.
+- Connecting an approved cloud-capable workflow to Claude and executing queued local work with visible results.
 - Portable GitHub state for approved skills, connector definitions, automation manifests, results, and recovery.
 - Keychain-backed secret storage and connection repair.
 - A signed, app-native updater that supersedes the initial legacy GitHub transition.
@@ -31,7 +36,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 ## Not Yet Proven
 
 - Import and execution of Dustin's three-times-daily social briefing.
-- Cloud execution while Dustin's Mac is off and queued catch-up for local-only work.
+- Actual cloud execution while Dustin's Mac is off and execution of queued local-only work.
 - Clean-Mac installation, Developer ID signing, notarization, Gatekeeper acceptance, and rollback.
 - End-to-end migration against Dustin's actual machine.
 

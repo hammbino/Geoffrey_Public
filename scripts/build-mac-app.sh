@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE="$ROOT/app/GeoffreyApp.swift"
 STREAM_SOURCE="$ROOT/app/ClaudeStream.swift"
 READINESS_SOURCE="$ROOT/app/GeoffreyReadiness.swift"
+AUTOMATIONS_SOURCE="$ROOT/app/GeoffreyAutomations.swift"
 PLIST="$ROOT/app/Info.plist"
 ICON="$ROOT/app/Geoffrey.icns"
 APP="$ROOT/build/Geoffrey.app"
@@ -39,7 +40,7 @@ for candidate in /opt/homebrew/opt/swift/*.xctoolchain/usr/bin/swiftc /usr/local
 done
 
 build_app() {
-  "$1" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" \
+  "$1" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" "$AUTOMATIONS_SOURCE" \
     -o "$APP/Contents/MacOS/Geoffrey" -framework SwiftUI -framework AppKit
 }
 

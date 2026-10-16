@@ -1,6 +1,6 @@
 # Geoffrey Desktop Roadmap
 
-Updated: October 15, 2026
+Updated: October 16, 2026
 
 The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
@@ -33,13 +33,15 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Add streaming, cancellation, readable tool activity, persistent visible history, and approved-change status.
 - [x] Finish readiness, recommendation, and targeted repair experiences.
 
-## Phase 4: Hybrid Automation — Pending
+## Phase 4: Hybrid Automation — In Progress
 
-- [ ] Inventory and classify Dustin's existing social briefing automation.
-- [ ] Surface imported routines and schedules in Geoffrey.
+- [x] Discover and classify portable workflows and likely terminal-era automation files without changing schedules.
+- [x] Surface imported routines and schedules in Geoffrey with cloud, Mac-required, and review states.
 - [ ] Route cloud-compatible work to supported Claude cloud automation.
-- [ ] Queue local-only work while the Mac is off and catch it up visibly.
+- [x] Queue missed occurrences of approved local-only work safely and show the queue count.
+- [ ] Execute queued local work when Geoffrey returns and show its result.
 - [ ] Record run history, failures, retry state, and owner approvals.
+- [ ] Validate and bind Dustin's actual three-times-daily social briefing during release-candidate acceptance.
 
 ## Phase 5: Portable State and Security — Pending
 

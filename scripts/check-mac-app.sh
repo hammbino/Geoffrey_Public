@@ -47,6 +47,12 @@ ok "Claude stream parser handles partial text, tools, completion, and errors"
 "$TEST_HOME/geoffrey-readiness-tests" >/dev/null || fail "Readiness states must produce the correct owner action."
 ok "Readiness tests cover healthy, repair, and first-use states"
 
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" -D AUTOMATION_LOGIC_ONLY \
+  "$ROOT/app/GeoffreyAutomations.swift" "$ROOT/app/GeoffreyAutomationsTests.swift" \
+  -o "$TEST_HOME/geoffrey-automation-tests"
+"$TEST_HOME/geoffrey-automation-tests" >/dev/null || fail "Automation routes and imported inventory must decode safely."
+ok "Automation tests cover cloud, local, and review presentation"
+
 rg -F '.onSubmit(send)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must send when the owner presses Return."
 rg -F 'TextField("Ask about a task, decision, or problem you want off your plate"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must use a native editable text field."
 ok "Chat input is a native Return-to-send field"
@@ -87,6 +93,11 @@ if rg -F 'refresh_token' "$TEST_HOME/.geoffrey/migration-v1.json" >/dev/null; th
   fail "Migration manifest must not contain account secrets."
 fi
 ok "Terminal-era state is backed up and inventoried without exposing secrets"
+automations="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-automations)"
+printf '%s' "$automations" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const inventory = JSON.parse(input); if (inventory.schema_version !== 1 || inventory.execution_available !== false || !Array.isArray(inventory.workflows)) process.exit(1); });' || fail "Automation discovery contract is not valid."
+rg -F 'Label("Automations", systemImage: "repeat.circle.fill")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The app needs an Automation Center in the main navigation."
+rg -F 'Review before Geoffrey changes a schedule' "$ROOT/app/GeoffreyAutomations.swift" >/dev/null || fail "Automation discovery must explain its approval boundary."
+ok "Automation Center discovers recurring work without changing schedules"
 rg -F 'Recommend my next step' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs an outcome-first recommendation action."
 rg -F 'Recommend a skill for me' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs a focused skill recommendation action."
 rg -F 'I already know which app I use' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connection planning must keep app selection optional."

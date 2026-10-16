@@ -17,7 +17,9 @@
 | Claude Code remains the intelligence and tool runtime | Geoffrey makes Claude's skills, MCPs, connectors, and builders understandable instead of building a weaker parallel system. | Decided |
 | The app installs a self-contained versioned engine | Replacing the app can update product code without overwriting private user state. | Implemented |
 | Existing state is migrated non-destructively | Geoffrey backs up and inventories the old setup before using it in place. | Implemented |
-| Cloud-first automation with a local queue | Cloud-capable workflows should run while the Mac is off; local-only dependencies wait and catch up visibly. | Decided; implementation pending |
+| Cloud-first automation with a local queue | Cloud-capable workflows should run while the Mac is off; local-only dependencies wait and catch up visibly. | Discovery and queue implemented; execution pending |
+| Automation discovery never changes a schedule | Legacy candidates and portable manifests can be inventoried safely before timing, tools, and destination are approved. | Implemented |
+| “Cloud capable” is not “running in cloud” | Geoffrey only claims active cloud execution after an approved Claude deployment is connected and verified. | Implemented |
 | GitHub holds portable, non-secret owner state | Memory, approved skills, workflow definitions, and results remain owned and transferable; credentials never belong in GitHub. | Partially implemented |
 | macOS Keychain will hold credentials | The current preserved account registry is a migration source, not the final security design. | Decided; implementation pending |
 | The current Google OAuth flow is acceptable for the pilot | Commercial Gmail scope verification is deferred until Geoffrey is being prepared for market. | Pilot decision |

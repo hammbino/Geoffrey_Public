@@ -35,7 +35,7 @@ struct GeoffreyApp: App {
 }
 
 enum GeoffreySection: Hashable {
-    case today, ask, improve, connections, memory, settings
+    case today, ask, automations, improve, connections, memory, settings
 }
 
 struct GeoffreyRootView: View {
@@ -50,6 +50,7 @@ struct GeoffreyRootView: View {
                     Label("Ask Geoffrey", systemImage: "message.fill").tag(GeoffreySection.ask)
                 }
                 Section("Your business") {
+                    Label("Automations", systemImage: "repeat.circle.fill").tag(GeoffreySection.automations)
                     Label("Improve Geoffrey", systemImage: "wand.and.stars").tag(GeoffreySection.improve)
                     Label("Connections", systemImage: "link").tag(GeoffreySection.connections)
                     Label("Memory", systemImage: "brain.head.profile").tag(GeoffreySection.memory)
@@ -73,6 +74,7 @@ struct GeoffreyRootView: View {
             switch selection ?? .today {
             case .today: TodayView()
             case .ask: AskGeoffreyView()
+            case .automations: AutomationCenterView()
             case .improve: ImproveGeoffreyView()
             case .connections: ConnectionsView()
             case .memory: MemoryView()
@@ -1942,6 +1944,7 @@ final class GeoffreyModel: ObservableObject {
     @Published var accountConnectionFailed = false
     @Published var accounts: [GeoffreyAccount] = []
     @Published var capabilities: [GeoffreyCapability] = []
+    @Published var automationInventory = GeoffreyAutomationInventory.empty
     @Published var issueMessage = ""
     @Published var showingIssue = false
     @Published var isSigningIntoClaude = false
@@ -2082,6 +2085,7 @@ final class GeoffreyModel: ObservableObject {
         )
     }
     var readinessReadyCount: Int { readinessItems.filter { $0.state == .ready }.count }
+    var automations: [GeoffreyAutomation] { automationInventory.workflows }
     var modelDescription: String {
         switch modelChoice {
         case "sonnet": return "Faster responses for everyday briefings, drafts, and routine work."
@@ -2110,6 +2114,7 @@ final class GeoffreyModel: ObservableObject {
         isRefreshingAccounts = true
         Task.detached { [geoffreyHome] in
             _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-migrate"])
+            _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automation-queue"])
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-status"])
             let entries = result.output.split(separator: "\n").reduce(into: [String: String]()) { values, line in
                 let pair = line.split(separator: "\t", maxSplits: 1).map(String.init)
@@ -2119,10 +2124,13 @@ final class GeoffreyModel: ObservableObject {
             let accounts = (try? JSONDecoder().decode([GeoffreyAccount].self, from: Data(accountResult.output.utf8))) ?? []
             let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"])
             let capabilities = (try? JSONDecoder().decode([GeoffreyCapability].self, from: Data(capabilityResult.output.utf8))) ?? []
+            let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"])
+            let automationInventory = (try? JSONDecoder().decode(GeoffreyAutomationInventory.self, from: Data(automationResult.output.utf8))) ?? .empty
             await MainActor.run {
                 self.health = entries
                 self.accounts = accounts
                 self.capabilities = capabilities
+                self.automationInventory = automationInventory
                 self.isRefreshingAccounts = false
             }
         }
@@ -2641,6 +2649,12 @@ final class GeoffreyModel: ObservableObject {
             issueMessage = "Refresh Geoffrey to check \(capability.displayName) again. If it still needs attention, reconnect it in Claude before Geoffrey tries to use it."
             showingIssue = true
         }
+    }
+
+    func reviewAutomation(_ automation: GeoffreyAutomation) {
+        let route = automation.routePresentation.title.lowercased()
+        issueMessage = "\(automation.name) is \(route). Before Geoffrey changes anything, its schedule, required accounts, and output destination must be confirmed on this Mac. Geoffrey has only discovered and preserved it; no job was created, duplicated, or enabled."
+        showingIssue = true
     }
 
     private func runCapabilityRepair(_ capability: GeoffreyCapability, arguments: [String], success: String) {
