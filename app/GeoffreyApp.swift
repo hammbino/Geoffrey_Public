@@ -820,12 +820,40 @@ struct AskGeoffreyView: View {
                         ForEach(model.conversation) { message in
                             ConversationBubble(message: message)
                         }
+                        if !model.streamingResponse.isEmpty {
+                            ConversationBubble(
+                                message: GeoffreyConversationMessage(
+                                    text: model.streamingResponse,
+                                    isOwner: false
+                                )
+                            )
+                        }
                         if model.isRunning {
                             HStack(spacing: 10) {
                                 ProgressView().controlSize(.small)
-                                Text("Geoffrey is thinking...").foregroundStyle(.secondary)
+                                Text(model.conversationStatus).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Stop") { model.cancelCurrentRequest() }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
                             }
                             .padding(.vertical, 10)
+                        }
+                        if let notice = model.conversationNotice {
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundStyle(.secondary)
+                                Text(notice)
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Dismiss") { model.conversationNotice = nil }
+                                    .buttonStyle(.borderless)
+                                    .controlSize(.small)
+                            }
+                            .padding(12)
+                            .background(Color(nsColor: .controlBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
                     .frame(maxWidth: 760, alignment: .leading)
@@ -1737,10 +1765,16 @@ struct GeoffreyResponse {
     let kind: GeoffreyTask
 }
 
-struct GeoffreyConversationMessage: Identifiable {
-    let id = UUID()
+struct GeoffreyConversationMessage: Codable, Identifiable {
+    let id: UUID
     let text: String
     let isOwner: Bool
+
+    init(id: UUID = UUID(), text: String, isOwner: Bool) {
+        self.id = id
+        self.text = text
+        self.isOwner = isOwner
+    }
 }
 
 struct GeoffreyAccount: Codable, Identifiable {
@@ -1796,6 +1830,9 @@ final class GeoffreyModel: ObservableObject {
     @Published var isCreatingMemory = false
     @Published var memorySetupOutcome: String?
     @Published var conversation: [GeoffreyConversationMessage] = []
+    @Published var streamingResponse = ""
+    @Published var conversationStatus = "Preparing your request..."
+    @Published var conversationNotice: String?
     @Published private(set) var claudeSessionID: String?
     @Published var isRunning = false
     @Published var runningTask: GeoffreyTask?
@@ -1816,6 +1853,9 @@ final class GeoffreyModel: ObservableObject {
         didSet { UserDefaults.standard.set(customModel, forKey: "geoffreyCustomModel") }
     }
     private var memoryCreationProcess: Process?
+    private var claudeProcess: Process?
+    private var activeClaudeRunID: UUID?
+    private var cancelledClaudeRunID: UUID?
 
     let geoffreyHome: String
     private var accountConnectionProcess: Process?
@@ -1825,7 +1865,40 @@ final class GeoffreyModel: ObservableObject {
         geoffreyHome = Self.resolvedGeoffreyHome()
         modelChoice = UserDefaults.standard.string(forKey: "geoffreyModelChoice") ?? "automatic"
         customModel = UserDefaults.standard.string(forKey: "geoffreyCustomModel") ?? ""
-        claudeSessionID = UserDefaults.standard.string(forKey: "geoffreyClaudeSessionID")
+        conversation = Self.loadConversation()
+        if conversation.isEmpty {
+            claudeSessionID = nil
+            UserDefaults.standard.removeObject(forKey: "geoffreyClaudeSessionID")
+        } else {
+            claudeSessionID = UserDefaults.standard.string(forKey: "geoffreyClaudeSessionID")
+        }
+    }
+
+    private static var conversationURL: URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Geoffrey", isDirectory: true)
+            .appendingPathComponent("conversation.json")
+    }
+
+    private static func loadConversation() -> [GeoffreyConversationMessage] {
+        guard let url = conversationURL,
+              let data = try? Data(contentsOf: url),
+              let messages = try? JSONDecoder().decode([GeoffreyConversationMessage].self, from: data) else {
+            return []
+        }
+        return Array(messages.suffix(100))
+    }
+
+    private func persistConversation() {
+        guard let url = Self.conversationURL,
+              let data = try? JSONEncoder().encode(Array(conversation.suffix(100))) else { return }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: url, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        } catch {
+            conversationNotice = "Geoffrey could not save this conversation locally. The current chat will remain available until the app closes."
+        }
     }
 
     private static func resolvedGeoffreyHome() -> String {
@@ -1953,8 +2026,15 @@ final class GeoffreyModel: ObservableObject {
         }
         isRunning = true
         runningTask = task
+        streamingResponse = ""
+        conversationStatus = "Preparing your request..."
+        conversationNotice = nil
+        let runID = UUID()
+        activeClaudeRunID = runID
+        cancelledClaudeRunID = nil
         if case let .ask(question) = task {
             conversation.append(GeoffreyConversationMessage(text: question, isOwner: true))
+            persistConversation()
         }
         let resumeSessionID = task.continuesConversation ? claudeSessionID : nil
         let selectedModel: String?
@@ -1975,7 +2055,10 @@ final class GeoffreyModel: ObservableObject {
             }
             let prompt = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: promptArgs)
             guard prompt.status == 0 else {
-                await MainActor.run { self.finishWithIssue(prompt.output) }
+                await MainActor.run {
+                    guard self.activeClaudeRunID == runID else { return }
+                    self.finishWithIssue(prompt.output)
+                }
                 return
             }
             let memory = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-status"]).output
@@ -1993,51 +2076,238 @@ final class GeoffreyModel: ObservableObject {
                     completePrompt += "\n\nEmail and calendar context could not be prepared. Explain this briefly, then complete the useful parts of the request from existing memory."
                 }
             }
-            let answer = Self.runClaude(
-                prompt: completePrompt,
-                workingDirectory: memory,
-                allowsEdits: task.allowsEdits,
-                model: selectedModel,
-                resumeSessionID: resumeSessionID
-            )
-            if answer.status == 0 && task.allowsEdits {
-                _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
-            }
-            if answer.status == 0 && task.archivesResult {
-                _ = Self.run(
-                    executable: geoffreyHome + "/bin/geoffrey",
-                    arguments: ["app-record-briefing", "--kind", task.commandName, "--text", String(answer.output.prefix(50000))]
+            let readyPrompt = completePrompt
+            await MainActor.run {
+                guard self.activeClaudeRunID == runID, self.cancelledClaudeRunID != runID else { return }
+                self.startClaudeRun(
+                    runID: runID,
+                    task: task,
+                    prompt: readyPrompt,
+                    workingDirectory: memory,
+                    model: selectedModel,
+                    resumeSessionID: resumeSessionID
                 )
             }
-            await MainActor.run {
-                self.isRunning = false
-                self.runningTask = nil
-                if answer.status == 0, !answer.output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    if task.continuesConversation, let sessionID = answer.sessionID {
-                        self.claudeSessionID = sessionID
-                        UserDefaults.standard.set(sessionID, forKey: "geoffreyClaudeSessionID")
-                    }
-                    let text = answer.output.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let response = GeoffreyResponse(title: task.title, text: text, date: Date(), kind: task)
-                    self.latestResponse = response
-                    if task.isDailyBriefing {
-                        self.latestBriefing = response
-                    }
-                    if case .ask = task {
-                        self.conversation.append(GeoffreyConversationMessage(text: text, isOwner: false))
-                    }
-                } else {
-                    self.finishWithIssue(answer.output.isEmpty ? "Geoffrey could not complete that request. Please try again." : answer.output)
+        }
+    }
+
+    private func startClaudeRun(
+        runID: UUID,
+        task: GeoffreyTask,
+        prompt: String,
+        workingDirectory: String,
+        model: String?,
+        resumeSessionID: String?
+    ) {
+        let process = Process()
+        let output = Pipe()
+        let permissionMode = task.allowsEdits ? "acceptEdits" : "plan"
+        var arguments = [
+            "claude", "--print", "--output-format", "stream-json",
+            "--include-partial-messages", "--verbose",
+            "--permission-mode", permissionMode, "--name", "Geoffrey"
+        ]
+        if let resumeSessionID { arguments += ["--resume", resumeSessionID] }
+        if let model { arguments += ["--model", model] }
+        arguments.append(prompt)
+
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = arguments
+        if !workingDirectory.isEmpty {
+            process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory)
+        }
+        process.standardOutput = output
+        process.standardError = output
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        process.environment = environment
+
+        do {
+            try process.run()
+        } catch {
+            finishWithIssue(error.localizedDescription)
+            return
+        }
+
+        claudeProcess = process
+        conversationStatus = "Geoffrey is thinking..."
+        let handle = output.fileHandleForReading
+        Task.detached { [model = self] in
+            var buffer = Data()
+            var streamedText = ""
+            var finalText: String?
+            var sessionID: String?
+            var errorMessage: String?
+            var diagnostics: [String] = []
+
+            func consume(_ line: String) async {
+                guard let update = ClaudeStreamParser.parse(line: line) else {
+                    let clean = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !clean.isEmpty { diagnostics.append(clean) }
+                    return
+                }
+                if let value = update.textDelta { streamedText += value }
+                if let value = update.finalText { finalText = value }
+                if let value = update.sessionID { sessionID = value }
+                if let value = update.errorMessage { errorMessage = value }
+                await MainActor.run {
+                    guard model.activeClaudeRunID == runID else { return }
+                    model.applyClaudeStreamUpdate(update)
                 }
             }
+
+            while true {
+                let data = handle.availableData
+                if data.isEmpty { break }
+                buffer.append(data)
+                while let newline = buffer.firstIndex(of: 0x0A) {
+                    let lineData = buffer[..<newline]
+                    buffer.removeSubrange(...newline)
+                    if let line = String(data: lineData, encoding: .utf8) {
+                        await consume(line)
+                    }
+                }
+            }
+            if !buffer.isEmpty, let line = String(data: buffer, encoding: .utf8) {
+                await consume(line)
+            }
+            process.waitUntilExit()
+            let diagnostic = diagnostics.joined(separator: "\n")
+            let completion = ClaudeRunCompletion(
+                status: process.terminationStatus,
+                streamedText: streamedText,
+                finalText: finalText,
+                sessionID: sessionID,
+                errorMessage: errorMessage ?? (diagnostic.isEmpty ? nil : diagnostic)
+            )
+            await MainActor.run {
+                model.completeClaudeRun(
+                    runID: runID,
+                    task: task,
+                    completion: completion
+                )
+            }
+        }
+    }
+
+    private func applyClaudeStreamUpdate(_ update: ClaudeStreamUpdate) {
+        if let delta = update.textDelta {
+            streamingResponse += delta
+            conversationStatus = "Geoffrey is writing..."
+        }
+        if let tool = update.toolName {
+            conversationStatus = Self.ownerFacingToolStatus(tool)
+        }
+        if let finalText = update.finalText, !finalText.isEmpty {
+            streamingResponse = finalText
+            conversationStatus = "Finishing up..."
+        } else if update.isResult {
+            conversationStatus = "Finishing up..."
+        }
+    }
+
+    private static func ownerFacingToolStatus(_ tool: String) -> String {
+        let lower = tool.lowercased()
+        if lower.contains("read") || lower.contains("glob") || lower.contains("grep") || lower.contains("search") {
+            return "Reviewing the information you approved..."
+        }
+        if lower.contains("web") || lower.contains("browser") || lower.contains("chrome") {
+            return "Checking the web..."
+        }
+        if lower.contains("mail") || lower.contains("gmail") || lower.contains("outlook") || lower.contains("calendar") {
+            return "Checking a connected account..."
+        }
+        if lower.contains("write") || lower.contains("edit") {
+            return "Preparing an approved change..."
+        }
+        return "Using one of your Claude capabilities..."
+    }
+
+    private func completeClaudeRun(
+        runID: UUID,
+        task: GeoffreyTask,
+        completion: ClaudeRunCompletion
+    ) {
+        guard activeClaudeRunID == runID else { return }
+        claudeProcess = nil
+        activeClaudeRunID = nil
+        isRunning = false
+        runningTask = nil
+
+        if cancelledClaudeRunID == runID {
+            let partial = completion.streamedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !partial.isEmpty {
+                conversation.append(GeoffreyConversationMessage(text: partial + "\n\nStopped before completion.", isOwner: false))
+                persistConversation()
+            }
+            streamingResponse = ""
+            conversationStatus = ""
+            conversationNotice = "Stopped. No additional work will be started unless you send another request."
+            return
+        }
+
+        let answer = (completion.finalText ?? completion.streamedText).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard completion.status == 0, completion.errorMessage == nil, !answer.isEmpty else {
+            streamingResponse = ""
+            conversationStatus = ""
+            finishWithIssue(completion.errorMessage ?? (answer.isEmpty ? "Geoffrey could not complete that request. Please try again." : answer))
+            return
+        }
+
+        if task.continuesConversation, let sessionID = completion.sessionID {
+            claudeSessionID = sessionID
+            UserDefaults.standard.set(sessionID, forKey: "geoffreyClaudeSessionID")
+        }
+        let response = GeoffreyResponse(title: task.title, text: answer, date: Date(), kind: task)
+        latestResponse = response
+        if task.isDailyBriefing { self.latestBriefing = response }
+        if case .ask = task {
+            conversation.append(GeoffreyConversationMessage(text: answer, isOwner: false))
+            persistConversation()
+        }
+        streamingResponse = ""
+        conversationStatus = ""
+
+        if task.allowsEdits || task.archivesResult {
+            Task.detached { [geoffreyHome] in
+                if task.allowsEdits {
+                    _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+                }
+                if task.archivesResult {
+                    _ = Self.run(
+                        executable: geoffreyHome + "/bin/geoffrey",
+                        arguments: ["app-record-briefing", "--kind", task.commandName, "--text", String(answer.prefix(50000))]
+                    )
+                }
+            }
+        }
+    }
+
+    func cancelCurrentRequest() {
+        guard let runID = activeClaudeRunID else { return }
+        cancelledClaudeRunID = runID
+        conversationStatus = "Stopping safely..."
+        if let process = claudeProcess, process.isRunning {
+            process.terminate()
+        } else {
+            activeClaudeRunID = nil
+            isRunning = false
+            runningTask = nil
+            streamingResponse = ""
+            conversationStatus = ""
+            conversationNotice = "Stopped before Claude started. Nothing was changed."
         }
     }
 
     func startNewConversation() {
         guard !isRunning else { return }
         conversation = []
+        streamingResponse = ""
+        conversationStatus = ""
+        conversationNotice = nil
         claudeSessionID = nil
         UserDefaults.standard.removeObject(forKey: "geoffreyClaudeSessionID")
+        persistConversation()
     }
 
     func sendFeedback(rating: String, note: String) {
@@ -2225,12 +2495,20 @@ final class GeoffreyModel: ObservableObject {
     func openGeoffreyFolder() { NSWorkspace.shared.open(URL(fileURLWithPath: geoffreyHome)) }
 
     private func finishWithIssue(_ raw: String) {
+        claudeProcess = nil
+        activeClaudeRunID = nil
         isRunning = false
         runningTask = nil
+        streamingResponse = ""
+        conversationStatus = ""
         let message = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = message.lowercased()
-        if lower.contains("failed to authenticate") || lower.contains("oauth session expired") {
+        if lower.contains("not logged in") || lower.contains("failed to authenticate") || lower.contains("oauth session expired") {
             issueMessage = "Your Claude sign-in needs a quick refresh. Choose Accounts > Sign in to Claude, then come back here and try again."
+        } else if lower.contains("rate limit") || lower.contains("too many requests") {
+            issueMessage = "Claude is temporarily at its usage limit. Nothing was changed. Wait a moment, then try again."
+        } else if lower.contains("network") || lower.contains("connection") || lower.contains("timed out") {
+            issueMessage = "Geoffrey lost its connection to Claude before finishing. Nothing was changed. Check your connection and try again."
         } else if lower.contains("could not refresh access") || lower.contains("calendar access denied") || lower.contains("access denied for") {
             issueMessage = "One of your email or calendar accounts needs to be reconnected. Choose Accounts > Add email or calendar account, then sign in to that account again. No messages were sent."
         } else if lower.contains("model") && (lower.contains("not available") || lower.contains("not found") || lower.contains("not supported")) {
@@ -2262,27 +2540,6 @@ final class GeoffreyModel: ObservableObject {
         showingIssue = true
     }
 
-    nonisolated private static func runClaude(prompt: String, workingDirectory: String, allowsEdits: Bool, model: String?, resumeSessionID: String?) -> ClaudeCommandResult {
-        // Briefings are read-only. Only the separately approved skill builder can
-        // edit private memory, so email content cannot turn a routine briefing
-        // into an unapproved change.
-        let permissionMode = allowsEdits ? "acceptEdits" : "plan"
-        var arguments = ["claude", "--print", "--output-format", "json", "--permission-mode", permissionMode, "--name", "Geoffrey"]
-        if let resumeSessionID { arguments += ["--resume", resumeSessionID] }
-        if let model { arguments += ["--model", model] }
-        arguments.append(prompt)
-        let command = run(executable: "/usr/bin/env", arguments: arguments, workingDirectory: workingDirectory)
-        guard command.status == 0 else {
-            return ClaudeCommandResult(status: command.status, output: command.output, sessionID: nil)
-        }
-        guard let data = command.output.data(using: .utf8),
-              let envelope = try? JSONDecoder().decode(ClaudePrintEnvelope.self, from: data),
-              envelope.isError != true else {
-            return ClaudeCommandResult(status: 1, output: command.output, sessionID: nil)
-        }
-        return ClaudeCommandResult(status: 0, output: envelope.result ?? "", sessionID: envelope.sessionID)
-    }
-
     nonisolated private static func run(executable: String, arguments: [String], workingDirectory: String? = nil) -> CommandResult {
         let process = Process()
         let output = Pipe()
@@ -2310,22 +2567,4 @@ final class GeoffreyModel: ObservableObject {
 struct CommandResult {
     let status: Int32
     let output: String
-}
-
-private struct ClaudePrintEnvelope: Decodable {
-    let result: String?
-    let sessionID: String?
-    let isError: Bool?
-
-    enum CodingKeys: String, CodingKey {
-        case result
-        case sessionID = "session_id"
-        case isError = "is_error"
-    }
-}
-
-private struct ClaudeCommandResult {
-    let status: Int32
-    let output: String
-    let sessionID: String?
 }

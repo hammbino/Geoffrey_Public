@@ -26,18 +26,37 @@ ok() { printf 'OK  %s\n' "$1"; }
 [ -x "$APP/Contents/MacOS/Geoffrey" ] || fail "Build Geoffrey.app before running this check."
 ok "Geoffrey.app executable exists"
 
+TEST_SWIFTC="$(command -v swiftc)"
+for candidate in /opt/homebrew/opt/swift/*.xctoolchain/usr/bin/swiftc /usr/local/opt/swift/*.xctoolchain/usr/bin/swiftc; do
+  if [ -x "$candidate" ]; then
+    TEST_SWIFTC="$candidate"
+    break
+  fi
+done
+TEST_SDK="$(xcrun --sdk macosx --show-sdk-path)"
+TEST_ARCH="$(uname -m)"
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" \
+  "$ROOT/app/ClaudeStream.swift" "$ROOT/app/ClaudeStreamTests.swift" \
+  -o "$TEST_HOME/claude-stream-tests"
+"$TEST_HOME/claude-stream-tests" >/dev/null || fail "Claude stream events must be parsed safely."
+ok "Claude stream parser handles partial text, tools, completion, and errors"
+
 rg -F '.onSubmit(send)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must send when the owner presses Return."
 rg -F 'TextField("Ask about a task, decision, or problem you want off your plate"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must use a native editable text field."
 ok "Chat input is a native Return-to-send field"
 
-rg -F '"--output-format", "json"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Claude responses must use structured output."
+rg -F '"--output-format", "stream-json"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Claude responses must use streaming structured output."
+rg -F '"--include-partial-messages"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Claude responses must include partial messages."
 rg -F 'arguments += ["--resume", resumeSessionID]' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Ask Geoffrey must resume its Claude session."
 rg -F 'geoffreyClaudeSessionID' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Claude conversation identity must survive an app restart."
+rg -F 'conversation.json' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The visible conversation must survive an app restart."
 rg -F 'Button("New conversation")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The owner needs a clear way to start a new Claude session."
+rg -F 'Button("Stop")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The owner needs to be able to stop a Claude request."
+rg -F 'process.terminate()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Stopping a request must terminate the active Claude process."
 if rg -F 'Do not read files or call tools' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
   fail "General Geoffrey requests must not disable Claude files and tools."
 fi
-ok "Ask Geoffrey keeps a resumable Claude session with skills and tools available"
+ok "Ask Geoffrey streams and preserves a resumable, cancellable conversation"
 
 rg -F 'OperationalResultDisplay' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results must use the structured renderer."
 rg -F 'ResultEmptyState' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results need an explicit no-items state."

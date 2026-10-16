@@ -74,9 +74,18 @@ These items may still exist in older Git history or tags. Before any public rele
 ### Claude runtime and capability visibility
 
 - General requests and skill building may use Claude tools and files; prepared read-only views remain constrained.
-- Ask Geoffrey uses Claude's JSON output, records the returned Claude session ID, and resumes that session for later turns.
+- Ask Geoffrey uses Claude's streaming JSON output, displays partial text, records the returned Claude session ID, and resumes that session for later turns.
+- The owner can stop an active Claude process, start a new conversation, and see plain-language status when Geoffrey is thinking, reading approved information, checking the web or a connected account, or preparing an approved change.
+- The visible conversation persists across app restarts in Application Support with owner-only file permissions.
 - The app detects Claude CLI authentication and can start Claude's supported login flow.
 - Improve Geoffrey inventories available user, private, and bundled skills plus installed Claude plugins and MCP servers.
+
+Live authentication evidence on October 15, 2026:
+
+- Claude Code `2.1.301` authenticated successfully through Claude's supported browser flow.
+- Turn one created a session and stored a harmless test code.
+- Turn two resumed the same session ID and returned the correct test code, proving context continuity.
+- A separate request using Geoffrey's exact `stream-json`, partial-message, verbose, model, and permission flags emitted the expected session, partial-text, assistant, and final-result events.
 
 ### Repeatable verification
 
@@ -91,19 +100,18 @@ The current verified result is:
 - shell syntax checks: pass;
 - JavaScript syntax checks: pass;
 - behavioral tests: 7 passed, 0 failed;
+- isolated Claude stream parser tests: pass for session identity, partial text, tool activity, final results, structured failures, and non-JSON diagnostics;
 - Claude package safety/currentness: pass;
 - Mac app build and payload safety: pass;
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
 - strict code-signature verification: pass using an ad hoc signature.
 
-The behavioral tests cover capability inventory aggregation, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, and migration without token leakage.
+The behavioral tests cover capability inventory aggregation, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, migration without token leakage, and Claude stream parsing. The built Ask Geoffrey interface was also inspected visually in dark mode for hierarchy, legibility, clipping, and composer layout.
 
 ## Honest Limitations and Remaining Work
 
 The following are not complete and must not be presented as finished:
 
-- **Authenticated conversation proof:** the development Mac has Claude Code `2.1.301` installed but is not signed in. The attempted live two-turn test correctly returned `Not logged in`; authenticated session resume still needs to be proven.
-- **Conversation experience:** persistent session plumbing exists, but streaming, cancellation, readable tool activity, and clear approval moments remain.
 - **Automation:** the cloud/local execution router, existing-automation discovery, import, scheduling view, missed-run queue, and catch-up behavior remain to be built and tested.
 - **Secrets:** existing account data is preserved, but migration to macOS Keychain and recovery/export rules remain.
 - **GitHub portability:** memory exists, but the complete portable schema for skills, connectors, automation manifests, results, and restore still needs implementation and failure testing.
@@ -115,10 +123,10 @@ The following are not complete and must not be presented as finished:
 
 ## Remaining Lifecycle
 
-1. Finish the persistent Claude conversation experience and prove a real authenticated two-turn session.
+1. Finish capability readiness, recommendations, connection repair, and approval explanations around the proven conversation runtime.
 2. Build the hybrid automation center, import Dustin-compatible workflow definitions, and prove cloud and queued-local paths.
 3. Complete GitHub portability, Keychain secret storage, backup, restore, and recovery tests.
-4. Finish connection management, first-run setup, capability recommendations, accessibility, and error recovery.
+4. Finish connection management, first-run setup, accessibility, and error recovery.
 5. Implement the signed app update path and release notes.
 6. Run automated, clean-environment, migration, security, and guided human acceptance tests.
 7. Sign with Developer ID, notarize, package, and publish a release candidate.

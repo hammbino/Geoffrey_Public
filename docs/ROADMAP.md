@@ -29,8 +29,8 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Detect Claude CLI authentication and provide the supported login flow.
 - [x] Capture and resume Claude session IDs.
 - [x] Inventory skills, plugins, and MCP servers.
-- [ ] Prove a live authenticated two-turn conversation.
-- [ ] Add streaming, cancellation, readable tool activity, and clear approval moments.
+- [x] Prove a live authenticated two-turn conversation.
+- [x] Add streaming, cancellation, readable tool activity, persistent visible history, and approved-change status.
 - [ ] Finish readiness, recommendation, and repair experiences.
 
 ## Phase 4: Hybrid Automation — Pending
