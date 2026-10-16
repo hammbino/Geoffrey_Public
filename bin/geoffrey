@@ -43,6 +43,7 @@ Usage:
   ./bin/geoffrey uninstall [--purge-private-memory] [--yes] [--dry-run]
   ./bin/geoffrey app-status
   ./bin/geoffrey app-migrate
+  ./bin/geoffrey app-capabilities
   ./bin/geoffrey app-prompt --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill|build-skill [--request "..."]
   ./bin/geoffrey app-context --task daily|inbox|follow-up|open-loops|ask|capability-review|recommend-skill
   ./bin/geoffrey app-feedback --rating helpful|adjust --note "..."
@@ -87,6 +88,7 @@ Commands:
                Use --purge-private-memory only to erase the separate private memory repo.
   app-status   Print the simple readiness information used by Geoffrey.app.
   app-migrate  Back up and inventory terminal-era private state for the Mac app.
+  app-capabilities List the Claude skills, plugins, and MCPs Geoffrey can use.
   app-prompt   Print the safe, Geoffrey-aware prompt used by Geoffrey.app.
   app-context  Prepare the read-only private context used by Geoffrey.app.
   app-feedback Save briefing feedback in Geoffrey's private memory.
@@ -2256,6 +2258,10 @@ app_migrate() {
   node "$MCP_DIR/bin/migrate-legacy.js" --write --engine-root "$ROOT"
 }
 
+app_capabilities() {
+  node "$MCP_DIR/bin/capability-inventory.js" --engine-root "$ROOT"
+}
+
 app_prompt() {
   task="ask"
   request=""
@@ -3382,6 +3388,9 @@ case "${1:-}" in
     ;;
   app-migrate)
     app_migrate
+    ;;
+  app-capabilities)
+    app_capabilities
     ;;
   app-prompt)
     shift

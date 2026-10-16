@@ -66,6 +66,9 @@ rg -F 'Recommend my next step' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail 
 rg -F 'Recommend a skill for me' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey needs a focused skill recommendation action."
 rg -F 'I already know which app I use' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connection planning must keep app selection optional."
 rg -F 'What do you want Geoffrey to handle more reliably?' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Skill creation must start with an owner outcome."
+capabilities="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-capabilities)"
+printf '%s' "$capabilities" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const items = JSON.parse(input); if (!Array.isArray(items) || !items.some(item => item.type === "skill" && item.enabled)) process.exit(1); });' || fail "Capability inventory must return enabled Geoffrey skills."
+rg -F 'Label("Available in Geoffrey"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Improve Geoffrey must show available Claude capabilities."
 ok "Improve Geoffrey uses prepared context and outcome-first flows"
 
 rg -F '@Published var runningTask: GeoffreyTask?' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Today actions must track the running task."

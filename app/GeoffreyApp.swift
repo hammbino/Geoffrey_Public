@@ -957,6 +957,42 @@ struct ImproveGeoffreyView: View {
                 }
                 .disabled(model.isRunning || !model.canTalk)
 
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Label("Available in Geoffrey", systemImage: "shippingbox.fill")
+                            .font(.headline)
+                        Spacer()
+                        Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                            .buttonStyle(.borderless)
+                            .help("Refresh capabilities")
+                    }
+                    if model.capabilities.isEmpty {
+                        Text("Geoffrey is checking the skills and connections already available through Claude.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(model.capabilities) { capability in
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: capability.icon)
+                                    .foregroundStyle(capability.enabled ? Color.green : Color.orange)
+                                    .frame(width: 22)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(capability.displayName).font(.body.weight(.medium))
+                                    Text("\(capability.kindLabel) · \(capability.source) · \(capability.description)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(capability.enabled ? "Ready" : "Needs attention")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(capability.enabled ? Color.green : Color.orange)
+                            }
+                        }
+                    }
+                }
+                .padding(20)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Connect a business tool", systemImage: "puzzlepiece.extension")
                         .font(.headline)
@@ -1726,6 +1762,31 @@ struct GeoffreyAccount: Codable, Identifiable {
     }
 }
 
+struct GeoffreyCapability: Codable, Identifiable {
+    let id: String
+    let name: String
+    let type: String
+    let source: String
+    let enabled: Bool
+    let description: String
+
+    var displayName: String { name.replacingOccurrences(of: "-", with: " ").capitalized }
+    var kindLabel: String {
+        switch type {
+        case "mcp": return "Connection"
+        case "plugin": return "Claude plugin"
+        default: return "Skill"
+        }
+    }
+    var icon: String {
+        switch type {
+        case "mcp": return "link.circle.fill"
+        case "plugin": return "puzzlepiece.extension.fill"
+        default: return "wand.and.stars"
+        }
+    }
+}
+
 @MainActor
 final class GeoffreyModel: ObservableObject {
     @Published var health: [String: String] = [:]
@@ -1744,6 +1805,7 @@ final class GeoffreyModel: ObservableObject {
     @Published var accountConnectionOutcome: String?
     @Published var accountConnectionFailed = false
     @Published var accounts: [GeoffreyAccount] = []
+    @Published var capabilities: [GeoffreyCapability] = []
     @Published var issueMessage = ""
     @Published var showingIssue = false
     @Published var isSigningIntoClaude = false
@@ -1871,9 +1933,12 @@ final class GeoffreyModel: ObservableObject {
             }
             let accountResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-accounts"])
             let accounts = (try? JSONDecoder().decode([GeoffreyAccount].self, from: Data(accountResult.output.utf8))) ?? []
+            let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"])
+            let capabilities = (try? JSONDecoder().decode([GeoffreyCapability].self, from: Data(capabilityResult.output.utf8))) ?? []
             await MainActor.run {
                 self.health = entries
                 self.accounts = accounts
+                self.capabilities = capabilities
                 self.isRefreshingAccounts = false
             }
         }
