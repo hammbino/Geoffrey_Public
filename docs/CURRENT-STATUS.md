@@ -22,6 +22,8 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
 - Ask Geoffrey streams Claude responses, records and resumes Claude session IDs, and preserves the visible conversation locally with `0600` permissions. If request preparation, launch, or execution fails, the alert offers a direct retry without duplicating the owner's chat message.
+- Synthetic live UI inspection proves the setup-warning layout, Memory conflict/unchecked/retry/scroll state, automation-refresh failure/retry state, and stale capability/disabled-repair state. These fixtures do not establish real-account or VoiceOver acceptance.
+- Today refresh, Ask Geoffrey send, and briefing mark-handled controls have explicit accessible names. Repeated priority and section feedback actions identify the affected content, and decorative readiness icons are hidden from assistive technology.
 - Owners can stop an active request and see understandable thinking, connected-account, web, reading, and approved-change states.
 - Claude sign-in status and login flow are surfaced through the app.
 - Capability inventory combines Claude skills, plugins, and MCP servers.

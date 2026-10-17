@@ -68,6 +68,8 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Preserve automation inventory on refresh failure and expose loading, retry, and workflow-specific accessible actions.
 - [x] Preserve memory status on failed checks, distinguish unchecked recovery maps, and expose text progress and direct status retry.
 - [x] Preserve setup and capability inventory on failed checks, with explicit loading, empty, stale, retry, and accessible repair states.
+- [x] Label Today refresh, Ask Geoffrey send, mark-handled, and repeated briefing feedback controls for assistive technology.
+- [x] Inspect synthetic setup, automation, Memory, and capability refresh-failure layouts and separate retry controls in a disposable native UI fixture.
 - [ ] Complete accessible states, useful empty states, understandable errors, and recovery actions across the remaining core workflows.
 - [ ] Test core workflows with a nontechnical user who has no developer assistance.
 

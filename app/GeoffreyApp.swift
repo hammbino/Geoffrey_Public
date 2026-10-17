@@ -102,6 +102,7 @@ struct GeoffreyRootView: View {
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 8) {
                     Circle().fill(model.isReady ? Color.green : Color.orange).frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
                     Text(model.setupStatusIssue != nil ? "Setup status needs a check" : (model.health.isEmpty ? "Checking setup" : (model.isReady ? "Ready to help" : "Finishing setup")))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -109,27 +110,27 @@ struct GeoffreyRootView: View {
                 .padding(12)
             }
         } detail: {
-            switch selection ?? .today {
-            case .today: TodayView()
-            case .ask: AskGeoffreyView()
-            case .automations: AutomationCenterView()
-            case .improve: ImproveGeoffreyView()
-            case .connections: ConnectionsView()
-            case .memory: MemoryView()
-            case .settings: SettingsView()
-            }
-        }
-        .safeAreaInset(edge: .top) {
-            if let issue = model.setupStatusIssue {
-                HStack(alignment: .top, spacing: 12) {
-                    Text(issue).font(.callout)
-                    Spacer()
-                    Button("Check setup status again") { model.refresh() }
-                        .disabled(model.isRefreshingAccounts || model.isSyncingMemory || model.isUpdatingPortableState)
-                        .accessibilityIdentifier("setup-retry-status")
+            VStack(spacing: 0) {
+                if let issue = model.setupStatusIssue {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(issue).font(.callout)
+                        Button("Check setup status again") { model.refresh() }
+                            .disabled(model.isRefreshingAccounts || model.isSyncingMemory || model.isUpdatingPortableState)
+                            .accessibilityIdentifier("setup-retry-status")
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.10))
                 }
-                .padding(12)
-                .background(Color.orange.opacity(0.10))
+                switch selection ?? .today {
+                case .today: TodayView()
+                case .ask: AskGeoffreyView()
+                case .automations: AutomationCenterView()
+                case .improve: ImproveGeoffreyView()
+                case .connections: ConnectionsView()
+                case .memory: MemoryView()
+                case .settings: SettingsView()
+                }
             }
         }
         .tint(Color(red: 0.08, green: 0.45, blue: 0.36))
@@ -190,6 +191,8 @@ struct TodayView: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Refresh Geoffrey")
+                    .accessibilityLabel("Refresh Geoffrey status")
+                    .disabled(model.isRefreshingAccounts || model.isSyncingMemory || model.isUpdatingPortableState)
                 }
 
                 if !model.isReady {
@@ -377,10 +380,12 @@ private struct PriorityCard: View {
                 if feedback.isEmpty {
                     Spacer()
                     Button("More like this") { save("higher") }
+                        .accessibilityLabel("More priorities like \(priority.title)")
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .font(.caption)
                     Button("Less like this") { save("lower") }
+                        .accessibilityLabel("Fewer priorities like \(priority.title)")
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .font(.caption)
@@ -441,6 +446,8 @@ private struct BriefingSection: View {
                         .buttonStyle(.borderless)
                         .foregroundStyle(.secondary)
                         .help("Mark handled")
+                        .accessibilityLabel("Mark handled: \(item)")
+                        .accessibilityHint("Records this item in private memory for future briefings")
                     }
                 }
                 }
@@ -448,7 +455,9 @@ private struct BriefingSection: View {
                     Spacer()
                     if feedback.isEmpty {
                         Button("Useful") { save("helpful") }
+                        .accessibilityLabel("\(section.title) was useful")
                         Button("Needs work") { save("not_helpful") }
+                        .accessibilityLabel("\(section.title) needs work")
                     } else {
                         Label("Feedback saved", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
@@ -595,7 +604,9 @@ private struct OperationalResultSection: View {
                 Spacer()
                 if feedback.isEmpty {
                     Button("Useful") { save("helpful") }
+                        .accessibilityLabel("\(section.title) was useful")
                     Button("Needs work") { save("adjust") }
+                        .accessibilityLabel("\(section.title) needs work")
                 } else {
                     Label("Feedback saved", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
@@ -955,6 +966,8 @@ struct AskGeoffreyView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Send to Geoffrey")
+                .accessibilityLabel("Send to Geoffrey")
+                .accessibilityHint("Sends the request in the message field")
                 .disabled(request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isRunning || !model.canTalk)
             }
             .frame(maxWidth: 760)
@@ -1032,7 +1045,7 @@ struct ImproveGeoffreyView: View {
 
                 GeoffreyReadinessView()
 
-                HStack(alignment: .top, spacing: 18) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 18)], alignment: .leading, spacing: 18) {
                     CapabilityPanel(
                         icon: "lightbulb.max.fill",
                         title: "What should Geoffrey improve next?",
@@ -1152,6 +1165,7 @@ private struct GeoffreyReadinessView: View {
                     Image(systemName: item.state == .ready ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                         .foregroundStyle(item.state == .ready ? Color.green : Color.orange)
                         .frame(width: 20)
+                    .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(item.title).font(.body.weight(.medium))
                         Text(item.detail).font(.caption).foregroundStyle(.secondary)
@@ -1187,6 +1201,7 @@ private struct CapabilityInventoryRow: View {
             Image(systemName: capability.icon)
                 .foregroundStyle(capability.isReady ? Color.green : Color.orange)
                 .frame(width: 22)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(capability.displayName).font(.body.weight(.medium))
                 Text("\(capability.kindLabel) · \(capability.source) · \(capability.description)")
@@ -1267,7 +1282,12 @@ struct CapabilityPanel: View {
             Text(title).font(.headline)
             Text(detail).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
-            Button(actionTitle, action: action).buttonStyle(.borderedProminent)
+            Button(action: action) {
+                Text(actionTitle)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
+            }
+            .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
         .padding(20)
