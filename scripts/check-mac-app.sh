@@ -93,6 +93,10 @@ if rg -F 'refresh_token' "$TEST_HOME/.geoffrey/migration-v1.json" >/dev/null; th
   fail "Migration manifest must not contain account secrets."
 fi
 ok "Terminal-era state is backed up and inventoried without exposing secrets"
+rg -F 'const KEYCHAIN_SERVICE = "com.geoffrey.desktop.oauth.v1"' "$ROOT/geoffrey-mcp/src/store.js" >/dev/null || fail "Account credentials must use the versioned macOS Keychain service."
+rg -F '"-w",' "$ROOT/geoffrey-mcp/src/store.js" >/dev/null || fail "Keychain writes must read credentials from stdin instead of command arguments."
+rg -F 'Credential protected by macOS Keychain' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connections must show the owner where account credentials are protected."
+ok "Account credentials migrate to macOS Keychain and remain visible as a repairable connection state"
 portable_state="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-portable-state --write)"
 printf '%s' "$portable_state" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const state = JSON.parse(input); if (state.schema_version !== 1 || state.state !== "ready" || state.manifest_path !== "memory/portable-state.json") process.exit(1); });' || fail "Portable recovery state is not valid."
 [ -f "$TEST_MEMORY/memory/portable-state.json" ] || fail "Portable recovery map was not written to private memory."

@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { exec } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { upsertAccount, storePath } from "../src/store.js";
+import { credentialStoreName, upsertAccount } from "../src/store.js";
 
 const PORT = 8731;
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -241,4 +241,4 @@ upsertAccount({
 });
 
 console.log(`\nConnected "${id}" → ${who.email} ${who.detail ? `(${who.detail})` : ""}`);
-console.log(`Saved to ${storePath()}`);
+console.log(`Credential saved in ${credentialStoreName()}; account details saved locally.`);

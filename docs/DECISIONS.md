@@ -32,7 +32,7 @@
 | Local recurring work runs read-only | Queued work may retrieve, analyze, and prepare results, but cannot send, publish, spend, delete, change access, or bypass Claude permissions. | Implemented |
 | Automation results and history are portable | Owner-ready results and non-secret run metadata sync with private GitHub memory; operational queue state stays local. | Implemented |
 | GitHub holds portable, non-secret owner state | Memory, approved skills, workflow definitions, and results remain owned and transferable; credentials never belong in GitHub. | Partially implemented |
-| macOS Keychain will hold credentials | The current preserved account registry is a migration source, not the final security design. | Decided; implementation pending |
+| macOS Keychain holds account credentials | `accounts.json` is a secret-free registry. OAuth client details and refresh tokens migrate transactionally into versioned Keychain items; portable restore requires sign-in again rather than exporting secrets. | Implemented |
 | The current Google OAuth flow is acceptable for the pilot | Commercial Gmail scope verification is deferred until Geoffrey is being prepared for market. | Pilot decision |
 | Real user screenshots are not release artifacts | Fixtures and synthetic data provide evidence without exposing recipient information. | Decided and enforced |
 | Dustin is involved only after the release gate passes | His machine is the acceptance environment, not the development environment. | Decided |

@@ -27,11 +27,14 @@ There is no send tool. See `docs/geoffrey-architecture.md`, rule 5.
 
 ## Credentials
 
-`~/.geoffrey/accounts.json`, chmod 600 — outside the repo so it cannot be
-committed by accident. Plain JSON: readable, portable, and yours.
+`~/.geoffrey/accounts.json`, chmod 600, is a secret-free registry containing
+only account labels, providers, addresses, and purposes. OAuth client details
+and refresh tokens live in the owner's macOS Keychain. Existing plaintext
+registries are migrated transactionally on first use, and the legacy backup is
+scrubbed only after Keychain storage succeeds.
 
-Access tokens are never written to disk; only refresh tokens are stored, and
-access tokens are minted per run and cached in memory.
+Access tokens are never written to disk. They are minted per run and cached
+only in memory.
 
 ## Connect a mailbox
 

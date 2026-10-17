@@ -6,10 +6,11 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## Proven Now
 
-- Native Mac app builds as Geoffrey `0.12.0` (build 14).
+- Native Mac app builds as Geoffrey `0.13.0` (build 15).
 - Geoffrey's revised illustrated identity is packaged in native Mac icon sizes and appears in the sidebar as “Geoffrey — Your AI chief of staff”; the original portrait asset remains preserved.
 - The Memory screen can build and refresh a versioned, secret-free recovery map covering approved private-memory skills, email/calendar connection definitions, Claude MCP/plugin definitions, hashes, Git repository metadata, and explicit reconnect requirements.
 - A guided Memory-screen restore clones private GitHub memory into a new owner-only folder, rejects overwrites, credentials, symbolic links, unsupported maps, changed skill hashes, and unverified checkout artifacts, then restores only the verified memory pointer. A clean second-environment test proves credentials and connected-account state are not recreated, and a failed pointer update removes the staged clone.
+- Account labels and connection metadata remain in an owner-only, secret-free registry while OAuth client details and refresh tokens live in versioned macOS Keychain items. Existing plaintext registries migrate transactionally on first use; legacy backups are scrubbed only after Keychain storage succeeds, and failed migration preserves the original state for retry. The Connections screen shows the protection or reconnect state.
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
@@ -51,7 +52,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 - Completing a real Claude Routine setup and reviewed test run against a pilot workflow.
 - Clean-pilot validation of the guided restore against a real private GitHub repository.
-- Keychain-backed secret storage and connection repair.
+- Dustin-state acceptance of the Keychain migration and connection repair flow.
 - A signed, app-native updater that supersedes the initial legacy GitHub transition.
 
 ## Not Yet Proven
@@ -61,6 +62,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - End-to-end publication and import from a real Claude Routine using Dustin's actual briefing; the transport and importer are implemented and synthetically proven, but real cloud execution is not yet proven.
 - Automatic background polling for cloud results; the pilot currently uses the visible Check results action.
 - Real private-GitHub restore acceptance on a clean pilot Mac; isolated second-environment restore is automated and passing.
+- Migration of Dustin's real account credentials into Keychain; isolated adapter tests and a reversible native Keychain create/update/read/delete proof pass without exposing a credential in process arguments.
 - Clean-Mac installation, Developer ID signing, notarization, Gatekeeper acceptance, and rollback.
 - End-to-end migration against Dustin's actual machine.
 

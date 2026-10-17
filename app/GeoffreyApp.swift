@@ -1368,6 +1368,12 @@ struct ManagedAccountRow: View {
                 }
                 Text(account.email).font(.callout).foregroundStyle(.secondary)
                 if !account.purpose.isEmpty { Text(account.purpose).font(.caption).foregroundStyle(.secondary) }
+                Label(
+                    account.credentialState == "ready" ? "Credential protected by macOS Keychain" : "Credential needs a secure sign-in",
+                    systemImage: account.credentialState == "ready" ? "lock.fill" : "lock.trianglebadge.exclamationmark.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(account.credentialState == "ready" ? Color.green : Color.orange)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 7) {
@@ -2190,10 +2196,14 @@ struct GeoffreyAccount: Codable, Identifiable {
     let purpose: String
     let calendar: CalendarHealth
     let duplicateCount: Int
+    let credentialStore: String?
+    let credentialState: String
 
     enum CodingKeys: String, CodingKey {
         case id, provider, email, purpose, calendar
         case duplicateCount = "duplicate_count"
+        case credentialStore = "credential_store"
+        case credentialState = "credential_state"
     }
 }
 

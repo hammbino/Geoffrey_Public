@@ -52,7 +52,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Define and implement the portable automation manifest, bounded history, and owner-ready result subset.
 - [x] Complete the GitHub schema for approved skills, connector definitions, and restore metadata.
 - [x] Surface GitHub sync success, local-only state, credential blocks, failures, and conflict recovery inside the app.
-- [ ] Move credentials and tokens to macOS Keychain.
+- [x] Move account credentials and refresh tokens to macOS Keychain with transactional legacy migration.
 - [x] Prove sync success, visible failure, conflict handling, backup, and isolated second-environment restore.
 - [ ] Decide whether old Git history must be rewritten and rotate any exposed credentials if necessary.
 

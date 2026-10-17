@@ -1,7 +1,7 @@
 // Access-token minting.
 //
-// Refresh tokens live in the account store; access tokens are short-lived and
-// kept only in memory, cached until just before expiry.
+// Refresh tokens are hydrated from macOS Keychain by the account store. Access
+// tokens are short-lived and kept only in memory, cached until before expiry.
 
 const cache = new Map(); // accountId -> { token, expiresAt }
 
