@@ -10,6 +10,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Remove real-data screenshots and the stale private-beta app archive from the current branch.
 - [x] Add explicit package allowlists and sensitive-material checks.
 - [x] Establish one repeatable verification command.
+- [x] Exclude owner release evidence from repository ZIPs and reject injected evidence in bundle and native payload checks.
 
 ## Phase 1: Build the Test Foundation — Complete
 

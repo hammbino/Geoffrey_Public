@@ -153,6 +153,7 @@ The current verified result is:
 - connection accessibility checks: pass for a separately addressable refresh failure and retry action, explicit icon-only control labels, and decorative status-icon suppression;
 - isolated memory-status tests: pass for failed/malformed/timeout reads, structured sync-failure reports, wrong-shape rejection, and honest unchecked recovery-map labels;
 - isolated automation tests: pass for cloud-capable, active-cloud, Mac-required, and review labels, failed/malformed/unsupported/timeout inventory preservation, and successful empty-list recovery;
+- isolated owner-evidence packaging checks: pass for root/nested evidence exclusion, bundle freshness with local evidence present, rejection of evidence injected into both ZIPs, and native payload rejection outside the engine;
 - Claude package safety/currentness: pass;
 - Mac app build and payload safety: pass;
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
@@ -222,7 +223,7 @@ Run the enforcement check from the exact proposed release commit:
 node scripts/check-dustin-release-gate.mjs
 ```
 
-The check exits nonzero unless the working tree is clean, the historical-exposure audit reports `status=clean`, and every gate has a non-secret evidence reference in an owner-reviewed JSON file bound to the current commit. Copy [the evidence template](dustin-release-evidence.example.json) to `.release-evidence/dustin-gate.json`, or pass an owner-controlled path with `--evidence`. The `.release-evidence/` directory is ignored by Git so pilot account details, copied provider output, credentials, and private content are never committed. Evidence entries should contain only safe references such as artifact checksums, test-record identifiers, and review locations.
+The check exits nonzero unless the working tree is clean, the historical-exposure audit reports `status=clean`, and every gate has a non-secret evidence reference in an owner-reviewed JSON file bound to the current commit. Copy [the evidence template](dustin-release-evidence.example.json) to `.release-evidence/dustin-gate.json`, or pass an owner-controlled path with `--evidence`. The `.release-evidence/` directory is ignored by Git and excluded from repository ZIP staging at any depth. Package checks reject that path in either repository bundle or anywhere inside the native app. Keep pilot account details, copied provider output, credentials, and private content out of committed files. Evidence entries should contain only safe references such as artifact checksums, test-record identifiers, and review locations.
 
 `./scripts/verify.sh` runs the same checker in report-only mode. A local verification pass remains valid development evidence, but it does not override a blocked Dustin gate.
 
@@ -257,7 +258,8 @@ The check exits nonzero unless the working tree is clean, the historical-exposur
 | `3402859` | Preserved automation inventory through failed refreshes and added explicit loading, retry, and accessible workflow actions. |
 | `d8254b5` | Preserved memory status through failed checks, distinguished unchecked recovery maps, and added readable progress and retry. |
 | `0778a31` | Preserved setup and capability inventory through failed checks, with explicit stale/empty/retry and accessible repair states. |
+| `d50728a` | Labeled core conversation/briefing controls, inspected synthetic recovery layouts, fixed setup-warning overlap, and adapted recommendation cards to fit full action labels. |
 
-The conversation/briefing accessibility slice following `0778a31` labels Today refresh, Ask Geoffrey send, mark-handled, and repeated feedback actions. Synthetic live UI inspection also caught and corrected overlap from the new setup warning; it now occupies the detail pane above the scrollable content. Improve Geoffrey recommendation cards adapt their column count to the available width so their full action labels fit. Native build, payload, and signature checks cover these changes; live VoiceOver acceptance remains outstanding.
+The evidence-isolation slice following `d50728a` excludes owner release evidence from repository ZIPs and rejects evidence paths in bundle/native-payload checks. An isolated committed-source fixture proves exclusion and rejection without reading private developer state.
 
 This record is updated with each completed slice. A branch push is not a Dustin release and does not imply that the release gate has passed.

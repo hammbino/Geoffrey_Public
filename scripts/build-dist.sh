@@ -138,6 +138,7 @@ step "Building repo bundles"
 # are excluded from their own staging so they never embed each other.
 rsync -a \
   --exclude '.git/' \
+  --exclude '.release-evidence/' \
   --exclude '.DS_Store' \
   --exclude '.gitignore' \
   --exclude '.env' \

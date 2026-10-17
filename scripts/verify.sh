@@ -16,6 +16,9 @@ npm test --prefix geoffrey-mcp
 printf '\n== Dustin release gate (report only)\n'
 node ./scripts/check-dustin-release-gate.mjs --report-only
 
+printf '\n== Release evidence isolation\n'
+./scripts/check-release-evidence-isolation.sh
+
 printf '\n== Claude packages\n'
 ./scripts/check-claude-setup.sh
 

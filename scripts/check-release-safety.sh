@@ -35,6 +35,9 @@ unsafe_file="$(find "$ENGINE" -type f \( \
 \) -print -quit)"
 [ -z "$unsafe_file" ] || fail "Potential credential file was packaged: ${unsafe_file#"$APP/"}"
 
+release_evidence="$(find "$APP" -name '.release-evidence' -print -quit)"
+[ -z "$release_evidence" ] || fail "Owner release evidence was packaged."
+
 git_metadata="$(find "$ENGINE" -type d -name '.git' -print -quit)"
 [ -z "$git_metadata" ] || fail "Git metadata was packaged: ${git_metadata#"$APP/"}"
 
