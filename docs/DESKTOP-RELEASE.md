@@ -62,7 +62,7 @@ Migration is deliberately non-destructive: it inventories and preserves state ra
 - Added a release-safety checker that blocks credentials, token/account files, environment files, Git metadata, screenshots, recipient material, and development artifacts.
 - Rebuilt the Claude distribution archives with the same safety exclusions.
 
-The current tree and packages pass the safety checker, but the metadata-only October 17 audit confirms 12 recipient-media blobs totaling 4,753,953 bytes and two private app-archive blobs totaling 141,889,040 bytes remain reachable in Git history. No known credential-bearing filenames remain reachable. A coordinated rewrite is required before broader distribution, and any credential known to have entered an opaque archive must be rotated. The required procedure is recorded in [Git History Remediation Decision](HISTORY-REMEDIATION.md); historical removal has not been claimed.
+The current tree and packages pass the safety checker. The approved October 17 cleanup stripped 18 risky blob objects—including contaminated nested bundles—from both distributed branches and removed the old beta release/download/tag. Candidate, fresh-GitHub-clone, and current-checkout audits report `status=clean`. GitHub still serves sampled old commits by ID, so applicable server-side cached-object cleanup and Dustin’s eventual source-checkout transition remain pending. The archived Google configuration is an installed-app public-client configuration; it was left unchanged at the owner’s request. See [Git History Remediation Record](HISTORY-REMEDIATION.md).
 
 ### Automatic migration
 
@@ -159,7 +159,7 @@ The current verified result is:
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
 - strict code-signature verification: pass using an ad hoc signature.
 - historical archive tests: pass for safe packages, nested credentials/media, private archives, downloaded OAuth-config names, corrupt/over-budget/deep ZIP refusal, removed-from-tip history, and clean/direct/nested/incomplete shell-gate behavior;
-- history exposure report: `status=rewrite_required`, including bounded recursive ZIP inspection, with counts only and no private filenames or contents printed.
+- history exposure report: `status=clean` in the rewritten candidate, a fresh GitHub clone, and the adopted working checkout; all direct and nested risk counts are zero, with no uninspected ZIPs. GitHub cached old objects remain a separate pending cleanup.
 - Dustin release-gate report: `blocked`; the checker fails closed on unresolved history, a dirty or mismatched commit, a missing evidence file, or any acceptance item without an owner-reviewed reference.
 
 The `0.14.0` build also packages Geoffrey's revised illustrated app icon at native Mac sizes and uses that same bundled identity in a visible sidebar header. The original portrait source remains preserved, and an automated Mac check prevents the in-app brand and packaged icon from drifting apart. The built app was inspected live at its minimum supported window size in the prior UI slice: the 220-point sidebar shows the full Geoffrey name, “Your AI chief of staff” description, and every navigation label without clipping. The rebuilt Settings screen was inspected live in dark mode: version, update action, verification explanation, app folder, model choice, and help text were legible and unclipped, and the ad-hoc build visibly changed to “Signed updates will become available with Geoffrey’s release build” without opening a network-dependent installer. The release-notes sheet still requires a dedicated signed-feed visual acceptance pass.
@@ -187,7 +187,7 @@ The following are not complete and must not be presented as finished:
 - **First run:** the native ordered guide, automatic first incomplete-state presentation, safe dismissal/resume, and transitions to existing native setup flows are implemented and locally inspected. A complete clean-Mac run using pilot Claude, email, GitHub, and private-memory state remains acceptance work.
 - **Updates:** the legacy GitHub updater can deliver the first desktop transition. The native signed client, release notes, automatic check, verified replacement helper, and rollback path are implemented, but no production Developer ID/notarized update feed has been published or exercised end to end. That real update and rollback acceptance remains required before the native path is called release-ready.
 - **Distribution:** the app is ad hoc signed only. Developer ID signing, notarization, final ZIP/DMG packaging, clean-Mac installation, and Gatekeeper validation remain.
-- **Historical exposure:** recipient media and private app archives remain recoverable from history. Recursive inspection found additional contaminated historical bundles; separate private review confirmed an exposed OAuth client secret in archives and the public beta download. The owner-only recovery mirror is verified, but credential revocation/rotation, approved coordinated rewrite, public beta/tag removal, clone replacement, and applicable GitHub server cleanup remain pending. The current filename-only zero credential-path count is not evidence that archives were credential-free.
+- **Historical cleanup:** the owner approved cleanup after confirming there is one developer and Dustin is the only other installation. Eighteen risky blobs were stripped from distributed history, the contaminated beta release/download/tag were removed, and both branches were published with exact ref leases. Candidate and fresh-GitHub-clone audits report `status=clean`; retained branch-tip source files are identical to the originals, and this checkout now uses fresh clean Git metadata. GitHub still serves sampled old commits by ID, so server-side cached-object cleanup remains pending. Dustin’s old checkout also needs a guided transition before its next Git update. The archived Google credential was confirmed to be an installed-app public-client configuration; the owner deferred rotation, and no account compromise is asserted.
 - **Google pilot:** the current OAuth approach is accepted for this pilot. Gmail scope verification and commercial compliance are intentionally deferred until the product decision to market it.
 
 ## Remaining Lifecycle
@@ -232,36 +232,37 @@ The check exits nonzero unless the working tree is clean, the historical-exposur
 
 | Commit | Result |
 | --- | --- |
-| `51aa8dc` | Added Claude capability inventory. |
-| `0e703e7` | Secured release packaging and added legacy-state migration. |
-| `8d6175c` | Added streaming, resumable Claude conversations. |
-| `e7a644c` | Added actionable readiness and targeted capability repair. |
-| `7c63c73` | Added automation discovery, classification, and bounded local queueing. |
-| `0e60885` | Added safe execution and retry for approved local automations. |
-| `d341ae5` | Reordered Improve Geoffrey around owner outcomes and connection readiness. |
-| `bb52bab` | Added in-app automation review, drafting, and explicit approval. |
-| `16af859` | Added guided Claude Routine connection and owner-reviewed run evidence. |
-| `acd095d` | Added deterministic cloud result branches and validated no-merge imports. |
-| `25e8eea` | Surfaced private-memory sync, conflict, and credential-blocked states. |
-| `03e4307` | Restored Geoffrey's native app and in-app brand identity. |
-| `01c9e9c` | Added a portable, secret-free recovery map. |
-| `c9b2368` | Added verified private-memory restore into an isolated second environment. |
-| `9072f3b` | Moved account credentials and refresh tokens into macOS Keychain. |
-| `893abcf` | Added verified native app updates with signed metadata, package validation, release notes, and rollback. |
-| `78ac9b3` | Added resumable native first-run setup. |
-| `1936dec` | Added secret-free, bounded per-account connection tests. |
-| `b8402fa` | Preserved last-known connections when refreshes fail or time out. |
-| `abcbe23` | Exposed each setup step as a distinct accessibility element. |
-| `e57a653` | Audited historical release exposure and recorded the coordinated remediation decision. |
-| `0303143` | Made connection status and recovery controls independently accessible. |
-| `41c8298` | Added direct failed-request retry without duplicate conversation entries. |
-| `0039aa5` | Added a fail-closed, commit-bound Dustin release-gate report and evidence template. |
-| `3402859` | Preserved automation inventory through failed refreshes and added explicit loading, retry, and accessible workflow actions. |
-| `d8254b5` | Preserved memory status through failed checks, distinguished unchecked recovery maps, and added readable progress and retry. |
-| `0778a31` | Preserved setup and capability inventory through failed checks, with explicit stale/empty/retry and accessible repair states. |
-| `d50728a` | Labeled core conversation/briefing controls, inspected synthetic recovery layouts, fixed setup-warning overlap, and adapted recommendation cards to fit full action labels. |
-| `f507625` | Excluded owner evidence from repository ZIPs and rejected evidence paths in bundle/native-payload checks. |
+| `70005aa` | Added Claude capability inventory. |
+| `3a417c8` | Secured release packaging and added legacy-state migration. |
+| `9f2ce37` | Added streaming, resumable Claude conversations. |
+| `c4b8ecb` | Added actionable readiness and targeted capability repair. |
+| `bf4f15d` | Added automation discovery, classification, and bounded local queueing. |
+| `9c59039` | Added safe execution and retry for approved local automations. |
+| `f456fd7` | Reordered Improve Geoffrey around owner outcomes and connection readiness. |
+| `f2ea3d7` | Added in-app automation review, drafting, and explicit approval. |
+| `16c50ea` | Added guided Claude Routine connection and owner-reviewed run evidence. |
+| `c05f673` | Added deterministic cloud result branches and validated no-merge imports. |
+| `22ca308` | Surfaced private-memory sync, conflict, and credential-blocked states. |
+| `b69ee71` | Restored Geoffrey's native app and in-app brand identity. |
+| `ee2845b` | Added a portable, secret-free recovery map. |
+| `57ba214` | Added verified private-memory restore into an isolated second environment. |
+| `64fd49b` | Moved account credentials and refresh tokens into macOS Keychain. |
+| `cdf7cda` | Added verified native app updates with signed metadata, package validation, release notes, and rollback. |
+| `15fa092` | Added resumable native first-run setup. |
+| `bb8ab3c` | Added secret-free, bounded per-account connection tests. |
+| `28c0e09` | Preserved last-known connections when refreshes fail or time out. |
+| `4aa43e3` | Exposed each setup step as a distinct accessibility element. |
+| `83f170d` | Audited historical release exposure and recorded the coordinated remediation decision. |
+| `79872a2` | Made connection status and recovery controls independently accessible. |
+| `9ee1c67` | Added direct failed-request retry without duplicate conversation entries. |
+| `5fd744b` | Added a fail-closed, commit-bound Dustin release-gate report and evidence template. |
+| `fa76b28` | Preserved automation inventory through failed refreshes and added explicit loading, retry, and accessible workflow actions. |
+| `f4d88f6` | Preserved memory status through failed checks, distinguished unchecked recovery maps, and added readable progress and retry. |
+| `19afd9f` | Preserved setup and capability inventory through failed checks, with explicit stale/empty/retry and accessible repair states. |
+| `07b4131` | Labeled core conversation/briefing controls, inspected synthetic recovery layouts, fixed setup-warning overlap, and adapted recommendation cards to fit full action labels. |
+| `d8cb39a` | Excluded owner evidence from repository ZIPs and rejected evidence paths in bundle/native-payload checks. |
+| `a81f05b` | Added bounded nested-ZIP auditing and regression tests and prepared private recovery/inventory material. |
 
-The history-cleanup preparation slice following `f507625` adds bounded nested-ZIP auditing and regression tests, records the confirmed public-beta exposure, and prepares private recovery/inventory material. It does not rewrite or publish cleaned history.
+The coordinated cleanup following `a81f05b` removes 18 risky blobs from both branches and removes the beta release/download/tag. A fresh GitHub clone is clean and the working checkout uses fresh Git metadata. GitHub cached-object cleanup and Dustin’s source-checkout transition remain pending. Earlier Change Record hashes above were translated through git-filter-repo’s commit map; the cleanup does not establish Dustin release readiness.
 
 This record is updated with each completed slice. A branch push is not a Dustin release and does not imply that the release gate has passed.

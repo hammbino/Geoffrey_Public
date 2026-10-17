@@ -32,7 +32,8 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Missing setup and unhealthy capabilities route to targeted actions, including account repair, Claude or GitHub sign-in, disabled-plugin enablement, and MCP reconnection guidance.
 - Improve Geoffrey places the outcome-first “Connect a business tool” action above the longer inventory of available capabilities.
 - Native release packages use an explicit allowlist and pass sensitive-material checks. Repository ZIPs exclude owner `.release-evidence/` directories at any depth; both repository-bundle and native-payload checks reject injected evidence paths. An isolated committed-source test proves exclusion, package freshness, and rejection without reading the developer’s private files.
-- The history audit reports only aggregate counts and now inspects bounded nested ZIP contents. It finds 12 recipient-media blobs, two private app-archive blobs, and six contaminated ZIP blobs (including the private archives), yielding 18 unique proposed removals. Separate private inspection confirmed an exposed OAuth client secret in historical archives and the published beta, which also carries recipient media. An owner-only recovery mirror is verified; credential rotation, explicit rewrite approval, clone coordination, beta removal, and server cleanup remain pending.
+- The approved history cleanup removed 18 risky blobs, including contaminated nested ZIPs, from both distributed branches and removed the beta release/download/tag. The rewritten candidate and a fresh GitHub clone pass the direct and nested history audit with all risk counts zero. An owner-only recovery mirror is preserved outside this checkout, and this checkout now uses fresh clean Git metadata.
+- Sampled old commit IDs remain accessible through GitHub, so server-side cached-object cleanup remains pending. Dustin is the only other installation; its old source checkout must transition before its next Git-based update. The archived Google OAuth file is an installed-app public-client configuration; its presence alone does not establish account compromise, and the owner deferred rotation. No credential was changed.
 - A fail-closed Dustin release-gate checker now requires a clean exact commit, clean history audit, and owner-reviewed evidence for every acceptance criterion. Its evidence file is kept outside Git; the current report is `blocked` and cannot be converted into readiness by a passing local build alone.
 - A live authenticated two-turn Claude session successfully resumed the same session and recalled information from the first turn.
 - Geoffrey's exact `stream-json` flags were verified against the installed Claude Code `2.1.301` event format.
@@ -70,7 +71,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Dustin-state acceptance of per-account tests across his real Gmail and Outlook accounts.
 - Developer ID and notarized end-to-end update/rollback acceptance on a clean Mac; the updater and release tooling are implemented, but production signing credentials have not been exercised.
 - Clean-Mac and pilot-account acceptance of the complete native first-run sequence; its state model, resume behavior, build, and dark-mode layout are locally proven.
-- Coordinated history rewrite, archive-related credential review/rotation, remote ref cleanup, and fresh-clone verification described in [Git History Remediation Decision](HISTORY-REMEDIATION.md).
+- GitHub server-side cached-object cleanup and the eventual guided transition of Dustin’s old source checkout, described in [Git History Remediation Record](HISTORY-REMEDIATION.md). The branch rewrite, beta removal, and fresh-clone verification are complete.
 
 ## Not Yet Proven
 

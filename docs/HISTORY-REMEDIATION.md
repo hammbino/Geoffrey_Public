@@ -1,47 +1,63 @@
-# Git History Remediation Decision
+# Git History Remediation Record
 
 Updated: October 17, 2026
 
-## Decision
+## Current result
 
-A coordinated Git history rewrite is required before Geoffrey is distributed beyond the current controlled pilot path.
+The owner approved the coordinated cleanup after confirming that the owner is the only developer and Dustin is the only other Geoffrey installation. Both distributed branches now have clean rewritten history. The contaminated `v0.1.0-private-beta` release, its downloadable asset, and its tag have been removed.
 
-The October 17 metadata-only audit confirmed that the current tree and release packages are clean, but reachable Git history still contains:
+The strengthened direct-path and bounded recursive-ZIP audit reports `status=clean` from the isolated candidate, a fresh GitHub clone, and the adopted working checkout:
 
-- 12 recipient-media blob objects totaling 4,753,953 bytes; and
-- 2 private app-archive blob objects totaling 141,889,040 bytes.
+- recipient-media blobs: 0;
+- private app-archive blobs: 0;
+- direct credential-path blobs: 0;
+- contaminated ZIP blobs: 0;
+- ZIP blobs with credential-named members: 0; and
+- uninspected ZIP blobs: 0.
 
-The direct filename audit found no reachable files with known credential-bearing names. A deeper October 17 scan of all 74 reachable ZIP blobs, including nested ZIPs, found six archive blobs containing risky paths; four contained credential-named files with a nonempty OAuth `client_secret`. The published `v0.1.0-private-beta` download independently contained a nonempty OAuth client secret and recipient media. Treat that client secret as exposed and revoke or rotate it; a history rewrite cannot revoke a credential.
+This is a clean reachable-history result. It is not proof that GitHub has purged cached or unreachable objects, and it does not establish Dustin release readiness.
 
-The proposed removal inventory contains 18 unique blobs: the 14 directly identified media/private-archive objects plus four additional contaminated bundle objects. Remove the nested carriers as well as the original files. No uninspectable ZIP was found in this scan. The bounded recursive audit now fails closed on corrupt, unsupported, encrypted nested, excessively large, or excessively deep ZIP contents instead of calling them clean.
+## What was removed and preserved
 
-The audit reports counts and byte totals only. It does not print recipient filenames, archive member names, credential values, or file contents. Credential-field inspection was performed separately in an owner-only local evidence folder, not in committed files.
+The preparation audit identified 12 recipient-media blobs, two private app-archive blobs, and four additional historical bundle blobs that embedded risky material: 18 unique blobs in total. The nested audit found six contaminated ZIP blobs, including the two private app archives. The published beta independently contained recipient media and a Google OAuth client configuration.
 
-## Why the rewrite is not automatic
+An owner-only recovery mirror was created outside the working checkout, verified with `git fsck --full`, and given a disabled push URL. Private inventories, removal object IDs, the original downloaded beta, commit mappings, and verification records remain under ignored `.release-evidence/history-remediation/`; they are excluded from distribution. Original working Git metadata was also retained in a private external recovery directory with pushing disabled.
 
-Rewriting shared Git history changes commit identities and requires coordination with every clone, branch, tag, deployment source, and updater that references the repository. Running it silently from a development slice could strand an existing installation or cause removed objects to be reintroduced from another clone.
+A separate mirror was rewritten with git-filter-repo 2.47.0 using the reviewed blob-ID inventory. The obsolete beta tag was omitted. Branch-tip comparison proved that retained files—including source code—were byte-identical to their originals. The release branch tip had no file removals. The older `main` tip lost 15 selected private/contaminated files; two obsolete safe ZIP versions that resurfaced during filtering were removed in a follow-up `main` commit to prevent an accidental artifact rollback.
 
-## Required coordinated procedure
+The release candidate passed `./scripts/verify.sh` in a fresh isolated checkout with lockfile-pinned dependencies. Both branch updates and beta-tag deletion were published atomically with exact expected-old-ref leases. A fresh clone from GitHub matched both verified branch IDs, passed `git fsck --full`, and reported clean direct/nested history. This working checkout then adopted the fresh clone’s Git metadata after verifying that its working tree was clean and its file tree identical. No private account or memory files were moved or changed.
 
-1. Freeze pushes and identify every protected branch, tag, deployment reference, and active clone.
-2. Create an owner-controlled recovery mirror that is not used for distribution.
-3. Rotate any credential that may have been present in a historical archive.
-4. Rewrite all distributed refs to remove the recipient media and private app archives.
-5. Force-push the reviewed rewritten refs and delete obsolete remote tags or releases.
-6. Re-clone every maintained working copy instead of merging old history.
-7. Expire local and server-side unreachable objects according to the hosting provider's supported process.
-8. Run `./scripts/audit-history-exposure.sh` and require `status=clean`.
-9. Rebuild every release artifact and run `./scripts/verify.sh`.
-10. Run `node scripts/check-dustin-release-gate.mjs` from the exact clean release commit; history remediation is only one of the required gates.
+## OAuth credential clarification
 
-Until those steps are completed and recorded, the historical-exposure release gate remains open.
+The archived configuration was positively identified as a Google **installed-app** OAuth client configuration. Google documents desktop applications as public clients that cannot keep a client secret confidential. A nonempty `client_secret` in that configuration alone does not establish account compromise or make immediate rotation a prerequisite for this history cleanup. The owner asked to leave the credential unchanged; no rotation, revocation, or account reconnection was performed.
 
-## Prepared recovery and scope
+This corrects the preparation-stage recommendation to rotate solely because a client-secret field was present. Client-type review and token exposure are different questions. No account-compromise claim is made here. Geoffrey’s packaging policy continues to exclude owner account and OAuth configuration files from release artifacts.
 
-An owner-only recovery mirror was created outside the working checkout and verified with `git fsck --full`. Its push URL is disabled to prevent accidental republication. The private inventory, removal object IDs, downloaded beta, and proposed action manifest are kept under ignored `.release-evidence/history-remediation/`; those files must never enter a release package or Git commit.
+Reference: [Google OAuth 2.0 for Desktop Apps](https://developers.google.com/identity/protocols/oauth2/native-app).
 
-Remote inventory found two unprotected branches (`main` and `codex/geoffrey-desktop-release`), one beta tag/release, no pull requests, and no forks. This observation does not identify existing clones or installations. The public beta release and asset must be removed as part of the approved cleanup; removing Git objects alone does not remove a GitHub release download.
+## Remaining server cleanup
 
-The original working history and remote refs have not been rewritten. Before executing the prepared cleanup, the owner must explicitly override the earlier no-history-rewrite instruction, confirm the push freeze and affected clones/installations, and complete credential revocation/rotation. Then prepare and verify an isolated rewrite, compare both branch tips for unintended changes, recheck remote refs, and use exact ref leases for the reviewed publication. Do not merge an old clone into the cleaned history.
+After the rewrite, GitHub’s API still served the sampled first-changed old commit and the old release-branch tip by their original IDs. Changing branch refs and deleting a release does not by itself expunge every cached view or unreachable object.
 
-GitHub may retain cached commit views and other unreachable objects after a force-push. Follow [GitHub’s sensitive-data removal process](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository) for applicable server-side cleanup. Neither a passing local audit nor a force-push proves that every cached copy has been purged.
+An owner-reviewable GitHub Support request is prepared in the private evidence folder. It includes the repository, first-changed commit mapping, the absence of pull requests and forks at inventory time, and the cleanup/verification performed. It contains no recipient media or credential values. It has not been submitted.
+
+Follow [GitHub’s sensitive-data removal process](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository) for applicable server-side dereferencing, cached-view removal, and garbage collection. Support determines the available removal process. Do not call the server purge complete until it is confirmed.
+
+## Dustin’s existing installation
+
+No change was made to Dustin’s Mac. Do not ask him to take a desktop release before the Dustin release gate passes.
+
+His old source checkout must not be merged or pushed into the cleaned repository. Its Git-based updater uses a fast-forward-only pull, so it needs a guided checkout transition before its next source update. Before that transition, back up his existing installation, discover and preserve the actual account registry, Keychain state, memory pointer, and private-memory repository, and use a fresh source checkout that selects the existing state. Keep the old source copy offline with pushing disabled until acceptance is complete. Do not blindly delete or relocate his private memory based on an assumed path.
+
+## Completion checks
+
+- [x] Preserve an owner-controlled recovery mirror with pushing disabled.
+- [x] Review direct objects, nested bundles, and the published beta privately.
+- [x] Obtain owner authorization and identify maintained users/developers.
+- [x] Rewrite both distributed branches and compare retained source trees.
+- [x] Remove the contaminated beta release, asset, and tag.
+- [x] Publish with exact ref leases and verify a fresh GitHub clone.
+- [x] Adopt clean Git metadata in the active development checkout.
+- [ ] Obtain applicable GitHub server-side cached-object cleanup confirmation.
+- [ ] Transition Dustin’s old source checkout before its next Git update.
+- [ ] Complete the remaining Dustin release acceptance and evidence gates.

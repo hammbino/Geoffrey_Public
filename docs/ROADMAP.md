@@ -57,7 +57,10 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Prove sync success, visible failure, conflict handling, backup, and isolated second-environment restore.
 - [x] Audit old Git history and decide whether coordinated remediation is required.
 - [x] Audit nested historical bundles and the published beta privately; prepare and verify an owner-only recovery mirror.
-- [ ] Coordinate the required history rewrite and rotate any credential that may have entered an old archive.
+- [x] Publish the approved cleanup of both branches, remove the contaminated beta release/download/tag, and verify a fresh GitHub clone.
+- [ ] Complete GitHub server-side cached-object cleanup and transition Dustin’s old source checkout before its next update.
+
+The archived Google OAuth configuration was confirmed to be an installed-app public-client configuration. The owner deferred credential rotation; no credential changes are claimed.
 
 ## Phase 6: White-Glove UX — Pending
 
