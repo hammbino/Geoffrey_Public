@@ -1313,17 +1313,20 @@ struct ConnectionsView: View {
                             Text("Account status could not be refreshed").font(.headline)
                             Text(issue).font(.callout).foregroundStyle(.secondary)
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("connections-refresh-error")
+                        .accessibilityLabel("Account status could not be refreshed")
+                        .accessibilityValue(issue)
                         Spacer()
                         Button("Try again") { model.refresh() }
                             .buttonStyle(.bordered)
                             .disabled(model.isRefreshingAccounts)
+                            .accessibilityIdentifier("connections-retry-refresh")
+                            .accessibilityHint("Checks the connected account list again")
                     }
                     .padding(16)
                     .background(Color.orange.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Account status could not be refreshed")
-                    .accessibilityValue(issue)
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
@@ -1335,6 +1338,7 @@ struct ConnectionsView: View {
                             .buttonStyle(.borderless)
                             .help("Check account connections")
                             .disabled(model.isRefreshingAccounts)
+                            .accessibilityLabel("Refresh account connections")
                     }
                     .padding(.bottom, 8)
 
@@ -1402,6 +1406,7 @@ struct ManagedAccountRow: View {
                 .font(.title2)
                 .foregroundStyle(account.provider == "google" ? Color.red : Color.blue)
                 .frame(width: 30)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(account.id).font(.headline)
@@ -1461,6 +1466,7 @@ struct ManagedAccountRow: View {
             }
             .menuStyle(.borderlessButton)
             .help("Manage \(account.id)")
+            .accessibilityLabel("Manage \(account.id) account")
         }
         .padding(.vertical, 12)
         .confirmationDialog("Remove \(account.id)?", isPresented: $showingRemovalConfirmation, titleVisibility: .visible) {
@@ -1964,14 +1970,23 @@ struct ConnectionRow: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: icon).frame(width: 24).font(.title3).foregroundStyle(ready ? Color.green : Color.orange)
+            Image(systemName: icon)
+                .frame(width: 24)
+                .font(.title3)
+                .foregroundStyle(ready ? Color.green : Color.orange)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.headline)
                 Text(detail).foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(title)
+            .accessibilityValue(detail)
             Spacer()
             if ready {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
             } else if let actionTitle {
                 Button(actionTitle, action: action).buttonStyle(.bordered)
             } else {

@@ -64,7 +64,8 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Keep automation definition and approval inside the Mac app with plain-language safety boundaries.
 - [x] Finish native add/test/repair/remove connection flows for multiple accounts.
 - [ ] Validate add/test/repair/remove against Dustin's real Gmail and Outlook accounts.
-- [ ] Add accessible states, useful empty states, understandable errors, and recovery actions.
+- [x] Make first-run progress and connection loading, failure, retry, and management states accessible without relying on icons.
+- [ ] Complete accessible states, useful empty states, understandable errors, and recovery actions across the remaining core workflows.
 - [ ] Test core workflows with a nontechnical user who has no developer assistance.
 
 ## Phase 7: Distribution and Dustin Pilot — Pending
