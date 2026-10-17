@@ -82,3 +82,76 @@ enum GeoffreyReadiness {
         ]
     }
 }
+
+struct GeoffreyCapability: Codable, Identifiable {
+    let id: String
+    let name: String
+    let type: String
+    let source: String
+    let enabled: Bool
+    let state: String?
+    let repair: String?
+    let description: String
+
+    var displayName: String { name.replacingOccurrences(of: "-", with: " ").capitalized }
+    var isReady: Bool { (state ?? (enabled ? "ready" : "needs_attention")) == "ready" }
+    var statusLabel: String {
+        switch state {
+        case "disabled": return "Disabled"
+        case "needs_login": return "Sign in needed"
+        case "pending": return "Approval needed"
+        case "needs_attention": return "Needs attention"
+        default: return isReady ? "Ready" : "Needs attention"
+        }
+    }
+    var repairTitle: String? {
+        guard !isReady else { return nil }
+        switch repair {
+        case "enable_plugin": return "Enable"
+        case "login_mcp": return "Reconnect"
+        default: return "How to fix"
+        }
+    }
+    var commandIdentifier: String {
+        guard let separator = id.firstIndex(of: ":") else { return name }
+        return String(id[id.index(after: separator)...])
+    }
+    var kindLabel: String {
+        switch type {
+        case "mcp": return "Connection"
+        case "plugin": return "Claude plugin"
+        default: return "Skill"
+        }
+    }
+    var icon: String {
+        switch type {
+        case "mcp": return "link.circle.fill"
+        case "plugin": return "puzzlepiece.extension.fill"
+        default: return "wand.and.stars"
+        }
+    }
+}
+
+enum GeoffreyReadinessRefresh {
+    static func health(output: String, status: Int32) -> [String: String]? {
+        guard status == 0 else { return nil }
+        var entries: [String: String] = [:]
+        for line in output.split(separator: "\n") {
+            let pair = line.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+            guard pair.count == 2, !pair[1].isEmpty, entries[pair[0]] == nil else { return nil }
+            entries[pair[0]] = pair[1]
+        }
+        guard ["claude", "email", "github", "memory", "app"].allSatisfy({ entries[$0] != nil }) else { return nil }
+        return entries
+    }
+
+    static func capabilities(output: String, status: Int32) -> [GeoffreyCapability]? {
+        guard status == 0 else { return nil }
+        return try? JSONDecoder().decode([GeoffreyCapability].self, from: Data(output.utf8))
+    }
+
+    static func issue(status: Int32, subject: String) -> String {
+        let reason = status == 124 ? "The check took too long." : "Geoffrey could not check \(subject)."
+        return "\(reason) Saved setup has not been reset. Any results below are from the last successful check. Try refreshing again."
+    }
+}

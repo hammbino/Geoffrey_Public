@@ -102,7 +102,7 @@ struct GeoffreyRootView: View {
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 8) {
                     Circle().fill(model.isReady ? Color.green : Color.orange).frame(width: 8, height: 8)
-                    Text(model.isReady ? "Ready to help" : "Finishing setup")
+                    Text(model.setupStatusIssue != nil ? "Setup status needs a check" : (model.health.isEmpty ? "Checking setup" : (model.isReady ? "Ready to help" : "Finishing setup")))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -117,6 +117,19 @@ struct GeoffreyRootView: View {
             case .connections: ConnectionsView()
             case .memory: MemoryView()
             case .settings: SettingsView()
+            }
+        }
+        .safeAreaInset(edge: .top) {
+            if let issue = model.setupStatusIssue {
+                HStack(alignment: .top, spacing: 12) {
+                    Text(issue).font(.callout)
+                    Spacer()
+                    Button("Check setup status again") { model.refresh() }
+                        .disabled(model.isRefreshingAccounts || model.isSyncingMemory || model.isUpdatingPortableState)
+                        .accessibilityIdentifier("setup-retry-status")
+                }
+                .padding(12)
+                .background(Color.orange.opacity(0.10))
             }
         }
         .tint(Color(red: 0.08, green: 0.45, blue: 0.36))
@@ -1068,10 +1081,24 @@ struct ImproveGeoffreyView: View {
                         Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
                             .buttonStyle(.borderless)
                             .help("Refresh capabilities")
+                            .accessibilityLabel("Refresh available skills and connections")
+                            .disabled(model.isRefreshingAccounts || model.isSyncingMemory || model.isUpdatingPortableState)
+                    }
+                    if let issue = model.capabilityRefreshIssue {
+                        Text(issue).font(.callout).foregroundStyle(.secondary)
+                        Button("Check skills and connections again") { model.refresh() }
+                            .disabled(model.isRefreshingAccounts || model.isSyncingMemory || model.isUpdatingPortableState)
+                            .accessibilityIdentifier("capabilities-retry-refresh")
+                    }
+                    if model.isRefreshingAccounts || (!model.hasLoadedCapabilities && model.capabilityRefreshIssue == nil) {
+                        Text("Checking available skills and connections…").foregroundStyle(.secondary)
                     }
                     if model.capabilities.isEmpty {
-                        Text("Geoffrey is checking the skills and connections already available through Claude.")
-                            .foregroundStyle(.secondary)
+                        if model.hasLoadedCapabilities && model.capabilityRefreshIssue == nil && !model.isRefreshingAccounts {
+                            Text("No skills or connections were found in Claude.").font(.headline)
+                            Text("Connect a business tool above or describe work you repeat to choose what Geoffrey should add next.")
+                                .foregroundStyle(.secondary)
+                        }
                     } else {
                         ForEach(model.capabilities) { capability in
                             CapabilityInventoryRow(capability: capability)
@@ -1112,6 +1139,10 @@ private struct GeoffreyReadinessView: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(model.readinessReadyCount == model.readinessItems.count ? Color.green : Color.orange)
             }
+            if model.capabilityRefreshIssue != nil || model.connectionRefreshIssue != nil || model.setupStatusIssue != nil {
+                Text("Some checks could not finish. Readiness below reflects the last known state; refresh before choosing a repair.")
+                    .font(.callout).foregroundStyle(.orange)
+            }
             Text("Geoffrey checks the pieces behind the interface and gives you the next useful repair—not a technical error dump.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -1130,6 +1161,8 @@ private struct GeoffreyReadinessView: View {
                         Button(actionTitle) { model.performReadinessAction(item) }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
+                            .accessibilityLabel("\(actionTitle) \(item.title)")
+                            .disabled(model.isRefreshingAccounts || model.setupStatusIssue != nil || model.capabilityRefreshIssue != nil || model.connectionRefreshIssue != nil)
                     } else {
                         Text("Ready")
                             .font(.caption.weight(.medium))
@@ -1162,7 +1195,8 @@ private struct CapabilityInventoryRow: View {
             }
             Spacer()
             if model.repairingCapabilityIDs.contains(capability.id) {
-                ProgressView().controlSize(.small)
+                ProgressView().controlSize(.small).accessibilityHidden(true)
+                Text("Repairing \(capability.displayName)…").font(.caption)
             } else if let repairTitle = capability.repairTitle {
                 VStack(alignment: .trailing, spacing: 5) {
                     Text(capability.statusLabel)
@@ -1171,6 +1205,8 @@ private struct CapabilityInventoryRow: View {
                     Button(repairTitle) { model.repairCapability(capability) }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .accessibilityLabel("\(repairTitle) \(capability.displayName)")
+                        .disabled(model.isRefreshingAccounts || model.capabilityRefreshIssue != nil)
                 }
             } else {
                 Text("Ready")
@@ -2400,58 +2436,12 @@ struct GeoffreyAccount: Codable, Identifiable {
     }
 }
 
-struct GeoffreyCapability: Codable, Identifiable {
-    let id: String
-    let name: String
-    let type: String
-    let source: String
-    let enabled: Bool
-    let state: String?
-    let repair: String?
-    let description: String
-
-    var displayName: String { name.replacingOccurrences(of: "-", with: " ").capitalized }
-    var isReady: Bool { (state ?? (enabled ? "ready" : "needs_attention")) == "ready" }
-    var statusLabel: String {
-        switch state {
-        case "disabled": return "Disabled"
-        case "needs_login": return "Sign in needed"
-        case "pending": return "Approval needed"
-        case "needs_attention": return "Needs attention"
-        default: return isReady ? "Ready" : "Needs attention"
-        }
-    }
-    var repairTitle: String? {
-        guard !isReady else { return nil }
-        switch repair {
-        case "enable_plugin": return "Enable"
-        case "login_mcp": return "Reconnect"
-        default: return "How to fix"
-        }
-    }
-    var commandIdentifier: String {
-        guard let separator = id.firstIndex(of: ":") else { return name }
-        return String(id[id.index(after: separator)...])
-    }
-    var kindLabel: String {
-        switch type {
-        case "mcp": return "Connection"
-        case "plugin": return "Claude plugin"
-        default: return "Skill"
-        }
-    }
-    var icon: String {
-        switch type {
-        case "mcp": return "link.circle.fill"
-        case "plugin": return "puzzlepiece.extension.fill"
-        default: return "wand.and.stars"
-        }
-    }
-}
-
 @MainActor
 final class GeoffreyModel: ObservableObject {
     @Published var health: [String: String] = [:]
+    @Published var setupStatusIssue: String?
+    @Published var capabilityRefreshIssue: String?
+    @Published var hasLoadedCapabilities = false
     @Published var latestResponse: GeoffreyResponse?
     @Published var latestBriefing: GeoffreyResponse?
     @Published var showingFirstRunSetup = false
@@ -2707,11 +2697,8 @@ final class GeoffreyModel: ObservableObject {
         Task.detached { [geoffreyHome] in
             _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-migrate"])
             _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automation-queue"])
-            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-status"])
-            let entries = result.output.split(separator: "\n").reduce(into: [String: String]()) { values, line in
-                let pair = line.split(separator: "\t", maxSplits: 1).map(String.init)
-                if pair.count == 2 { values[pair[0]] = pair[1] }
-            }
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-status"], timeout: 30)
+            let entries = GeoffreyReadinessRefresh.health(output: result.output, status: result.status)
             let accountResult = Self.run(
                 executable: geoffreyHome + "/bin/geoffrey",
                 arguments: ["app-accounts"],
@@ -2720,20 +2707,22 @@ final class GeoffreyModel: ObservableObject {
             let accounts: [GeoffreyAccount]? = accountResult.status == 0
                 ? try? JSONDecoder().decode([GeoffreyAccount].self, from: Data(accountResult.output.utf8))
                 : nil
-            let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"])
-            let capabilities = (try? JSONDecoder().decode([GeoffreyCapability].self, from: Data(capabilityResult.output.utf8))) ?? []
+            let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"], timeout: 30)
+            let capabilities = GeoffreyReadinessRefresh.capabilities(output: capabilityResult.output, status: capabilityResult.status)
             let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"], timeout: 30)
             let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync-status"], timeout: 30)
             let memorySyncStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyMemorySyncStatus.self, output: syncResult.output, status: syncResult.status)
             let portableResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state"], timeout: 30)
             let portableStateStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyPortableStateStatus.self, output: portableResult.output, status: portableResult.status)
             await MainActor.run {
-                let shouldOfferFirstRun = !GeoffreySetupProgress.make(
-                    health: entries,
+                let shouldOfferFirstRun = entries != nil && accounts != nil && !GeoffreySetupProgress.make(
+                    health: entries ?? self.health,
                     accountCount: accounts?.count ?? self.accounts.count,
                     hasEngine: self.hasGeoffreyEngine
                 ).isComplete
-                self.health = entries
+                if let entries { self.health = entries }
+                self.setupStatusIssue = entries == nil
+                    ? GeoffreyReadinessRefresh.issue(status: result.status, subject: "setup status") : nil
                 let accountRefresh = GeoffreyConnectionRefresh.resolve(
                     latest: accounts,
                     previous: self.accounts,
@@ -2741,7 +2730,12 @@ final class GeoffreyModel: ObservableObject {
                 )
                 self.accounts = accountRefresh.value
                 self.connectionRefreshIssue = accountRefresh.issue
-                self.capabilities = capabilities
+                if let capabilities {
+                    self.capabilities = capabilities
+                    self.hasLoadedCapabilities = true
+                }
+                self.capabilityRefreshIssue = capabilities == nil
+                    ? GeoffreyReadinessRefresh.issue(status: capabilityResult.status, subject: "available skills and connections") : nil
                 let automationRefresh = GeoffreyAutomationRefresh.resolve(
                     output: automationResult.output,
                     status: automationResult.status,

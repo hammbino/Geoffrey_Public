@@ -67,6 +67,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Make first-run progress, connection recovery, and failed Ask Geoffrey requests accessible and directly retryable without relying on icons.
 - [x] Preserve automation inventory on refresh failure and expose loading, retry, and workflow-specific accessible actions.
 - [x] Preserve memory status on failed checks, distinguish unchecked recovery maps, and expose text progress and direct status retry.
+- [x] Preserve setup and capability inventory on failed checks, with explicit loading, empty, stale, retry, and accessible repair states.
 - [ ] Complete accessible states, useful empty states, understandable errors, and recovery actions across the remaining core workflows.
 - [ ] Test core workflows with a nontechnical user who has no developer assistance.
 

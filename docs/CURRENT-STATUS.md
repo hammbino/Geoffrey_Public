@@ -25,6 +25,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Owners can stop an active request and see understandable thinking, connected-account, web, reading, and approved-change states.
 - Claude sign-in status and login flow are surfaced through the app.
 - Capability inventory combines Claude skills, plugins, and MCP servers.
+- Improve Geoffrey preserves setup and capabilities when checks fail or time out, offers separate retry controls, and distinguishes successful empty inventory from loading or failure. Failed/partial setup checks never automatically reopen first-run setup; readiness warns about stale results and disables repair from unverified inventory.
 - Improve Geoffrey summarizes Claude, email/calendar, private memory, GitHub, and capability readiness before recommending anything new.
 - Missing setup and unhealthy capabilities route to targeted actions, including account repair, Claude or GitHub sign-in, disabled-plugin enablement, and MCP reconnection guidance.
 - Improve Geoffrey places the outcome-first “Connect a business tool” action above the longer inventory of available capabilities.

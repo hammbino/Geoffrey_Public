@@ -146,7 +146,7 @@ The current verified result is:
 - behavioral tests: 44 passed, 0 failed;
 - isolated Claude stream parser tests: pass for session identity, partial text, tool activity, final results, structured failures, and non-JSON diagnostics;
 - Ask Geoffrey recovery checks: pass for a direct failed-request retry that reuses the original task without duplicating the owner message;
-- isolated readiness tests: pass for all-ready, multi-account repair, signed-out, first-use, empty-inventory, and capability-attention states;
+- isolated readiness tests: pass for all-ready, multi-account repair, signed-out, first-use, empty-inventory, and capability-attention states, plus failed/partial/duplicate/timeout setup rejection and successful-empty versus failed capability inventory;
 - isolated first-run tests: pass for helper repair, Claude, email, GitHub, existing-memory backup, completion, and safe progress preservation;
 - targeted account-health tests: pass for secret-free email/calendar recovery state, missing Keychain credentials, and removed-account refusal;
 - isolated connection-refresh tests: pass for successful replacement, failure preservation, timeout preservation, and targeted retry guidance;
@@ -169,6 +169,8 @@ The behavioral tests cover automation discovery, secret exclusion, cloud/local/r
 Automation inventory refresh preserves workflows and counts when the command fails, times out, returns malformed JSON, or reports an unsupported schema. The screen exposes checking and retry states, suppresses the empty-state claim until a successful check, and identifies repeated card actions by workflow. Run status is readable as text instead of depending on an icon. These changes have automated logic and build coverage; populated refresh-error visual and VoiceOver acceptance remain unproven.
 
 Memory status refresh is bounded and preserves prior backup and recovery-map information after failed reads, with a visible stale-status warning and a separately accessible retry action. Recovery maps distinguish unchecked state from needing an update and suppress unchecked counts. Backup and recovery-map writes cannot overlap each other or status refresh. Progress has text labels and the Memory page scrolls for longer recovery guidance. Automated model and Mac build checks cover this slice; a live populated failure-state and VoiceOver acceptance pass remains outstanding.
+
+Setup and capability refresh now use bounded checks and preserve last-known state after failed or malformed responses. A failed setup check exposes a global retry banner, cannot automatically reopen first-run setup, and does not replace saved health. Improve Geoffrey distinguishes checking, successfully empty, and failed capability inventory. Stale readiness is identified, repair controls are disabled until the relevant checks recover, repeated repair actions include the affected capability in their accessible name, and repair progress has text. Automated contract checks and builds cover these states; live populated failure/VoiceOver acceptance remains outstanding.
 
 ## Honest Limitations and Remaining Work
 
@@ -251,7 +253,8 @@ The check exits nonzero unless the working tree is clean, the historical-exposur
 | `41c8298` | Added direct failed-request retry without duplicate conversation entries. |
 | `0039aa5` | Added a fail-closed, commit-bound Dustin release-gate report and evidence template. |
 | `3402859` | Preserved automation inventory through failed refreshes and added explicit loading, retry, and accessible workflow actions. |
+| `d8254b5` | Preserved memory status through failed checks, distinguished unchecked recovery maps, and added readable progress and retry. |
 
-The memory-status recovery slice following `3402859` preserves prior status, labels stale and unchecked state honestly, and keeps progress and retry actions readable.
+The setup/capability recovery slice following `d8254b5` preserves last-known readiness, prevents failure-triggered setup presentation, and exposes separate retry and accessible repair states.
 
 This record is updated with each completed slice. A branch push is not a Dustin release and does not imply that the release gate has passed.
