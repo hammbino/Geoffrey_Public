@@ -7,6 +7,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 ## Proven Now
 
 - Native Mac app builds as Geoffrey `0.14.0` (build 16).
+- A clean [owner/pilot test download](desktop-test-download.md) is published as `v0.14.0-desktop-test.1` for Apple Silicon Macs on macOS 14+. Its public unauthenticated download matches the verified app ZIP. It remains ad-hoc signed and unnotarized, is not marked latest, publishes no production update feed, and is not Dustin-ready.
 - Geoffrey's revised illustrated identity is packaged in native Mac icon sizes and appears in the sidebar as “Geoffrey — Your AI chief of staff”; the original portrait asset remains preserved.
 - The Memory screen can build and refresh a versioned, secret-free recovery map covering approved private-memory skills, email/calendar connection definitions, Claude MCP/plugin definitions, hashes, Git repository metadata, and explicit reconnect requirements.
 - A guided Memory-screen restore clones private GitHub memory into a new owner-only folder, rejects overwrites, credentials, symbolic links, unsupported maps, changed skill hashes, and unverified checkout artifacts, then restores only the verified memory pointer. A clean second-environment test proves credentials and connected-account state are not recreated, and a failed pointer update removes the staged clone.
