@@ -131,6 +131,9 @@ struct GeoffreyRootView: View {
         .sheet(isPresented: $model.showingMemorySetup) {
             MemorySetupSheet()
         }
+        .sheet(isPresented: $model.showingMemoryRestore) {
+            MemoryRestoreSheet()
+        }
         .sheet(isPresented: $model.showingAutomationReview) {
             AutomationReviewSheet(automation: model.automationReviewSeed)
         }
@@ -1485,6 +1488,27 @@ struct GeoffreyPortableStateStatus: Codable {
     var icon: String { state == "ready" ? "checkmark.shield.fill" : "arrow.triangle.2.circlepath" }
 }
 
+struct GeoffreyMemoryRestoreResponse: Codable {
+    let ok: Bool
+    let state: String
+    let memoryPath: String?
+    let skillsCount: Int?
+    let connectorsCount: Int?
+    let reconnectCount: Int?
+    let credentialsRestored: Bool?
+    let message: String
+    let recovery: String?
+
+    enum CodingKeys: String, CodingKey {
+        case ok, state, message, recovery
+        case memoryPath = "memory_path"
+        case skillsCount = "skills_count"
+        case connectorsCount = "connectors_count"
+        case reconnectCount = "reconnect_count"
+        case credentialsRestored = "credentials_restored"
+    }
+}
+
 struct MemoryView: View {
     @EnvironmentObject private var model: GeoffreyModel
 
@@ -1550,12 +1574,49 @@ struct MemoryView: View {
                 .background(Color(nsColor: .controlBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
-                SetupBanner()
+                MemorySetupOptions()
             }
             Spacer()
         }
         .padding(32)
         .frame(maxWidth: 980, alignment: .leading)
+    }
+}
+
+struct MemorySetupOptions: View {
+    @EnvironmentObject private var model: GeoffreyModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Choose how to begin").font(.headline)
+            Text("If Geoffrey already knows your work, restore that private GitHub memory. Otherwise, create a new one.")
+                .foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Bring back existing memory", systemImage: "arrow.clockwise.icloud.fill").font(.headline)
+                    Text("Geoffrey verifies the backup before using it. Accounts and Claude connections require secure sign-in again.")
+                        .font(.callout).foregroundStyle(.secondary)
+                    Button("Restore from GitHub") { model.presentMemoryRestore() }
+                        .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Start fresh", systemImage: "plus.circle.fill").font(.headline)
+                    Text("Create a new private memory and GitHub backup for this Geoffrey setup.")
+                        .font(.callout).foregroundStyle(.secondary)
+                    Button("Create new memory") { model.presentMemorySetup() }
+                        .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
     }
 }
 
@@ -1823,6 +1884,91 @@ struct MemorySetupSheet: View {
             }
         }
         .padding(24).frame(width: 520)
+    }
+}
+
+struct MemoryRestoreSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var repository = ""
+    @State private var target = ""
+
+    private var cleanRepository: String { repository.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var cleanTarget: String { target.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canRestore: Bool {
+        !cleanRepository.isEmpty && cleanTarget.hasPrefix("/") && model.health["github"] == "ready"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Restore your private memory").font(.title2.weight(.semibold))
+            Text("Geoffrey will clone this private GitHub repository into a new folder, verify its recovery map and approved skill hashes, then make it your current memory. Existing files are never overwritten.")
+                .foregroundStyle(.secondary)
+
+            if let response = model.memoryRestoreResponse {
+                Label(response.message, systemImage: response.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(response.ok ? Color.green : Color.orange)
+                if response.ok {
+                    Text("\(response.skillsCount ?? 0) approved skills restored · \(response.reconnectCount ?? 0) connections need sign-in")
+                        .font(.callout)
+                    Text("No credentials were restored from GitHub.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                if let recovery = response.recovery {
+                    Text(recovery).font(.callout).foregroundStyle(.secondary)
+                }
+                HStack {
+                    if !response.ok {
+                        Button("Try again") { model.memoryRestoreResponse = nil }
+                    }
+                    Spacer()
+                    if response.ok {
+                        Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
+                    } else {
+                        Button("Cancel") { dismiss() }.buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Private GitHub repository").font(.headline)
+                    TextField("For example: dustin/geoffrey-dustin", text: $repository)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Use owner/repository or a plain github.com link. Do not paste a token.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Restore folder on this Mac").font(.headline)
+                    TextField("New local folder", text: $target)
+                        .textFieldStyle(.roundedBorder)
+                    Text("The folder must not already exist. Geoffrey stages and verifies the clone before making it current.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if model.health["github"] != "ready" {
+                    HStack {
+                        Text("Connect GitHub before restoring private memory.")
+                            .font(.callout).foregroundStyle(.orange)
+                        Spacer()
+                        Button("Connect GitHub") { model.openGitHubLogin() }
+                    }
+                }
+                HStack {
+                    Button("Cancel") { dismiss() }
+                    Spacer()
+                    if model.isRestoringMemory { ProgressView().controlSize(.small) }
+                    Button("Verify and restore") {
+                        model.restoreMemory(repository: cleanRepository, target: cleanTarget)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canRestore || model.isRestoringMemory)
+                }
+            }
+        }
+        .padding(24)
+        .frame(width: 580)
+        .onAppear {
+            if target.isEmpty { target = model.defaultMemoryRestoreTarget }
+        }
+        .onDisappear { model.refresh() }
     }
 }
 
@@ -2108,6 +2254,9 @@ final class GeoffreyModel: ObservableObject {
     @Published var showingMemorySetup = false
     @Published var isCreatingMemory = false
     @Published var memorySetupOutcome: String?
+    @Published var showingMemoryRestore = false
+    @Published var isRestoringMemory = false
+    @Published var memoryRestoreResponse: GeoffreyMemoryRestoreResponse?
     @Published var memorySyncStatus = GeoffreyMemorySyncStatus.notChecked
     @Published var isSyncingMemory = false
     @Published var portableStateStatus = GeoffreyPortableStateStatus.notChecked
@@ -2267,6 +2416,9 @@ final class GeoffreyModel: ObservableObject {
     var isReady: Bool { canTalk && (health["email"] ?? "").contains("connected") }
     var hasGeoffreyEngine: Bool { FileManager.default.isExecutableFile(atPath: geoffreyHome + "/bin/geoffrey") }
     var memoryDetail: String { hasMemory ? health["memory"]! : "Not created yet" }
+    var defaultMemoryRestoreTarget: String {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Geoffrey").path
+    }
     var emailDetail: String {
         let value = health["email"] ?? "Checking..."
         return value.contains("connected") ? "\(value). Add another whenever you need it." : "No account connected yet"
@@ -2743,6 +2895,40 @@ final class GeoffreyModel: ObservableObject {
         guard hasGeoffreyEngine else { launchInstaller(); return }
         memorySetupOutcome = nil
         showingMemorySetup = true
+    }
+
+    func presentMemoryRestore() {
+        guard hasGeoffreyEngine else { launchInstaller(); return }
+        memoryRestoreResponse = nil
+        showingMemoryRestore = true
+    }
+
+    func restoreMemory(repository: String, target: String) {
+        guard !isRestoringMemory else { return }
+        isRestoringMemory = true
+        memoryRestoreResponse = nil
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(
+                executable: geoffreyHome + "/bin/geoffrey",
+                arguments: ["app-restore-memory", "--repository", repository, "--target", target]
+            )
+            let response = try? JSONDecoder().decode(GeoffreyMemoryRestoreResponse.self, from: Data(result.output.utf8))
+            await MainActor.run {
+                self.isRestoringMemory = false
+                self.memoryRestoreResponse = response ?? GeoffreyMemoryRestoreResponse(
+                    ok: false,
+                    state: "blocked",
+                    memoryPath: nil,
+                    skillsCount: nil,
+                    connectorsCount: nil,
+                    reconnectCount: nil,
+                    credentialsRestored: nil,
+                    message: "Geoffrey could not read the restore result.",
+                    recovery: "No current memory was replaced. Check GitHub sign-in and try again."
+                )
+                if result.status == 0, response?.ok == true { self.refresh() }
+            }
+        }
     }
 
     func presentAutomationReview(_ automation: GeoffreyAutomation? = nil) {

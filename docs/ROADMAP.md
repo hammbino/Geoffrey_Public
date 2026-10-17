@@ -53,7 +53,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Complete the GitHub schema for approved skills, connector definitions, and restore metadata.
 - [x] Surface GitHub sync success, local-only state, credential blocks, failures, and conflict recovery inside the app.
 - [ ] Move credentials and tokens to macOS Keychain.
-- [ ] Prove sync success, visible failure, conflict handling, backup, and restore.
+- [x] Prove sync success, visible failure, conflict handling, backup, and isolated second-environment restore.
 - [ ] Decide whether old Git history must be rewritten and rotate any exposed credentials if necessary.
 
 ## Phase 6: White-Glove UX — Pending

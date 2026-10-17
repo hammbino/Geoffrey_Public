@@ -101,6 +101,21 @@ if rg -F 'refresh_token' "$TEST_MEMORY/memory/portable-state.json" >/dev/null; t
 fi
 rg -F 'Button(model.portableStateStatus.state == "ready" ? "Refresh recovery map" : "Update recovery map")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The Memory screen needs a visible recovery-map action."
 ok "Approved skills and non-secret connection definitions have a visible portable recovery map"
+git -C "$TEST_MEMORY" -c init.defaultBranch=main init >/dev/null
+git -C "$TEST_MEMORY" config user.name "Geoffrey Release Check"
+git -C "$TEST_MEMORY" config user.email "geoffrey@example.com"
+git -C "$TEST_MEMORY" add .
+git -C "$TEST_MEMORY" -c commit.gpgsign=false commit -m "Recovery source" >/dev/null
+RESTORE_HOME="$TEST_HOME/restore-home"
+RESTORE_TARGET="$RESTORE_HOME/Geoffrey"
+mkdir -p "$RESTORE_HOME"
+restore_result="$(HOME="$RESTORE_HOME" "$ROOT/bin/geoffrey" app-restore-memory --source "$TEST_MEMORY" --target "$RESTORE_TARGET")"
+printf '%s' "$restore_result" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const result = JSON.parse(input); if (!result.ok || result.state !== "restored" || result.credentials_restored !== false) process.exit(1); });' || fail "The public restore command did not verify and restore private memory."
+[ "$(sed -n '1p' "$RESTORE_HOME/.geoffrey/current-memory")" = "$RESTORE_TARGET" ] || fail "Restored private memory was not selected in the clean environment."
+[ ! -e "$RESTORE_HOME/.geoffrey/accounts.json" ] || fail "Credentials or connected-account state must not be recreated from GitHub."
+rg -F 'Button("Restore from GitHub")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The Memory screen needs a visible guided restore action."
+rg -F 'arguments: ["app-restore-memory", "--repository", repository, "--target", target]' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The guided restore sheet must use the verified restore contract."
+ok "Private memory restores into a clean second environment without credentials"
 automations="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-automations)"
 printf '%s' "$automations" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const inventory = JSON.parse(input); if (inventory.schema_version !== 1 || inventory.execution_available !== false || !Array.isArray(inventory.workflows)) process.exit(1); });' || fail "Automation discovery contract is not valid."
 automation_payload="$(node -e 'process.stdout.write(Buffer.from(JSON.stringify({id:"release-proof",name:"Release proof",purpose:"Prove the review and save boundary.",task:"Summarize the approved private context without changing outside systems.",route:"cloud",timezone:"America/Denver",times:["08:00"],result_destination:"private_memory",approved:false,source:{kind:"user_created",path:null}})).toString("base64"))')"

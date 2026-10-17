@@ -58,6 +58,7 @@ Usage:
   ./bin/geoffrey app-sync
   ./bin/geoffrey app-sync-status
   ./bin/geoffrey app-portable-state [--write]
+  ./bin/geoffrey app-restore-memory --repository OWNER/REPO --target PATH
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
@@ -111,6 +112,7 @@ Commands:
   app-sync     Save approved Geoffrey.app changes and report GitHub backup status.
   app-sync-status Read the most recent private-memory backup status without using the network.
   app-portable-state Read or update the secret-free skills, connections, and recovery map.
+  app-restore-memory Restore and verify private memory without restoring credentials.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
@@ -2274,6 +2276,10 @@ app_portable_state() {
   node "$MCP_DIR/bin/portable-state.js" --engine-root "$ROOT" "$@"
 }
 
+app_restore_memory() {
+  node "$MCP_DIR/bin/restore-memory.js" "$@"
+}
+
 app_automations() {
   node "$MCP_DIR/bin/automation-inventory.js" --engine-root "$ROOT"
 }
@@ -3485,6 +3491,10 @@ case "${1:-}" in
   app-portable-state)
     shift
     app_portable_state "$@"
+    ;;
+  app-restore-memory)
+    shift
+    app_restore_memory "$@"
     ;;
   app-add-account)
     shift
