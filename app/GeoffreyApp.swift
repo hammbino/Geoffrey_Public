@@ -1451,6 +1451,40 @@ struct GeoffreyMemorySyncStatus: Codable {
     var isHealthy: Bool { state == "synced" }
 }
 
+struct GeoffreyPortableStateStatus: Codable {
+    let state: String
+    let updatedAt: String?
+    let manifestPath: String?
+    let skillsCount: Int
+    let connectorsCount: Int
+    let reconnectCount: Int
+    let message: String
+    let recovery: String?
+
+    enum CodingKeys: String, CodingKey {
+        case state, message, recovery
+        case updatedAt = "updated_at"
+        case manifestPath = "manifest_path"
+        case skillsCount = "skills_count"
+        case connectorsCount = "connectors_count"
+        case reconnectCount = "reconnect_count"
+    }
+
+    static let notChecked = GeoffreyPortableStateStatus(
+        state: "not_checked",
+        updatedAt: nil,
+        manifestPath: nil,
+        skillsCount: 0,
+        connectorsCount: 0,
+        reconnectCount: 0,
+        message: "Geoffrey has not checked recovery information yet.",
+        recovery: nil
+    )
+
+    var title: String { state == "ready" ? "Recovery map ready" : "Recovery map needs updating" }
+    var icon: String { state == "ready" ? "checkmark.shield.fill" : "arrow.triangle.2.circlepath" }
+}
+
 struct MemoryView: View {
     @EnvironmentObject private var model: GeoffreyModel
 
@@ -1485,6 +1519,26 @@ struct MemoryView: View {
                         Text("Branch: \(branch)" + (model.memorySyncStatus.dirty ? " · Local changes waiting" : ""))
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                    Divider().padding(.vertical, 4)
+                    HStack {
+                        Label(model.portableStateStatus.title, systemImage: model.portableStateStatus.icon)
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        if model.isUpdatingPortableState { ProgressView().controlSize(.small) }
+                        Button(model.portableStateStatus.state == "ready" ? "Refresh recovery map" : "Update recovery map") {
+                            model.updatePortableState()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(model.isUpdatingPortableState || model.isSyncingMemory)
+                    }
+                    Text(model.portableStateStatus.message)
+                        .font(.callout)
+                    Text("\(model.portableStateStatus.skillsCount) approved skills · \(model.portableStateStatus.connectorsCount) connection definitions · credentials require sign-in again")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let recovery = model.portableStateStatus.recovery {
+                        Text(recovery).font(.caption).foregroundStyle(.secondary)
                     }
                     Divider().padding(.vertical, 4)
                     Label("Memory home", systemImage: "lock.fill").font(.subheadline.weight(.semibold))
@@ -2056,6 +2110,8 @@ final class GeoffreyModel: ObservableObject {
     @Published var memorySetupOutcome: String?
     @Published var memorySyncStatus = GeoffreyMemorySyncStatus.notChecked
     @Published var isSyncingMemory = false
+    @Published var portableStateStatus = GeoffreyPortableStateStatus.notChecked
+    @Published var isUpdatingPortableState = false
     @Published var conversation: [GeoffreyConversationMessage] = []
     @Published var streamingResponse = ""
     @Published var conversationStatus = "Preparing your request..."
@@ -2268,12 +2324,15 @@ final class GeoffreyModel: ObservableObject {
             let automationInventory = (try? JSONDecoder().decode(GeoffreyAutomationInventory.self, from: Data(automationResult.output.utf8))) ?? .empty
             let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync-status"])
             let memorySyncStatus = (try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data(syncResult.output.utf8))) ?? .notChecked
+            let portableResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state"])
+            let portableStateStatus = (try? JSONDecoder().decode(GeoffreyPortableStateStatus.self, from: Data(portableResult.output.utf8))) ?? .notChecked
             await MainActor.run {
                 self.health = entries
                 self.accounts = accounts
                 self.capabilities = capabilities
                 self.automationInventory = automationInventory
                 self.memorySyncStatus = memorySyncStatus
+                self.portableStateStatus = portableStateStatus
                 self.isRefreshingAccounts = false
             }
         }
@@ -2885,6 +2944,28 @@ final class GeoffreyModel: ObservableObject {
                     message: "Geoffrey could not read the private-memory backup status.",
                     recovery: "Your local memory was not removed. Try Sync now again."
                 )
+            }
+        }
+    }
+
+    func updatePortableState() {
+        guard hasMemory, !isUpdatingPortableState else { return }
+        isUpdatingPortableState = true
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state", "--write"])
+            let portableStatus = try? JSONDecoder().decode(GeoffreyPortableStateStatus.self, from: Data(result.output.utf8))
+            let syncResult = result.status == 0
+                ? Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
+                : nil
+            let syncStatus = syncResult.flatMap { try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data($0.output.utf8)) }
+            await MainActor.run {
+                self.isUpdatingPortableState = false
+                if let portableStatus { self.portableStateStatus = portableStatus }
+                if let syncStatus { self.memorySyncStatus = syncStatus }
+                if result.status != 0 || portableStatus == nil {
+                    self.issueMessage = "Geoffrey could not update recovery information. No credentials or private files were removed."
+                    self.showingIssue = true
+                }
             }
         }
     }

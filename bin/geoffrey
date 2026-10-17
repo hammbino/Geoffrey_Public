@@ -57,6 +57,7 @@ Usage:
   ./bin/geoffrey app-record-briefing --kind daily|inbox|follow-up|open-loops --text "..."
   ./bin/geoffrey app-sync
   ./bin/geoffrey app-sync-status
+  ./bin/geoffrey app-portable-state [--write]
   ./bin/geoffrey launch [--memory PATH] [--print-prompt] [--no-sync]
   ./bin/geoffrey chief-of-staff --memory PATH
   ./bin/geoffrey tools --memory PATH
@@ -109,6 +110,7 @@ Commands:
   app-record-briefing Save a completed briefing to private memory and GitHub.
   app-sync     Save approved Geoffrey.app changes and report GitHub backup status.
   app-sync-status Read the most recent private-memory backup status without using the network.
+  app-portable-state Read or update the secret-free skills, connections, and recovery map.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
@@ -2268,6 +2270,10 @@ app_capabilities() {
   node "$MCP_DIR/bin/capability-inventory.js" --engine-root "$ROOT"
 }
 
+app_portable_state() {
+  node "$MCP_DIR/bin/portable-state.js" --engine-root "$ROOT" "$@"
+}
+
 app_automations() {
   node "$MCP_DIR/bin/automation-inventory.js" --engine-root "$ROOT"
 }
@@ -3475,6 +3481,10 @@ case "${1:-}" in
     ;;
   app-sync-status)
     app_sync_status
+    ;;
+  app-portable-state)
+    shift
+    app_portable_state "$@"
     ;;
   app-add-account)
     shift

@@ -50,7 +50,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 ## Phase 5: Portable State and Security — In Progress
 
 - [x] Define and implement the portable automation manifest, bounded history, and owner-ready result subset.
-- [ ] Complete the GitHub schema for approved skills, connector definitions, and restore metadata.
+- [x] Complete the GitHub schema for approved skills, connector definitions, and restore metadata.
 - [x] Surface GitHub sync success, local-only state, credential blocks, failures, and conflict recovery inside the app.
 - [ ] Move credentials and tokens to macOS Keychain.
 - [ ] Prove sync success, visible failure, conflict handling, backup, and restore.

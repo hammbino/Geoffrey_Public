@@ -93,6 +93,14 @@ if rg -F 'refresh_token' "$TEST_HOME/.geoffrey/migration-v1.json" >/dev/null; th
   fail "Migration manifest must not contain account secrets."
 fi
 ok "Terminal-era state is backed up and inventoried without exposing secrets"
+portable_state="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-portable-state --write)"
+printf '%s' "$portable_state" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const state = JSON.parse(input); if (state.schema_version !== 1 || state.state !== "ready" || state.manifest_path !== "memory/portable-state.json") process.exit(1); });' || fail "Portable recovery state is not valid."
+[ -f "$TEST_MEMORY/memory/portable-state.json" ] || fail "Portable recovery map was not written to private memory."
+if rg -F 'refresh_token' "$TEST_MEMORY/memory/portable-state.json" >/dev/null; then
+  fail "Portable recovery map must not contain account credentials."
+fi
+rg -F 'Button(model.portableStateStatus.state == "ready" ? "Refresh recovery map" : "Update recovery map")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The Memory screen needs a visible recovery-map action."
+ok "Approved skills and non-secret connection definitions have a visible portable recovery map"
 automations="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-automations)"
 printf '%s' "$automations" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const inventory = JSON.parse(input); if (inventory.schema_version !== 1 || inventory.execution_available !== false || !Array.isArray(inventory.workflows)) process.exit(1); });' || fail "Automation discovery contract is not valid."
 automation_payload="$(node -e 'process.stdout.write(Buffer.from(JSON.stringify({id:"release-proof",name:"Release proof",purpose:"Prove the review and save boundary.",task:"Summarize the approved private context without changing outside systems.",route:"cloud",timezone:"America/Denver",times:["08:00"],result_destination:"private_memory",approved:false,source:{kind:"user_created",path:null}})).toString("base64"))')"
