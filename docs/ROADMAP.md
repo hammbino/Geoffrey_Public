@@ -66,7 +66,8 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 
 ## Phase 7: Distribution and Dustin Pilot — Pending
 
-- [ ] Implement an app-native signed updater with release notes and rollback.
+- [x] Implement an app-native signed updater with release notes, strict publisher verification, and rollback.
+- [ ] Publish and exercise a Developer ID-signed, notarized update and rollback on a clean Mac.
 - [ ] Sign with Developer ID, notarize, and verify Gatekeeper on a clean Mac.
 - [ ] Publish a release candidate ZIP or DMG and checksum.
 - [ ] Deliver the transition through Dustin's existing GitHub-based updater.

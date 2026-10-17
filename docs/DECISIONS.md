@@ -12,6 +12,8 @@
 | Account management belongs in the app menu | It stays available without crowding the daily interface. | Decided |
 | Geoffrey learns from briefing feedback | The morning briefing must get more useful, not repeat generic output. | Decided |
 | Updates run quietly and ask only when one exists | No recurring nuisance prompt. | Decided |
+| Desktop updates use two independent signatures | Geoffrey verifies an Ed25519-signed manifest and then requires the replacement app to carry the same Apple Developer ID team signature; a compromised download location alone cannot authorize an update. | Implemented; production acceptance pending |
+| Every app update keeps one rollback version | The owner can restore the previous signed app without replacing private memory, account metadata, or Keychain credentials. | Implemented; production acceptance pending |
 | Skills require owner approval before they are added | Geoffrey can grow without making silent changes. | Decided |
 | The desktop app replaces the terminal interface | Dustin's existing terminal-created state is preserved, but normal use moves entirely into Geoffrey. | Decided |
 | Claude Code remains the intelligence and tool runtime | Geoffrey makes Claude's skills, MCPs, connectors, and builders understandable instead of building a weaker parallel system. | Decided |

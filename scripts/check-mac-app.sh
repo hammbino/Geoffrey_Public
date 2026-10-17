@@ -6,6 +6,7 @@ APP="$ROOT/build/Geoffrey.app"
 TEST_HOME="$(mktemp -d)"
 TEST_MEMORY="$TEST_HOME/geoffrey-memory"
 TEST_BIN="$TEST_HOME/bin"
+export CLANG_MODULE_CACHE_PATH="$TEST_HOME/clang-module-cache"
 trap 'rm -rf "$TEST_HOME"' EXIT
 
 mkdir -p "$TEST_HOME/.geoffrey" "$TEST_HOME/Applications" "$TEST_MEMORY" "$TEST_BIN"
@@ -52,6 +53,30 @@ ok "Readiness tests cover healthy, repair, and first-use states"
   -o "$TEST_HOME/geoffrey-automation-tests"
 "$TEST_HOME/geoffrey-automation-tests" >/dev/null || fail "Automation routes and imported inventory must decode safely."
 ok "Automation tests cover cloud, local, and review presentation"
+
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" -D UPDATER_LOGIC_ONLY \
+  "$ROOT/app/GeoffreyUpdater.swift" "$ROOT/app/GeoffreyUpdaterTests.swift" \
+  -o "$TEST_HOME/geoffrey-updater-tests"
+"$TEST_HOME/geoffrey-updater-tests" >/dev/null || fail "Signed updater manifests must reject tampering and unsafe packages."
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" -parse-as-library \
+  "$ROOT/scripts/GeoffreyUpdateKeyGenerator.swift" -o "$TEST_HOME/geoffrey-update-key-generator"
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" -parse-as-library \
+  "$ROOT/scripts/GeoffreyUpdateManifestSigner.swift" -o "$TEST_HOME/geoffrey-update-manifest-signer"
+update_public_key="$("$TEST_HOME/geoffrey-update-key-generator" "$TEST_HOME/update-private.key")"
+printf '%s\n' 'Synthetic release notes.' > "$TEST_HOME/release-notes.txt"
+printf '%s\n' 'Synthetic Geoffrey archive.' > "$TEST_HOME/Geoffrey.zip"
+"$TEST_HOME/geoffrey-update-manifest-signer" \
+  --archive "$TEST_HOME/Geoffrey.zip" \
+  --archive-url "https://example.com/Geoffrey.zip" \
+  --notes "$TEST_HOME/release-notes.txt" \
+  --private-key "$TEST_HOME/update-private.key" \
+  --output "$TEST_HOME/update.json" \
+  --version "0.14.0" \
+  --build "16" \
+  --minimum-macos "14.0" >/dev/null
+"$TEST_HOME/geoffrey-updater-tests" "$TEST_HOME/update.json" "$update_public_key" >/dev/null \
+  || fail "The release signer output must verify in the app updater."
+ok "Updater tests cover signatures, versions, HTTPS, digests, and release-signer compatibility"
 
 rg -F '.onSubmit(send)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must send when the owner presses Return."
 rg -F 'TextField("Ask about a task, decision, or problem you want off your plate"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must use a native editable text field."
@@ -219,6 +244,15 @@ rg -F 'engine.installing' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "App 
 rg -F '.geoffrey-engine-version' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "App installation must version its embedded engine."
 rg -F '["app-migrate"]' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The app must migrate the terminal-era state automatically."
 ok "Installation uses a versioned self-contained engine and automatic migration"
+
+[ -x "$APP/Contents/Resources/GeoffreyUpdateHelper" ] || fail "The app-native update helper is missing."
+if find "$APP" -type l -print -quit | rg -q .; then
+  fail "The app bundle must be symlink-free so update extraction cannot traverse a link."
+fi
+rg -F 'GeoffreyUpdatePublicKey' "$ROOT/app/GeoffreyUpdater.swift" "$ROOT/scripts/build-mac-app.sh" >/dev/null || fail "Updates must require a build-injected signing key."
+rg -F 'kSecCSStrictValidate | kSecCSCheckAllArchitectures' "$ROOT/app/GeoffreyUpdater.swift" "$ROOT/app/GeoffreyUpdateHelper.swift" >/dev/null || fail "Replacement apps must receive strict publisher validation before and during installation."
+rg -F 'Previous/Geoffrey.app' "$ROOT/app/GeoffreyUpdater.swift" >/dev/null || fail "Updates must preserve a previous app for rollback."
+ok "App-native updates require signed metadata, verified packages, and rollback"
 
 rg -F 'Button("Sync now")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Private-memory backup needs an explicit in-app retry action."
 rg -F 'Two versions need review' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Memory conflicts must be visible in plain language."

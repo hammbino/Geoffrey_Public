@@ -100,9 +100,18 @@ promoting it into the owner's standing preferences.
 
 ## Install And Update
 
-The normal Geoffrey installer builds Geoffrey.app locally and installs it in
-`~/Applications/Geoffrey.app`. A local build avoids distributing an unsigned
-application and keeps the app matched to the installed Geoffrey engine.
+The transition installer builds Geoffrey.app locally and installs it in
+`~/Applications/Geoffrey.app`. A local build keeps the first desktop app matched
+to the installed Geoffrey engine.
+
+After the signed release feed is provisioned, **Settings > Check for updates**
+is the supported everyday path. Geoffrey shows release notes, verifies the
+signed update metadata, download digest, bundle identity, and Apple publisher,
+then closes and reopens itself. It retains the previous signed app so Settings
+can restore that version without touching private memory or Keychain accounts.
+Development builds are ad-hoc signed and correctly refuse this production-only
+path. See [Signed Desktop Updates](desktop-updates.md) for release procedures
+and the current evidence boundary.
 
 To repair or rebuild it:
 

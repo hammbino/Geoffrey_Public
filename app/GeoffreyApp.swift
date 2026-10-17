@@ -142,6 +142,9 @@ struct GeoffreyRootView: View {
                 CloudAutomationSetupSheet(automation: automation)
             }
         }
+        .sheet(isPresented: $model.showingUpdate) {
+            GeoffreyUpdateSheet()
+        }
     }
 }
 
@@ -1628,16 +1631,33 @@ struct MemorySetupOptions: View {
 
 struct SettingsView: View {
     @EnvironmentObject private var model: GeoffreyModel
+    @State private var confirmingRollback = false
 
     var body: some View {
         Form {
             Section("Geoffrey") {
+                LabeledContent("Version", value: model.appVersionText)
                 LabeledContent("Geoffrey folder", value: model.geoffreyHome)
                 LabeledContent(
                     "Previous setup",
                     value: model.health["migration"] == "preserved" ? "Preserved and backed up" : "No earlier setup found"
                 )
-                Button("Check for updates") { model.runMaintenance("update-check") }
+                HStack {
+                    Button(model.isCheckingForUpdate ? "Checking…" : "Check for updates") { model.checkForUpdates() }
+                        .disabled(model.isCheckingForUpdate || model.isInstallingUpdate)
+                    if model.availableUpdate != nil {
+                        Button("Review update") { model.showingUpdate = true }
+                    }
+                }
+                if !model.updateStatusMessage.isEmpty {
+                    Text(model.updateStatusMessage)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                if let previousVersion = model.previousAppVersion {
+                    Button("Restore Geoffrey \(previousVersion)…") { confirmingRollback = true }
+                        .disabled(model.isInstallingUpdate)
+                }
                 Button("Open Geoffrey folder") { model.openGeoffreyFolder() }
             }
             Section("Claude model") {
@@ -1663,6 +1683,60 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding(32)
         .navigationTitle("Settings")
+        .confirmationDialog(
+            "Restore the previous Geoffrey version?",
+            isPresented: $confirmingRollback,
+            titleVisibility: .visible
+        ) {
+            Button("Restore previous version", role: .destructive) { model.restorePreviousVersion() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Your private memory and account credentials stay in place. Geoffrey will close, restore the previous signed app, and reopen.")
+        }
+    }
+}
+
+struct GeoffreyUpdateSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            if let update = model.availableUpdate {
+                Label("Geoffrey \(update.version) is ready", systemImage: "arrow.down.app.fill")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                Text("Signed release · build \(update.build)")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Divider()
+                ScrollView {
+                    Text(update.releaseNotes)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(minHeight: 140, maxHeight: 280)
+                Text("Geoffrey verifies the release signature, checksum, app identity, and publisher before replacing anything. The current app is kept for rollback. Private memory and Keychain credentials are not part of the update package.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button("Later") { dismiss() }
+                    Spacer()
+                    if model.isInstallingUpdate { ProgressView().controlSize(.small) }
+                    Button(model.isInstallingUpdate ? "Verifying update…" : "Install and reopen") {
+                        model.installAvailableUpdate()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.isInstallingUpdate)
+                }
+            } else {
+                Text("No update is ready").font(.title2.weight(.semibold))
+                Text(model.updateStatusMessage).foregroundStyle(.secondary)
+                HStack { Spacer(); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }
+            }
+        }
+        .padding(24)
+        .frame(width: 560)
     }
 }
 
@@ -2305,6 +2379,11 @@ final class GeoffreyModel: ObservableObject {
     @Published var isSigningIntoGitHub = false
     @Published var repairingCapabilityIDs = Set<String>()
     @Published var runningAutomationIDs = Set<String>()
+    @Published var availableUpdate: GeoffreyUpdatePayload?
+    @Published var showingUpdate = false
+    @Published var isCheckingForUpdate = false
+    @Published var isInstallingUpdate = false
+    @Published var updateStatusMessage = "Updates are verified before Geoffrey installs them."
     @Published var modelChoice: String {
         didSet { UserDefaults.standard.set(modelChoice, forKey: "geoffreyModelChoice") }
     }
@@ -2331,12 +2410,24 @@ final class GeoffreyModel: ObservableObject {
         } else {
             claudeSessionID = UserDefaults.standard.string(forKey: "geoffreyClaudeSessionID")
         }
+        if let failure = Self.consumeUpdateFailure() {
+            updateStatusMessage = "The update was not installed. \(failure) The previous Geoffrey app remains available."
+        }
     }
 
     private static var conversationURL: URL? {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("Geoffrey", isDirectory: true)
             .appendingPathComponent("conversation.json")
+    }
+
+    private static func consumeUpdateFailure() -> String? {
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+        let url = support.appendingPathComponent("Geoffrey/Updates/last-update-error.txt")
+        guard let message = try? String(contentsOf: url, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+              !message.isEmpty else { return nil }
+        try? FileManager.default.removeItem(at: url)
+        return message
     }
 
     private static func loadConversation() -> [GeoffreyConversationMessage] {
@@ -2452,6 +2543,8 @@ final class GeoffreyModel: ObservableObject {
         default: return "Let Claude Code choose the best available model for the request."
         }
     }
+    var appVersionText: String { "\(GeoffreyUpdater.currentVersion) (\(GeoffreyUpdater.currentBuild))" }
+    var previousAppVersion: String? { GeoffreyUpdater.previousVersion }
     var modelArgument: String? {
         switch modelChoice {
         case "sonnet", "opus": return modelChoice
@@ -2498,6 +2591,7 @@ final class GeoffreyModel: ObservableObject {
                 self.isRefreshingAccounts = false
             }
         }
+        scheduleAutomaticUpdateCheck()
     }
 
     func run(task: GeoffreyTask) {
@@ -3177,15 +3271,64 @@ final class GeoffreyModel: ObservableObject {
 
     func setModel(_ value: String) { modelChoice = value }
 
-    func runMaintenance(_ command: String) {
-        Task.detached { [geoffreyHome] in
-            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: [command, "--quiet"])
-            await MainActor.run {
-                self.issueMessage = result.status == 0
-                    ? "Geoffrey checked for updates. It will let you know when one is ready."
-                    : "Geoffrey could not check for updates right now. Please try again later."
-                self.showingIssue = true
+    private func scheduleAutomaticUpdateCheck() {
+        let key = "geoffreyLastAutomaticUpdateCheck"
+        let last = UserDefaults.standard.object(forKey: key) as? Date ?? .distantPast
+        guard Date().timeIntervalSince(last) >= 86_400 else { return }
+        UserDefaults.standard.set(Date(), forKey: key)
+        checkForUpdates(silent: true)
+    }
+
+    func checkForUpdates(silent: Bool = false) {
+        guard !isCheckingForUpdate, !isInstallingUpdate else { return }
+        isCheckingForUpdate = true
+        if !silent { updateStatusMessage = "Checking Geoffrey’s signed release feed…" }
+        Task {
+            let result = await GeoffreyUpdater.check()
+            isCheckingForUpdate = false
+            switch result {
+            case let .available(update):
+                availableUpdate = update
+                updateStatusMessage = "Geoffrey \(update.version) is available."
+                showingUpdate = true
+            case let .current(message), let .unavailable(message):
+                availableUpdate = nil
+                if !silent { updateStatusMessage = message }
             }
+        }
+    }
+
+    func installAvailableUpdate() {
+        guard let update = availableUpdate, !isInstallingUpdate else { return }
+        isInstallingUpdate = true
+        updateStatusMessage = "Downloading and verifying Geoffrey \(update.version)…"
+        Task {
+            do {
+                let candidate = try await GeoffreyUpdater.stage(update)
+                try GeoffreyUpdater.beginInstall(candidate: candidate, payload: update)
+                updateStatusMessage = "The verified update is ready. Geoffrey is reopening…"
+                NSApp.terminate(nil)
+            } catch {
+                isInstallingUpdate = false
+                updateStatusMessage = error.localizedDescription
+                issueMessage = error.localizedDescription
+                showingIssue = true
+            }
+        }
+    }
+
+    func restorePreviousVersion() {
+        guard !isInstallingUpdate else { return }
+        isInstallingUpdate = true
+        do {
+            try GeoffreyUpdater.beginRollback()
+            updateStatusMessage = "The previous signed version is being restored. Geoffrey is reopening…"
+            NSApp.terminate(nil)
+        } catch {
+            isInstallingUpdate = false
+            updateStatusMessage = error.localizedDescription
+            issueMessage = error.localizedDescription
+            showingIssue = true
         }
     }
 

@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET="/Applications/Geoffrey.app"
+TARGET="$HOME/Applications/Geoffrey.app"
 
 "$ROOT/scripts/build-mac-app.sh"
-mkdir -p "/Applications"
+mkdir -p "$HOME/Applications"
 rm -rf "$TARGET"
 ditto "$ROOT/build/Geoffrey.app" "$TARGET"
 xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null || true

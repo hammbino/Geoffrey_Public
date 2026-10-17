@@ -6,6 +6,8 @@ SOURCE="$ROOT/app/GeoffreyApp.swift"
 STREAM_SOURCE="$ROOT/app/ClaudeStream.swift"
 READINESS_SOURCE="$ROOT/app/GeoffreyReadiness.swift"
 AUTOMATIONS_SOURCE="$ROOT/app/GeoffreyAutomations.swift"
+UPDATER_SOURCE="$ROOT/app/GeoffreyUpdater.swift"
+UPDATE_HELPER_SOURCE="$ROOT/app/GeoffreyUpdateHelper.swift"
 PLIST="$ROOT/app/Info.plist"
 ICON="$ROOT/app/Geoffrey.icns"
 APP="$ROOT/build/Geoffrey.app"
@@ -40,8 +42,16 @@ for candidate in /opt/homebrew/opt/swift/*.xctoolchain/usr/bin/swiftc /usr/local
 done
 
 build_app() {
-  "$1" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" "$AUTOMATIONS_SOURCE" \
-    -o "$APP/Contents/MacOS/Geoffrey" -framework SwiftUI -framework AppKit
+  CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/geoffrey-clang-module-cache" \
+    "$1" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library \
+    "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" "$AUTOMATIONS_SOURCE" "$UPDATER_SOURCE" \
+    -o "$APP/Contents/MacOS/Geoffrey" -framework SwiftUI -framework AppKit -framework Security
+}
+
+build_update_helper() {
+  CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/geoffrey-clang-module-cache" \
+    "$1" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" "$UPDATE_HELPER_SOURCE" \
+    -o "$APP/Contents/Resources/GeoffreyUpdateHelper" -framework Security
 }
 
 if ! build_app "$SWIFTC"; then
@@ -68,7 +78,11 @@ if ! build_app "$SWIFTC"; then
 fi
 
 cp "$PLIST" "$APP/Contents/Info.plist"
+if [ -n "${GEOFFREY_UPDATE_PUBLIC_KEY:-}" ]; then
+  /usr/libexec/PlistBuddy -c "Add :GeoffreyUpdatePublicKey string $GEOFFREY_UPDATE_PUBLIC_KEY" "$APP/Contents/Info.plist"
+fi
 cp "$ICON" "$APP/Contents/Resources/Geoffrey.icns"
+build_update_helper "$SWIFTC"
 ENGINE="$APP/Contents/Resources/GeoffreyEngine"
 mkdir -p "$ENGINE"
 
@@ -107,9 +121,14 @@ for path in "${ENGINE_PATHS[@]}"; do
     --exclude '*.secret' \
     --exclude 'config/google-oauth.json' \
     --exclude 'node_modules/.cache/' \
+    --exclude 'node_modules/.bin/' \
     "$ROOT/./$path" "$ENGINE/"
 done
 
 "$ROOT/scripts/check-release-safety.sh" "$APP"
-codesign --force --deep --sign - "$APP"
+if [ -n "${GEOFFREY_CODESIGN_IDENTITY:-}" ]; then
+  codesign --force --deep --options runtime --timestamp --sign "$GEOFFREY_CODESIGN_IDENTITY" "$APP"
+else
+  codesign --force --deep --sign - "$APP"
+fi
 echo "Built $APP"
