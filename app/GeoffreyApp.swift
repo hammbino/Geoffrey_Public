@@ -1480,96 +1480,6 @@ struct ManagedAccountRow: View {
     }
 }
 
-struct GeoffreyMemorySyncStatus: Codable {
-    let state: String
-    let checkedAt: String?
-    let branch: String?
-    let head: String?
-    let ahead: Int
-    let behind: Int
-    let dirty: Bool
-    let message: String
-    let recovery: String?
-
-    enum CodingKeys: String, CodingKey {
-        case state, branch, head, ahead, behind, dirty, message, recovery
-        case checkedAt = "checked_at"
-    }
-
-    static let notChecked = GeoffreyMemorySyncStatus(
-        state: "not_checked",
-        checkedAt: nil,
-        branch: nil,
-        head: nil,
-        ahead: 0,
-        behind: 0,
-        dirty: false,
-        message: "Geoffrey has not checked the GitHub backup yet.",
-        recovery: nil
-    )
-
-    var title: String {
-        switch state {
-        case "synced": return "Backed up"
-        case "local_only": return "Saved on this Mac"
-        case "local_changes": return "Changes waiting to back up"
-        case "conflict": return "Two versions need review"
-        case "blocked_secret": return "Credential kept off GitHub"
-        case "needs_attention": return "Backup needs attention"
-        case "not_configured": return "Backup not configured"
-        default: return "Backup not checked"
-        }
-    }
-
-    var icon: String {
-        switch state {
-        case "synced": return "checkmark.icloud.fill"
-        case "conflict": return "arrow.triangle.branch"
-        case "needs_attention": return "exclamationmark.icloud.fill"
-        case "blocked_secret": return "lock.shield.fill"
-        case "local_only": return "externaldrive.fill"
-        case "local_changes": return "arrow.up.circle.fill"
-        default: return "icloud.slash"
-        }
-    }
-
-    var isHealthy: Bool { state == "synced" }
-}
-
-struct GeoffreyPortableStateStatus: Codable {
-    let state: String
-    let updatedAt: String?
-    let manifestPath: String?
-    let skillsCount: Int
-    let connectorsCount: Int
-    let reconnectCount: Int
-    let message: String
-    let recovery: String?
-
-    enum CodingKeys: String, CodingKey {
-        case state, message, recovery
-        case updatedAt = "updated_at"
-        case manifestPath = "manifest_path"
-        case skillsCount = "skills_count"
-        case connectorsCount = "connectors_count"
-        case reconnectCount = "reconnect_count"
-    }
-
-    static let notChecked = GeoffreyPortableStateStatus(
-        state: "not_checked",
-        updatedAt: nil,
-        manifestPath: nil,
-        skillsCount: 0,
-        connectorsCount: 0,
-        reconnectCount: 0,
-        message: "Geoffrey has not checked recovery information yet.",
-        recovery: nil
-    )
-
-    var title: String { state == "ready" ? "Recovery map ready" : "Recovery map needs updating" }
-    var icon: String { state == "ready" ? "checkmark.shield.fill" : "arrow.triangle.2.circlepath" }
-}
-
 struct GeoffreyMemoryRestoreResponse: Codable {
     let ok: Bool
     let state: String
@@ -1595,73 +1505,98 @@ struct MemoryView: View {
     @EnvironmentObject private var model: GeoffreyModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Geoffrey remembers")
-                .font(.system(size: 30, weight: .semibold))
-            Text("Your private Geoffrey memory holds agreed preferences, projects, people, decisions, and the feedback that makes future briefings more useful. It is backed up to your private GitHub repository, not shared with other Geoffrey users.")
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: 760, alignment: .leading)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Geoffrey remembers")
+                    .font(.system(size: 30, weight: .semibold))
+                Text("Your private Geoffrey memory holds agreed preferences, projects, people, decisions, and the feedback that makes future briefings more useful. It is backed up to your private GitHub repository, not shared with other Geoffrey users.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 760, alignment: .leading)
 
-            if model.hasMemory {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Label(model.memorySyncStatus.title, systemImage: model.memorySyncStatus.icon)
-                            .font(.headline)
-                            .foregroundStyle(model.memorySyncStatus.isHealthy ? Color.green : Color.orange)
-                        Spacer()
-                        if model.isSyncingMemory { ProgressView().controlSize(.small) }
-                        Button("Sync now") { model.syncMemory() }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(model.isSyncingMemory)
-                    }
-                    Text(model.memorySyncStatus.message)
-                        .font(.callout)
-                    if let recovery = model.memorySyncStatus.recovery {
-                        Text(recovery)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let branch = model.memorySyncStatus.branch {
-                        Text("Branch: \(branch)" + (model.memorySyncStatus.dirty ? " · Local changes waiting" : ""))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Divider().padding(.vertical, 4)
-                    HStack {
-                        Label(model.portableStateStatus.title, systemImage: model.portableStateStatus.icon)
-                            .font(.subheadline.weight(.semibold))
-                        Spacer()
-                        if model.isUpdatingPortableState { ProgressView().controlSize(.small) }
-                        Button(model.portableStateStatus.state == "ready" ? "Refresh recovery map" : "Update recovery map") {
-                            model.updatePortableState()
+                if model.hasMemory {
+                    if model.memoryStatusIssue != nil || model.portableStatusIssue != nil {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Memory status needs another check").font(.headline)
+                            if let issue = model.memoryStatusIssue { Text(issue).font(.callout) }
+                            if let issue = model.portableStatusIssue { Text(issue).font(.callout) }
+                            Button("Check memory status again") { model.refresh() }
+                                .disabled(model.isRefreshingAccounts || model.isSyncingMemory || model.isUpdatingPortableState)
+                                .accessibilityIdentifier("memory-retry-status")
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(model.isUpdatingPortableState || model.isSyncingMemory)
+                        .padding(16)
+                        .background(Color.orange.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    Text(model.portableStateStatus.message)
-                        .font(.callout)
-                    Text("\(model.portableStateStatus.skillsCount) approved skills · \(model.portableStateStatus.connectorsCount) connection definitions · credentials require sign-in again")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let recovery = model.portableStateStatus.recovery {
-                        Text(recovery).font(.caption).foregroundStyle(.secondary)
+                    if model.isRefreshingAccounts {
+                        Text("Checking memory status…").font(.callout).foregroundStyle(.secondary)
                     }
-                    Divider().padding(.vertical, 4)
-                    Label("Memory home", systemImage: "lock.fill").font(.subheadline.weight(.semibold))
-                    Text(model.memoryDetail).font(.callout).foregroundStyle(.secondary)
-                    Button("Open memory folder") { model.openMemory() }
-                        .buttonStyle(.bordered)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label(model.memorySyncStatus.title, systemImage: model.memorySyncStatus.icon)
+                                .font(.headline)
+                                .foregroundStyle(model.memorySyncStatus.isHealthy ? Color.green : Color.orange)
+                            Spacer()
+                            if model.isSyncingMemory {
+                                ProgressView().controlSize(.small).accessibilityHidden(true)
+                                Text("Backing up…").font(.callout)
+                            }
+                            Button("Sync now") { model.syncMemory() }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(model.isSyncingMemory || model.isUpdatingPortableState || model.isRefreshingAccounts)
+                        }
+                        Text(model.memorySyncStatus.message)
+                            .font(.callout)
+                        if let recovery = model.memorySyncStatus.recovery {
+                            Text(recovery)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let branch = model.memorySyncStatus.branch {
+                            Text("Branch: \(branch)" + (model.memorySyncStatus.dirty ? " · Local changes waiting" : ""))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Divider().padding(.vertical, 4)
+                        HStack {
+                            Label(model.portableStateStatus.title, systemImage: model.portableStateStatus.icon)
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            if model.isUpdatingPortableState {
+                                ProgressView().controlSize(.small).accessibilityHidden(true)
+                                Text("Updating recovery map…").font(.callout)
+                            }
+                            Button(model.portableStateStatus.state == "ready" ? "Refresh recovery map" : "Update recovery map") {
+                                model.updatePortableState()
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.isUpdatingPortableState || model.isSyncingMemory || model.isRefreshingAccounts)
+                        }
+                        Text(model.portableStateStatus.message)
+                            .font(.callout)
+                        if model.portableStateStatus.state != "not_checked" {
+                            Text("\(model.portableStateStatus.skillsCount) approved skills · \(model.portableStateStatus.connectorsCount) connection definitions · credentials require sign-in again")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let recovery = model.portableStateStatus.recovery {
+                            Text(recovery).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Divider().padding(.vertical, 4)
+                        Label("Memory home", systemImage: "lock.fill").font(.subheadline.weight(.semibold))
+                        Text(model.memoryDetail).font(.callout).foregroundStyle(.secondary)
+                        Button("Open memory folder") { model.openMemory() }
+                            .buttonStyle(.bordered)
+                    }
+                    .padding(20)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    MemorySetupOptions()
                 }
-                .padding(20)
-                .background(Color(nsColor: .controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                MemorySetupOptions()
             }
-            Spacer()
+            .padding(32)
+            .frame(maxWidth: 980, alignment: .leading)
         }
-        .padding(32)
-        .frame(maxWidth: 980, alignment: .leading)
     }
 }
 
@@ -2528,6 +2463,8 @@ final class GeoffreyModel: ObservableObject {
     @Published var memoryRestoreResponse: GeoffreyMemoryRestoreResponse?
     @Published var memorySyncStatus = GeoffreyMemorySyncStatus.notChecked
     @Published var isSyncingMemory = false
+    @Published var memoryStatusIssue: String?
+    @Published var portableStatusIssue: String?
     @Published var portableStateStatus = GeoffreyPortableStateStatus.notChecked
     @Published var isUpdatingPortableState = false
     @Published var conversation: [GeoffreyConversationMessage] = []
@@ -2765,7 +2702,7 @@ final class GeoffreyModel: ObservableObject {
     }
 
     func refresh() {
-        guard !isRefreshingAccounts else { return }
+        guard !isRefreshingAccounts, !isSyncingMemory, !isUpdatingPortableState else { return }
         isRefreshingAccounts = true
         Task.detached { [geoffreyHome] in
             _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-migrate"])
@@ -2786,10 +2723,10 @@ final class GeoffreyModel: ObservableObject {
             let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"])
             let capabilities = (try? JSONDecoder().decode([GeoffreyCapability].self, from: Data(capabilityResult.output.utf8))) ?? []
             let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"], timeout: 30)
-            let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync-status"])
-            let memorySyncStatus = (try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data(syncResult.output.utf8))) ?? .notChecked
-            let portableResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state"])
-            let portableStateStatus = (try? JSONDecoder().decode(GeoffreyPortableStateStatus.self, from: Data(portableResult.output.utf8))) ?? .notChecked
+            let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync-status"], timeout: 30)
+            let memorySyncStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyMemorySyncStatus.self, output: syncResult.output, status: syncResult.status)
+            let portableResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state"], timeout: 30)
+            let portableStateStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyPortableStateStatus.self, output: portableResult.output, status: portableResult.status)
             await MainActor.run {
                 let shouldOfferFirstRun = !GeoffreySetupProgress.make(
                     health: entries,
@@ -2813,8 +2750,12 @@ final class GeoffreyModel: ObservableObject {
                 self.automationInventory = automationRefresh.inventory
                 self.automationRefreshIssue = automationRefresh.issue
                 if automationRefresh.issue == nil { self.hasLoadedAutomations = true }
-                self.memorySyncStatus = memorySyncStatus
-                self.portableStateStatus = portableStateStatus
+                if let memorySyncStatus { self.memorySyncStatus = memorySyncStatus }
+                self.memoryStatusIssue = memorySyncStatus == nil
+                    ? GeoffreyMemoryStatusRefresh.issue(status: syncResult.status, subject: "the backup status") : nil
+                if let portableStateStatus { self.portableStateStatus = portableStateStatus }
+                self.portableStatusIssue = portableStateStatus == nil
+                    ? GeoffreyMemoryStatusRefresh.issue(status: portableResult.status, subject: "the recovery map") : nil
                 self.isRefreshingAccounts = false
                 if shouldOfferFirstRun && !self.hasOfferedFirstRunSetup {
                     self.hasOfferedFirstRunSetup = true
@@ -3528,42 +3469,40 @@ final class GeoffreyModel: ObservableObject {
     }
 
     func syncMemory() {
-        guard hasMemory, !isSyncingMemory else { return }
+        guard hasMemory, !isSyncingMemory, !isUpdatingPortableState, !isRefreshingAccounts else { return }
         isSyncingMemory = true
         Task.detached { [geoffreyHome] in
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
-            let status = try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data(result.output.utf8))
+            let status = GeoffreyMemoryStatusRefresh.decode(GeoffreyMemorySyncStatus.self, output: result.output, status: result.status, acceptsFailureReport: true)
             await MainActor.run {
                 self.isSyncingMemory = false
-                self.memorySyncStatus = status ?? GeoffreyMemorySyncStatus(
-                    state: "needs_attention",
-                    checkedAt: nil,
-                    branch: nil,
-                    head: nil,
-                    ahead: 0,
-                    behind: 0,
-                    dirty: false,
-                    message: "Geoffrey could not read the private-memory backup status.",
-                    recovery: "Your local memory was not removed. Try Sync now again."
-                )
+                if let status { self.memorySyncStatus = status }
+                self.memoryStatusIssue = status == nil
+                    ? GeoffreyMemoryStatusRefresh.issue(status: result.status, subject: "the backup result") : nil
             }
         }
     }
 
     func updatePortableState() {
-        guard hasMemory, !isUpdatingPortableState else { return }
+        guard hasMemory, !isUpdatingPortableState, !isSyncingMemory, !isRefreshingAccounts else { return }
         isUpdatingPortableState = true
         Task.detached { [geoffreyHome] in
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state", "--write"])
-            let portableStatus = try? JSONDecoder().decode(GeoffreyPortableStateStatus.self, from: Data(result.output.utf8))
+            let portableStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyPortableStateStatus.self, output: result.output, status: result.status)
             let syncResult = result.status == 0
                 ? Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
                 : nil
-            let syncStatus = syncResult.flatMap { try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data($0.output.utf8)) }
+            let syncStatus = syncResult.flatMap { GeoffreyMemoryStatusRefresh.decode(GeoffreyMemorySyncStatus.self, output: $0.output, status: $0.status, acceptsFailureReport: true) }
             await MainActor.run {
                 self.isUpdatingPortableState = false
                 if let portableStatus { self.portableStateStatus = portableStatus }
-                if let syncStatus { self.memorySyncStatus = syncStatus }
+                self.portableStatusIssue = result.status != 0 || portableStatus == nil
+                    ? GeoffreyMemoryStatusRefresh.issue(status: result.status, subject: "the recovery-map result") : nil
+                if let syncResult {
+                    if let syncStatus { self.memorySyncStatus = syncStatus }
+                    self.memoryStatusIssue = syncStatus == nil
+                        ? GeoffreyMemoryStatusRefresh.issue(status: syncResult.status, subject: "the backup result") : nil
+                }
                 if result.status != 0 || portableStatus == nil {
                     self.issueMessage = "Geoffrey could not update recovery information. No credentials or private files were removed."
                     self.showingIssue = true

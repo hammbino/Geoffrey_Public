@@ -60,6 +60,12 @@ ok "First-run setup is resumable and follows the native setup sequence"
 "$TEST_HOME/geoffrey-connections-tests" >/dev/null || fail "Connection refresh must preserve prior accounts and expose useful recovery guidance."
 ok "Connection refresh tests cover success, failure preservation, and timeout recovery"
 
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" \
+  "$ROOT/app/GeoffreyMemory.swift" "$ROOT/app/GeoffreyMemoryTests.swift" \
+  -o "$TEST_HOME/geoffrey-memory-tests"
+"$TEST_HOME/geoffrey-memory-tests" >/dev/null || fail "Memory status checks must retain prior state on failed reads."
+ok "Memory status tests cover failed reads, timeouts, structured sync failures, and unchecked recovery maps"
+
 "$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" -D AUTOMATION_LOGIC_ONLY \
   "$ROOT/app/GeoffreyAutomations.swift" "$ROOT/app/GeoffreyAutomationsTests.swift" \
   -o "$TEST_HOME/geoffrey-automation-tests"
@@ -279,7 +285,7 @@ rg -F 'Previous/Geoffrey.app' "$ROOT/app/GeoffreyUpdater.swift" >/dev/null || fa
 ok "App-native updates require signed metadata, verified packages, and rollback"
 
 rg -F 'Button("Sync now")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Private-memory backup needs an explicit in-app retry action."
-rg -F 'Two versions need review' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Memory conflicts must be visible in plain language."
+rg -F 'Two versions need review' "$ROOT/app/GeoffreyMemory.swift" >/dev/null || fail "Memory conflicts must be visible in plain language."
 rg -F 'app-sync-status' "$ROOT/app/GeoffreyApp.swift" "$ROOT/bin/geoffrey" >/dev/null || fail "Memory backup status must load without a network mutation."
 rg -F '["rebase", "--abort"]' "$ROOT/geoffrey-mcp/bin/memory-sync.js" >/dev/null || fail "Conflicting memory sync must restore the original local branch."
 rg -F 'blocked_secret' "$ROOT/geoffrey-mcp/bin/memory-sync.js" "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Credential-like memory files must stay off GitHub and surface in the app."
