@@ -223,8 +223,27 @@ The check exits nonzero unless the working tree is clean, the historical-exposur
 | --- | --- |
 | `51aa8dc` | Added Claude capability inventory. |
 | `0e703e7` | Secured release packaging and added legacy-state migration. |
-| `e7a644c` | Added streaming conversation readiness and targeted capability repair. |
-| This slice | Added automation discovery, classification, UI, and bounded local queue creation. |
-| Current slice | Added a deterministic per-workflow cloud result branch, strict result-envelope contract, validated no-merge importer, portable result/history recording, and an in-app Check results action. |
+| `8d6175c` | Added streaming, resumable Claude conversations. |
+| `e7a644c` | Added actionable readiness and targeted capability repair. |
+| `7c63c73` | Added automation discovery, classification, and bounded local queueing. |
+| `0e60885` | Added safe execution and retry for approved local automations. |
+| `d341ae5` | Reordered Improve Geoffrey around owner outcomes and connection readiness. |
+| `bb52bab` | Added in-app automation review, drafting, and explicit approval. |
+| `16af859` | Added guided Claude Routine connection and owner-reviewed run evidence. |
+| `acd095d` | Added deterministic cloud result branches and validated no-merge imports. |
+| `25e8eea` | Surfaced private-memory sync, conflict, and credential-blocked states. |
+| `03e4307` | Restored Geoffrey's native app and in-app brand identity. |
+| `01c9e9c` | Added a portable, secret-free recovery map. |
+| `c9b2368` | Added verified private-memory restore into an isolated second environment. |
+| `9072f3b` | Moved account credentials and refresh tokens into macOS Keychain. |
+| `893abcf` | Added verified native app updates with signed metadata, package validation, release notes, and rollback. |
+| `78ac9b3` | Added resumable native first-run setup. |
+| `1936dec` | Added secret-free, bounded per-account connection tests. |
+| `b8402fa` | Preserved last-known connections when refreshes fail or time out. |
+| `abcbe23` | Exposed each setup step as a distinct accessibility element. |
+| `e57a653` | Audited historical release exposure and recorded the coordinated remediation decision. |
+| `0303143` | Made connection status and recovery controls independently accessible. |
+| `41c8298` | Added direct failed-request retry without duplicate conversation entries. |
+| `0039aa5` | Added a fail-closed, commit-bound Dustin release-gate report and evidence template. |
 
 This record is updated with each completed slice. A branch push is not a Dustin release and does not imply that the release gate has passed.
