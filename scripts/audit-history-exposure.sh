@@ -23,7 +23,7 @@ summary="$(awk '
     if (path ~ /private[-_ ]?beta|geoffrey.*\.app\.(zip|tar|gz)|\.dmg$/) {
       archives++; archive_bytes += $3
     }
-    if (path ~ /(^|\/)(accounts\.json|google-oauth\.json|\.env(\..*)?|[^\/]*\.(token|secret))$/) {
+    if (path ~ /(^|\/)(accounts\.json|google-oauth\.json|client_secret[^\/]*\.json|\.env(\..*)?|[^\/]*\.(token|secret))$/) {
       credentials++; credential_bytes += $3
     }
   }
@@ -37,13 +37,24 @@ summary="$(awk '
   }
 ' "$AUDIT_TMP/objects.txt")"
 
+archive_summary="$(python3 "$ROOT/scripts/audit-history-archives.py" --repo "$ROOT")"
+archive_risks="$(printf '%s\n' "$archive_summary" | awk -F= '$1 == "history_zip_risky_blobs" { print $2 }')"
+archive_uninspected="$(printf '%s\n' "$archive_summary" | awk -F= '$1 == "history_zip_uninspected_blobs" { print $2 }')"
+
 printf '%s\n' "$summary"
+printf '%s\n' "$archive_summary"
 
 media="$(printf '%s\n' "$summary" | awk -F= '$1 == "recipient_media_objects" { print $2 }')"
 archives="$(printf '%s\n' "$summary" | awk -F= '$1 == "private_app_archive_objects" { print $2 }')"
 credentials="$(printf '%s\n' "$summary" | awk -F= '$1 == "credential_path_objects" { print $2 }')"
 
-if [ "${media:-0}" -gt 0 ] || [ "${archives:-0}" -gt 0 ] || [ "${credentials:-0}" -gt 0 ]; then
+if [ "${archive_uninspected:-1}" -gt 0 ]; then
+  printf 'status=audit_incomplete\n'
+  if [ "$REPORT_ONLY" = true ]; then exit 0; fi
+  exit 2
+fi
+
+if [ "${archive_risks:-0}" -gt 0 ] || [ "${media:-0}" -gt 0 ] || [ "${archives:-0}" -gt 0 ] || [ "${credentials:-0}" -gt 0 ]; then
   printf 'status=rewrite_required\n'
   if [ "$REPORT_ONLY" = true ]; then exit 0; fi
   exit 2

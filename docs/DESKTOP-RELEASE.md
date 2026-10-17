@@ -158,7 +158,8 @@ The current verified result is:
 - Mac app build and payload safety: pass;
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
 - strict code-signature verification: pass using an ad hoc signature.
-- history exposure report: `status=rewrite_required`, with counts only and no recipient filenames or contents printed.
+- historical archive tests: pass for safe packages, nested credentials/media, private archives, downloaded OAuth-config names, corrupt/over-budget/deep ZIP refusal, removed-from-tip history, and clean/direct/nested/incomplete shell-gate behavior;
+- history exposure report: `status=rewrite_required`, including bounded recursive ZIP inspection, with counts only and no private filenames or contents printed.
 - Dustin release-gate report: `blocked`; the checker fails closed on unresolved history, a dirty or mismatched commit, a missing evidence file, or any acceptance item without an owner-reviewed reference.
 
 The `0.14.0` build also packages Geoffrey's revised illustrated app icon at native Mac sizes and uses that same bundled identity in a visible sidebar header. The original portrait source remains preserved, and an automated Mac check prevents the in-app brand and packaged icon from drifting apart. The built app was inspected live at its minimum supported window size in the prior UI slice: the 220-point sidebar shows the full Geoffrey name, “Your AI chief of staff” description, and every navigation label without clipping. The rebuilt Settings screen was inspected live in dark mode: version, update action, verification explanation, app folder, model choice, and help text were legible and unclipped, and the ad-hoc build visibly changed to “Signed updates will become available with Geoffrey’s release build” without opening a network-dependent installer. The release-notes sheet still requires a dedicated signed-feed visual acceptance pass.
@@ -186,7 +187,7 @@ The following are not complete and must not be presented as finished:
 - **First run:** the native ordered guide, automatic first incomplete-state presentation, safe dismissal/resume, and transitions to existing native setup flows are implemented and locally inspected. A complete clean-Mac run using pilot Claude, email, GitHub, and private-memory state remains acceptance work.
 - **Updates:** the legacy GitHub updater can deliver the first desktop transition. The native signed client, release notes, automatic check, verified replacement helper, and rollback path are implemented, but no production Developer ID/notarized update feed has been published or exercised end to end. That real update and rollback acceptance remains required before the native path is called release-ready.
 - **Distribution:** the app is ad hoc signed only. Developer ID signing, notarization, final ZIP/DMG packaging, clean-Mac installation, and Gatekeeper validation remain.
-- **Historical exposure:** the repeatable metadata audit confirms recipient media and private app archives remain recoverable from older repository history. The required coordinated rewrite and any necessary archive-related credential rotation have been decided and documented but not executed.
+- **Historical exposure:** recipient media and private app archives remain recoverable from history. Recursive inspection found additional contaminated historical bundles; separate private review confirmed an exposed OAuth client secret in archives and the public beta download. The owner-only recovery mirror is verified, but credential revocation/rotation, approved coordinated rewrite, public beta/tag removal, clone replacement, and applicable GitHub server cleanup remain pending. The current filename-only zero credential-path count is not evidence that archives were credential-free.
 - **Google pilot:** the current OAuth approach is accepted for this pilot. Gmail scope verification and commercial compliance are intentionally deferred until the product decision to market it.
 
 ## Remaining Lifecycle
@@ -259,7 +260,8 @@ The check exits nonzero unless the working tree is clean, the historical-exposur
 | `d8254b5` | Preserved memory status through failed checks, distinguished unchecked recovery maps, and added readable progress and retry. |
 | `0778a31` | Preserved setup and capability inventory through failed checks, with explicit stale/empty/retry and accessible repair states. |
 | `d50728a` | Labeled core conversation/briefing controls, inspected synthetic recovery layouts, fixed setup-warning overlap, and adapted recommendation cards to fit full action labels. |
+| `f507625` | Excluded owner evidence from repository ZIPs and rejected evidence paths in bundle/native-payload checks. |
 
-The evidence-isolation slice following `d50728a` excludes owner release evidence from repository ZIPs and rejects evidence paths in bundle/native-payload checks. An isolated committed-source fixture proves exclusion and rejection without reading private developer state.
+The history-cleanup preparation slice following `f507625` adds bounded nested-ZIP auditing and regression tests, records the confirmed public-beta exposure, and prepares private recovery/inventory material. It does not rewrite or publish cleaned history.
 
 This record is updated with each completed slice. A branch push is not a Dustin release and does not imply that the release gate has passed.

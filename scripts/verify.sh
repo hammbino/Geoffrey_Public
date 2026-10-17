@@ -13,6 +13,9 @@ for file in geoffrey-mcp/src/*.js geoffrey-mcp/src/providers/*.js geoffrey-mcp/b
 done
 npm test --prefix geoffrey-mcp
 
+printf '\n== Historical archive audit tests\n'
+PYTHONDONTWRITEBYTECODE=1 python3 ./scripts/test-history-archives.py
+
 printf '\n== Dustin release gate (report only)\n'
 node ./scripts/check-dustin-release-gate.mjs --report-only
 

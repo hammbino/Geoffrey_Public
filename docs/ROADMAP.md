@@ -56,6 +56,7 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Move account credentials and refresh tokens to macOS Keychain with transactional legacy migration.
 - [x] Prove sync success, visible failure, conflict handling, backup, and isolated second-environment restore.
 - [x] Audit old Git history and decide whether coordinated remediation is required.
+- [x] Audit nested historical bundles and the published beta privately; prepare and verify an owner-only recovery mirror.
 - [ ] Coordinate the required history rewrite and rotate any credential that may have entered an old archive.
 
 ## Phase 6: White-Glove UX — Pending
