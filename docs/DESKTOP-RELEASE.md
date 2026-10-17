@@ -115,6 +115,13 @@ These items may still exist in older Git history or tags. Before any public rele
 
 Primary references: [Claude Code routines](https://code.claude.com/docs/en/routines), [Claude Managed Agents scheduled deployments](https://platform.claude.com/docs/en/managed-agents/scheduled-deployments), and [secure deployment guidance](https://platform.claude.com/docs/en/managed-agents/secure-deployment).
 
+### Native first-run setup
+
+- Added a native setup guide that automatically appears once when the installed app finds incomplete setup and remains available through Continue setup after dismissal.
+- The guide derives one ordered next action from locally observed state: Geoffrey helper, Claude sign-in, first email/calendar account, private GitHub backup, then private-memory create or restore.
+- Completed steps are never reset by canceling the guide. Transitions into the existing secure account, memory-create, and verified-memory-restore sheets occur only after the guide closes.
+- The setup-state model has isolated tests for fresh install, staged progress, an existing local memory with missing backup authentication, and the complete state.
+
 Live authentication evidence on October 15, 2026:
 
 - Claude Code `2.1.301` authenticated successfully through Claude's supported browser flow.
@@ -137,6 +144,7 @@ The current verified result is:
 - behavioral tests: 44 passed, 0 failed;
 - isolated Claude stream parser tests: pass for session identity, partial text, tool activity, final results, structured failures, and non-JSON diagnostics;
 - isolated readiness tests: pass for all-ready, multi-account repair, signed-out, first-use, empty-inventory, and capability-attention states;
+- isolated first-run tests: pass for helper repair, Claude, email, GitHub, existing-memory backup, completion, and safe progress preservation;
 - isolated automation presentation tests: pass for cloud-capable, active-cloud, Mac-required, and review labels;
 - Claude package safety/currentness: pass;
 - Mac app build and payload safety: pass;
@@ -144,6 +152,8 @@ The current verified result is:
 - strict code-signature verification: pass using an ad hoc signature.
 
 The `0.14.0` build also packages Geoffrey's revised illustrated app icon at native Mac sizes and uses that same bundled identity in a visible sidebar header. The original portrait source remains preserved, and an automated Mac check prevents the in-app brand and packaged icon from drifting apart. The built app was inspected live at its minimum supported window size in the prior UI slice: the 220-point sidebar shows the full Geoffrey name, “Your AI chief of staff” description, and every navigation label without clipping. The rebuilt Settings screen was inspected live in dark mode: version, update action, verification explanation, app folder, model choice, and help text were legible and unclipped, and the ad-hoc build visibly changed to “Signed updates will become available with Geoffrey’s release build” without opening a network-dependent installer. The release-notes sheet still requires a dedicated signed-feed visual acceptance pass.
+
+The rebuilt incomplete-setup state was also inspected in the exact built app in dark mode. The guide automatically appeared, showed accurate progress and the next step across all five setup areas, fit without clipping, and returned to Today with a visible Continue setup action after dismissal. Live provider sign-in, new-memory creation, and clean-Mac resume remain pilot acceptance rather than locally claimed release evidence.
 
 The behavioral tests cover automation discovery, secret exclusion, cloud/local/review routing, bounded missed-run queuing, approval enforcement, portable draft/approval saves, imported-candidate deduplication, atomic rejection of credential-bearing definitions, safe Routine-link validation, unverified connected state, owner-reviewed run evidence, successful local execution, failure and retry, concurrency refusal, result portability, credential redaction, validated cloud-envelope import, no-checkout/no-merge branch isolation, import deduplication, malformed-envelope rejection, missing-branch handling, memory commit/push success, remote fast-forward, clean divergence rebase/push, conflict abort with local preservation, local-only state, credential-blocked sync, isolated second-environment restore, checkout-hook isolation, failed-pointer rollback, transactional Keychain writes, legacy secret migration, failed-migration preservation, multi-account migration rollback, capability inventory aggregation and repair classification, the multi-account MCP contract, Outlook filtering and free-text handling, recipient-label safety/no-send behavior, missing-category degradation, migration without token leakage, Claude stream parsing, and owner-facing readiness decisions. A reversible native macOS proof also created, updated, read, and deleted a uniquely named dummy Keychain item while passing the value through stdin rather than command arguments. The isolated Mac check saves a draft through the public command, proves that it round-trips without becoming enabled, and proves that a Routine link remains `connected` with no verification timestamp until a reviewed run is recorded. The built Ask Geoffrey, Improve Geoffrey, and Connections interfaces were previously inspected visually in dark mode for hierarchy, legibility, clipping, and action clarity. The rebuilt Automation Center empty state and add/review sheet were inspected in the live app on October 16 for hierarchy, required fields, schedule controls, private-memory destination, and explicit approval clarity. The Memory setup state was visually inspected after the sync-status UI was added. The populated recovery-map state was then inspected in a disposable profile at the minimum window size: its status, counts, credential boundary, action, recovery guidance, and memory path were visible without clipping, and the owner action visibly advanced the state from `needs_update` to `ready`. The first-use Memory choice and guided restore sheet were also inspected in an isolated 0.12.0 app at the minimum window size; restore/start-fresh choices, overwrite protection, GitHub prerequisite, token warning, destination, and verification action were legible and unclipped. Populated Git sync and conflict states remain fixture-backed until a dedicated visual fixture or Dustin-state acceptance pass. The cloud setup sheet compiles and is covered by accessibility-copy and behavior checks; its populated visual acceptance remains part of the fixture-backed or Dustin-state pass.
 
@@ -155,6 +165,7 @@ The following are not complete and must not be presented as finished:
 - **Secrets:** Keychain-backed account storage, transactional legacy migration, failure preservation, visible repair state, and sign-in-again recovery are implemented and synthetically proven. Dustin's real account registry still requires pilot acceptance; credentials are intentionally not exported or restored across Macs.
 - **GitHub portability:** workflow definitions, results, bounded run history, approved-skill hashes, non-secret connector definitions, and restore metadata use private memory. Visible sync status, retry, clean-divergence reconciliation, conflict abort/preservation, credential blocking, recovery-map drift detection, and guided second-environment restore are implemented and tested. A real private-GitHub restore on a clean pilot Mac remains part of release-candidate acceptance.
 - **Connections:** add/reconnect/remove and health explanations exist, but still require clean-Mac and Dustin-state acceptance testing.
+- **First run:** the native ordered guide, automatic first incomplete-state presentation, safe dismissal/resume, and transitions to existing native setup flows are implemented and locally inspected. A complete clean-Mac run using pilot Claude, email, GitHub, and private-memory state remains acceptance work.
 - **Updates:** the legacy GitHub updater can deliver the first desktop transition. The native signed client, release notes, automatic check, verified replacement helper, and rollback path are implemented, but no production Developer ID/notarized update feed has been published or exercised end to end. That real update and rollback acceptance remains required before the native path is called release-ready.
 - **Distribution:** the app is ad hoc signed only. Developer ID signing, notarization, final ZIP/DMG packaging, clean-Mac installation, and Gatekeeper validation remain.
 - **Historical exposure:** sensitive artifacts removed from the current branch remain recoverable from older repository history until separately remediated.
@@ -164,7 +175,7 @@ The following are not complete and must not be presented as finished:
 
 1. Connect an approved workflow through Claude Routines and prove off-Mac execution plus observable cloud run history.
 2. Validate private-GitHub restore and Keychain migration against Dustin's real pilot state.
-3. Finish first-run setup, accessibility, and error recovery.
+3. Validate native first-run setup on a clean Mac, then finish the remaining accessibility and error-recovery acceptance.
 4. Provision the external signing/notarization credentials and prove the signed app update plus rollback on a clean Mac.
 5. Run automated, clean-environment, migration, security, and guided human acceptance tests.
 6. Sign with Developer ID, notarize, package, and publish a release candidate.

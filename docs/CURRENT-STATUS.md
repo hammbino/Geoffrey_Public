@@ -14,6 +14,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Settings now uses a native signed-update flow instead of handing the owner to the legacy Git checkout. Signed manifest verification, HTTPS-only transport, bounded archive size, exact SHA-256 and byte-count checks, unsafe-path and symlink rejection, same-bundle and same-Developer-ID-team validation, release notes, daily quiet checks, private staging, a second helper-side signature check, failure relaunch, and one-version rollback are implemented. Ad-hoc builds refuse installation, and the production release builder requires Developer ID signing plus Apple notarization.
 - The 0.14.0 Settings update state was visually inspected in the built dark-mode app; version, action, safety explanation, and the honest ad-hoc-build status were legible and unclipped.
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
+- Incomplete first-run setup now opens a native, resumable guide for the Geoffrey helper, Claude sign-in, one email/calendar account, private GitHub backup, and private memory. Completed steps remain saved, dismissal returns to a visible Continue setup action, and create/restore flows stay inside Geoffrey.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
 - Ask Geoffrey streams Claude responses, records and resumes Claude session IDs, and preserves the visible conversation locally with `0600` permissions.
@@ -56,6 +57,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Clean-pilot validation of the guided restore against a real private GitHub repository.
 - Dustin-state acceptance of the Keychain migration and connection repair flow.
 - Developer ID and notarized end-to-end update/rollback acceptance on a clean Mac; the updater and release tooling are implemented, but production signing credentials have not been exercised.
+- Clean-Mac and pilot-account acceptance of the complete native first-run sequence; its state model, resume behavior, build, and dark-mode layout are locally proven.
 
 ## Not Yet Proven
 

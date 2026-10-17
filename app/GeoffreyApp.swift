@@ -125,6 +125,9 @@ struct GeoffreyRootView: View {
         } message: {
             Text(model.issueMessage)
         }
+        .sheet(isPresented: $model.showingFirstRunSetup, onDismiss: model.completeFirstRunTransition) {
+            FirstRunSetupSheet()
+        }
         .sheet(isPresented: $model.showingAccountConnection) {
             AccountConnectionSheet()
         }
@@ -1747,13 +1750,11 @@ struct SetupBanner: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: "wand.and.stars").font(.title2).foregroundStyle(Color.orange)
             VStack(alignment: .leading, spacing: 5) {
-                let needsAccount = model.accounts.isEmpty
-                Text(model.hasGeoffreyEngine ? (needsAccount ? "Connect your email to get started" : "Create your private Geoffrey memory") : "Install Geoffrey") .font(.headline)
-                Text(model.hasGeoffreyEngine
-                     ? (needsAccount ? "Start with one email or calendar. Geoffrey only reads what you approve." : "Next, create the private memory that makes Geoffrey useful over time.")
-                     : "Install Geoffrey once, then connect your email and private memory.")
+                Text(model.setupProgress.nextStep?.title ?? "Finish setting up Geoffrey")
+                    .font(.headline)
+                Text(model.setupProgress.nextStep?.detail ?? "Geoffrey will keep every completed step and show the next one.")
                     .foregroundStyle(.secondary)
-                Button(model.hasGeoffreyEngine ? (needsAccount ? "Connect email" : "Set up private memory") : "Install Geoffrey") { model.openSetup(needsAccount ? "add-email" : "setup") }
+                Button("Continue setup") { model.presentFirstRunSetup() }
                     .buttonStyle(.borderedProminent)
                     .padding(.top, 4)
             }
@@ -1762,6 +1763,104 @@ struct SetupBanner: View {
         .padding(18)
         .background(Color.orange.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct FirstRunSetupSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+
+    private var progress: GeoffreySetupProgress { model.setupProgress }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(progress.isComplete ? "Geoffrey is ready" : "Let’s get Geoffrey ready")
+                    .font(.title2.weight(.semibold))
+                Text(progress.isComplete
+                    ? "Claude, your first account, private backup, and memory are ready."
+                    : "Connect Claude, one inbox, and private memory. You can stop at any time. Completed steps stay saved, and Continue setup will bring you back here.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            ProgressView(value: Double(progress.completedCount), total: Double(progress.steps.count))
+                .accessibilityLabel("Setup progress")
+                .accessibilityValue("\(progress.completedCount) of \(progress.steps.count) steps complete")
+
+            VStack(spacing: 0) {
+                ForEach(progress.steps) { step in
+                    FirstRunSetupRow(step: step, isNext: step.id == progress.nextStep?.id)
+                    if step.id != progress.steps.last?.id { Divider() }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .padding(.horizontal, 18)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            HStack {
+                if !progress.isComplete {
+                    Button("Not now") {
+                        model.cancelFirstRunTransition()
+                        dismiss()
+                    }
+                }
+                Spacer()
+                if let next = progress.nextStep {
+                    if next.id == .memory {
+                        Button("Restore existing memory") {
+                            model.deferFirstRunTransition(.restoreMemory)
+                            dismiss()
+                        }
+                    }
+                    Button(next.actionTitle) {
+                        model.deferFirstRunTransition(.step(next.id))
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Button("Start with today") { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+        .padding(26)
+        .frame(width: 620)
+    }
+}
+
+private struct FirstRunSetupRow: View {
+    let step: GeoffreySetupStep
+    let isNext: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 13) {
+            Image(systemName: step.isComplete ? "checkmark.circle.fill" : (isNext ? "arrow.right.circle.fill" : "circle"))
+                .font(.title3)
+                .foregroundStyle(step.isComplete ? Color.green : (isNext ? Color.accentColor : Color.secondary))
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 7) {
+                    Text(step.title).font(.headline)
+                    if isNext {
+                        Text("NEXT")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                Text(step.detail)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 13)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(step.title), \(step.isComplete ? "complete" : (isNext ? "next step" : "not complete"))")
+        .accessibilityValue(step.detail)
     }
 }
 
@@ -2335,6 +2434,7 @@ final class GeoffreyModel: ObservableObject {
     @Published var health: [String: String] = [:]
     @Published var latestResponse: GeoffreyResponse?
     @Published var latestBriefing: GeoffreyResponse?
+    @Published var showingFirstRunSetup = false
     @Published var showingMemorySetup = false
     @Published var isCreatingMemory = false
     @Published var memorySetupOutcome: String?
@@ -2398,6 +2498,13 @@ final class GeoffreyModel: ObservableObject {
     let geoffreyHome: String
     private var accountConnectionProcess: Process?
     var accountConnectionSeed: GeoffreyAccount?
+    private var hasOfferedFirstRunSetup = false
+    private var pendingFirstRunTransition: FirstRunTransition?
+
+    enum FirstRunTransition {
+        case step(GeoffreySetupStepID)
+        case restoreMemory
+    }
 
     init() {
         geoffreyHome = Self.resolvedGeoffreyHome()
@@ -2514,8 +2621,11 @@ final class GeoffreyModel: ObservableObject {
 
     var hasMemory: Bool { (health["memory"] ?? "").hasPrefix("/") }
     var canTalk: Bool { health["claude"] == "ready" && hasMemory }
-    var isReady: Bool { canTalk && (health["email"] ?? "").contains("connected") }
     var hasGeoffreyEngine: Bool { FileManager.default.isExecutableFile(atPath: geoffreyHome + "/bin/geoffrey") }
+    var setupProgress: GeoffreySetupProgress {
+        GeoffreySetupProgress.make(health: health, accountCount: accounts.count, hasEngine: hasGeoffreyEngine)
+    }
+    var isReady: Bool { setupProgress.isComplete }
     var memoryDetail: String { hasMemory ? health["memory"]! : "Not created yet" }
     var defaultMemoryRestoreTarget: String {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Geoffrey").path
@@ -2582,6 +2692,11 @@ final class GeoffreyModel: ObservableObject {
             let portableResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state"])
             let portableStateStatus = (try? JSONDecoder().decode(GeoffreyPortableStateStatus.self, from: Data(portableResult.output.utf8))) ?? .notChecked
             await MainActor.run {
+                let shouldOfferFirstRun = !GeoffreySetupProgress.make(
+                    health: entries,
+                    accountCount: accounts.count,
+                    hasEngine: self.hasGeoffreyEngine
+                ).isComplete
                 self.health = entries
                 self.accounts = accounts
                 self.capabilities = capabilities
@@ -2589,6 +2704,10 @@ final class GeoffreyModel: ObservableObject {
                 self.memorySyncStatus = memorySyncStatus
                 self.portableStateStatus = portableStateStatus
                 self.isRefreshingAccounts = false
+                if shouldOfferFirstRun && !self.hasOfferedFirstRunSetup {
+                    self.hasOfferedFirstRunSetup = true
+                    self.showingFirstRunSetup = true
+                }
             }
         }
         scheduleAutomaticUpdateCheck()
@@ -2929,6 +3048,42 @@ final class GeoffreyModel: ObservableObject {
         accountConnectionFailed = false
         accountConnectionSeed = account
         showingAccountConnection = true
+    }
+
+    func presentFirstRunSetup() {
+        pendingFirstRunTransition = nil
+        showingFirstRunSetup = true
+    }
+
+    func deferFirstRunTransition(_ transition: FirstRunTransition) {
+        pendingFirstRunTransition = transition
+    }
+
+    func cancelFirstRunTransition() {
+        pendingFirstRunTransition = nil
+    }
+
+    func completeFirstRunTransition() {
+        guard let transition = pendingFirstRunTransition else { return }
+        pendingFirstRunTransition = nil
+        switch transition {
+        case .restoreMemory:
+            presentMemoryRestore()
+        case let .step(step):
+            switch step {
+            case .engine:
+                launchInstaller()
+            case .claude:
+                if health["claude"] == "needs_setup" { launchInstaller() }
+                else { openClaudeLogin() }
+            case .email:
+                presentAccountConnection()
+            case .github:
+                openGitHubLogin()
+            case .memory:
+                presentMemorySetup()
+            }
+        }
     }
 
     func beginAccountConnection(provider: String, label: String, purpose: String) {

@@ -48,6 +48,12 @@ ok "Claude stream parser handles partial text, tools, completion, and errors"
 "$TEST_HOME/geoffrey-readiness-tests" >/dev/null || fail "Readiness states must produce the correct owner action."
 ok "Readiness tests cover healthy, repair, and first-use states"
 
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" \
+  "$ROOT/app/GeoffreySetup.swift" "$ROOT/app/GeoffreySetupTests.swift" \
+  -o "$TEST_HOME/geoffrey-setup-tests"
+"$TEST_HOME/geoffrey-setup-tests" >/dev/null || fail "First-run setup must preserve completed steps and select the next safe action."
+ok "First-run setup is resumable and follows the native setup sequence"
+
 "$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" -D AUTOMATION_LOGIC_ONLY \
   "$ROOT/app/GeoffreyAutomations.swift" "$ROOT/app/GeoffreyAutomationsTests.swift" \
   -o "$TEST_HOME/geoffrey-automation-tests"
@@ -122,6 +128,10 @@ rg -F 'const KEYCHAIN_SERVICE = "com.geoffrey.desktop.oauth.v1"' "$ROOT/geoffrey
 rg -F '"-w",' "$ROOT/geoffrey-mcp/src/store.js" >/dev/null || fail "Keychain writes must read credentials from stdin instead of command arguments."
 rg -F 'Credential protected by macOS Keychain' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connections must show the owner where account credentials are protected."
 ok "Account credentials migrate to macOS Keychain and remain visible as a repairable connection state"
+rg -F 'FirstRunSetupSheet()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Incomplete setup needs a native resumable guide."
+rg -F 'Button("Continue setup")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The setup guide must remain available after it is dismissed."
+rg -F 'You can stop at any time. Completed steps stay saved' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "First-run setup must explain safe resume behavior."
+ok "First-run setup stays inside Geoffrey and can be safely resumed"
 portable_state="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-portable-state --write)"
 printf '%s' "$portable_state" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const state = JSON.parse(input); if (state.schema_version !== 1 || state.state !== "ready" || state.manifest_path !== "memory/portable-state.json") process.exit(1); });' || fail "Portable recovery state is not valid."
 [ -f "$TEST_MEMORY/memory/portable-state.json" ] || fail "Portable recovery map was not written to private memory."

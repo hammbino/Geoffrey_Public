@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE="$ROOT/app/GeoffreyApp.swift"
 STREAM_SOURCE="$ROOT/app/ClaudeStream.swift"
 READINESS_SOURCE="$ROOT/app/GeoffreyReadiness.swift"
+SETUP_SOURCE="$ROOT/app/GeoffreySetup.swift"
 AUTOMATIONS_SOURCE="$ROOT/app/GeoffreyAutomations.swift"
 UPDATER_SOURCE="$ROOT/app/GeoffreyUpdater.swift"
 UPDATE_HELPER_SOURCE="$ROOT/app/GeoffreyUpdateHelper.swift"
@@ -44,7 +45,7 @@ done
 build_app() {
   CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/geoffrey-clang-module-cache" \
     "$1" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library \
-    "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" "$AUTOMATIONS_SOURCE" "$UPDATER_SOURCE" \
+    "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" "$SETUP_SOURCE" "$AUTOMATIONS_SOURCE" "$UPDATER_SOURCE" \
     -o "$APP/Contents/MacOS/Geoffrey" -framework SwiftUI -framework AppKit -framework Security
 }
 

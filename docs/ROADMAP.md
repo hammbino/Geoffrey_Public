@@ -58,7 +58,8 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 
 ## Phase 6: White-Glove UX — Pending
 
-- [ ] Complete first-run setup without Terminal use.
+- [x] Complete the native first-run setup guide without Terminal use, with saved progress and safe resume.
+- [ ] Validate the full first-run sequence with clean-Mac and pilot-account acceptance.
 - [x] Keep automation definition and approval inside the Mac app with plain-language safety boundaries.
 - [ ] Finish add/test/repair/remove connection flows for multiple accounts.
 - [ ] Add accessible states, useful empty states, understandable errors, and recovery actions.
