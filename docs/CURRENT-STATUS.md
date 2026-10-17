@@ -30,6 +30,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Improve Geoffrey places the outcome-first “Connect a business tool” action above the longer inventory of available capabilities.
 - Release packages use an explicit allowlist and pass sensitive-material checks.
 - A metadata-only Git history audit now reports risky historical object counts without printing recipient filenames or contents. It confirms 12 recipient-media blobs and two private app-archive blobs remain reachable, so a coordinated rewrite is required before broader distribution; credential-named historical files were not found.
+- A fail-closed Dustin release-gate checker now requires a clean exact commit, clean history audit, and owner-reviewed evidence for every acceptance criterion. Its evidence file is kept outside Git; the current report is `blocked` and cannot be converted into readiness by a passing local build alone.
 - A live authenticated two-turn Claude session successfully resumed the same session and recalled information from the first turn.
 - Geoffrey's exact `stream-json` flags were verified against the installed Claude Code `2.1.301` event format.
 - The Mac conversation interface has been visually inspected in the built app.

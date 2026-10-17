@@ -30,5 +30,6 @@ Rewriting shared Git history changes commit identities and requires coordination
 7. Expire local and server-side unreachable objects according to the hosting provider's supported process.
 8. Run `./scripts/audit-history-exposure.sh` and require `status=clean`.
 9. Rebuild every release artifact and run `./scripts/verify.sh`.
+10. Run `node scripts/check-dustin-release-gate.mjs` from the exact clean release commit; history remediation is only one of the required gates.
 
 Until those steps are completed and recorded, the historical-exposure release gate remains open.

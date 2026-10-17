@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "release_commit": "REPLACE_WITH_EXACT_RELEASE_COMMIT",
+  "recorded_at": "2026-10-17T00:00:00Z",
+  "reviewer": "REPLACE_WITH_REVIEWER_NAME",
+  "gates": {
+    "local_verification": { "status": "pending", "evidence": [] },
+    "clean_mac_install": { "status": "pending", "evidence": [] },
+    "gatekeeper_notarization": { "status": "pending", "evidence": [] },
+    "existing_state_migration": { "status": "pending", "evidence": [] },
+    "claude_context": { "status": "pending", "evidence": [] },
+    "multi_account_connections": { "status": "pending", "evidence": [] },
+    "social_briefing_cadence": { "status": "pending", "evidence": [] },
+    "off_mac_cloud_run": { "status": "pending", "evidence": [] },
+    "github_sync_restore": { "status": "pending", "evidence": [] },
+    "credential_safety": { "status": "pending", "evidence": [] },
+    "signed_update_rollback": { "status": "pending", "evidence": [] },
+    "no_terminal_acceptance": { "status": "pending", "evidence": [] }
+  }
+}

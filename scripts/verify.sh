@@ -13,8 +13,8 @@ for file in geoffrey-mcp/src/*.js geoffrey-mcp/src/providers/*.js geoffrey-mcp/b
 done
 npm test --prefix geoffrey-mcp
 
-printf '\n== Git history exposure (report only)\n'
-./scripts/audit-history-exposure.sh --report-only
+printf '\n== Dustin release gate (report only)\n'
+node ./scripts/check-dustin-release-gate.mjs --report-only
 
 printf '\n== Claude packages\n'
 ./scripts/check-claude-setup.sh

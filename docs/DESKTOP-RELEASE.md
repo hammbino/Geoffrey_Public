@@ -157,6 +157,7 @@ The current verified result is:
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
 - strict code-signature verification: pass using an ad hoc signature.
 - history exposure report: `status=rewrite_required`, with counts only and no recipient filenames or contents printed.
+- Dustin release-gate report: `blocked`; the checker fails closed on unresolved history, a dirty or mismatched commit, a missing evidence file, or any acceptance item without an owner-reviewed reference.
 
 The `0.14.0` build also packages Geoffrey's revised illustrated app icon at native Mac sizes and uses that same bundled identity in a visible sidebar header. The original portrait source remains preserved, and an automated Mac check prevents the in-app brand and packaged icon from drifting apart. The built app was inspected live at its minimum supported window size in the prior UI slice: the 220-point sidebar shows the full Geoffrey name, “Your AI chief of staff” description, and every navigation label without clipping. The rebuilt Settings screen was inspected live in dark mode: version, update action, verification explanation, app folder, model choice, and help text were legible and unclipped, and the ad-hoc build visibly changed to “Signed updates will become available with Geoffrey’s release build” without opening a network-dependent installer. The release-notes sheet still requires a dedicated signed-feed visual acceptance pass.
 
@@ -205,6 +206,16 @@ Geoffrey is ready for Dustin only when all of the following are evidenced:
 - Dustin can complete the main workflow without Terminal assistance.
 
 No release claim is based only on an implementation assertion. Every item above requires a reproducible automated check, inspected artifact, or recorded human acceptance result.
+
+Run the enforcement check from the exact proposed release commit:
+
+```bash
+node scripts/check-dustin-release-gate.mjs
+```
+
+The check exits nonzero unless the working tree is clean, the historical-exposure audit reports `status=clean`, and every gate has a non-secret evidence reference in an owner-reviewed JSON file bound to the current commit. Copy [the evidence template](dustin-release-evidence.example.json) to `.release-evidence/dustin-gate.json`, or pass an owner-controlled path with `--evidence`. The `.release-evidence/` directory is ignored by Git so pilot account details, copied provider output, credentials, and private content are never committed. Evidence entries should contain only safe references such as artifact checksums, test-record identifiers, and review locations.
+
+`./scripts/verify.sh` runs the same checker in report-only mode. A local verification pass remains valid development evidence, but it does not override a blocked Dustin gate.
 
 ## Change Record
 
