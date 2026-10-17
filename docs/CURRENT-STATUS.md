@@ -28,6 +28,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Missing setup and unhealthy capabilities route to targeted actions, including account repair, Claude or GitHub sign-in, disabled-plugin enablement, and MCP reconnection guidance.
 - Improve Geoffrey places the outcome-first “Connect a business tool” action above the longer inventory of available capabilities.
 - Release packages use an explicit allowlist and pass sensitive-material checks.
+- A metadata-only Git history audit now reports risky historical object counts without printing recipient filenames or contents. It confirms 12 recipient-media blobs and two private app-archive blobs remain reachable, so a coordinated rewrite is required before broader distribution; credential-named historical files were not found.
 - A live authenticated two-turn Claude session successfully resumed the same session and recalled information from the first turn.
 - Geoffrey's exact `stream-json` flags were verified against the installed Claude Code `2.1.301` event format.
 - The Mac conversation interface has been visually inspected in the built app.
@@ -62,6 +63,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Dustin-state acceptance of per-account tests across his real Gmail and Outlook accounts.
 - Developer ID and notarized end-to-end update/rollback acceptance on a clean Mac; the updater and release tooling are implemented, but production signing credentials have not been exercised.
 - Clean-Mac and pilot-account acceptance of the complete native first-run sequence; its state model, resume behavior, build, and dark-mode layout are locally proven.
+- Coordinated history rewrite, archive-related credential review/rotation, remote ref cleanup, and fresh-clone verification described in [Git History Remediation Decision](HISTORY-REMEDIATION.md).
 
 ## Not Yet Proven
 

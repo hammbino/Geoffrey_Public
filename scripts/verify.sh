@@ -13,6 +13,9 @@ for file in geoffrey-mcp/src/*.js geoffrey-mcp/src/providers/*.js geoffrey-mcp/b
 done
 npm test --prefix geoffrey-mcp
 
+printf '\n== Git history exposure (report only)\n'
+./scripts/audit-history-exposure.sh --report-only
+
 printf '\n== Claude packages\n'
 ./scripts/check-claude-setup.sh
 
@@ -24,4 +27,4 @@ codesign --verify --deep --strict --verbose=2 build/Geoffrey.app
 printf '\n== Patch hygiene\n'
 git diff --check
 
-printf '\nGeoffrey verification passed.\n'
+printf '\nGeoffrey local verification passed. This does not by itself establish Dustin release readiness.\n'

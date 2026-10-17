@@ -62,7 +62,7 @@ Migration is deliberately non-destructive: it inventories and preserves state ra
 - Added a release-safety checker that blocks credentials, token/account files, environment files, Git metadata, screenshots, recipient material, and development artifacts.
 - Rebuilt the Claude distribution archives with the same safety exclusions.
 
-These items may still exist in older Git history or tags. Before any public release, determine whether a coordinated history rewrite and credential rotation are required. Current packages pass the safety checker; historical removal has not been claimed.
+The current tree and packages pass the safety checker, but the metadata-only October 17 audit confirms 12 recipient-media blobs totaling 4,753,953 bytes and two private app-archive blobs totaling 141,889,040 bytes remain reachable in Git history. No known credential-bearing filenames remain reachable. A coordinated rewrite is required before broader distribution, and any credential known to have entered an opaque archive must be rotated. The required procedure is recorded in [Git History Remediation Decision](HISTORY-REMEDIATION.md); historical removal has not been claimed.
 
 ### Automatic migration
 
@@ -154,6 +154,7 @@ The current verified result is:
 - Mac app build and payload safety: pass;
 - isolated Mac app checks using a temporary home and fake Claude authentication: pass; and
 - strict code-signature verification: pass using an ad hoc signature.
+- history exposure report: `status=rewrite_required`, with counts only and no recipient filenames or contents printed.
 
 The `0.14.0` build also packages Geoffrey's revised illustrated app icon at native Mac sizes and uses that same bundled identity in a visible sidebar header. The original portrait source remains preserved, and an automated Mac check prevents the in-app brand and packaged icon from drifting apart. The built app was inspected live at its minimum supported window size in the prior UI slice: the 220-point sidebar shows the full Geoffrey name, “Your AI chief of staff” description, and every navigation label without clipping. The rebuilt Settings screen was inspected live in dark mode: version, update action, verification explanation, app folder, model choice, and help text were legible and unclipped, and the ad-hoc build visibly changed to “Signed updates will become available with Geoffrey’s release build” without opening a network-dependent installer. The release-notes sheet still requires a dedicated signed-feed visual acceptance pass.
 
@@ -172,7 +173,7 @@ The following are not complete and must not be presented as finished:
 - **First run:** the native ordered guide, automatic first incomplete-state presentation, safe dismissal/resume, and transitions to existing native setup flows are implemented and locally inspected. A complete clean-Mac run using pilot Claude, email, GitHub, and private-memory state remains acceptance work.
 - **Updates:** the legacy GitHub updater can deliver the first desktop transition. The native signed client, release notes, automatic check, verified replacement helper, and rollback path are implemented, but no production Developer ID/notarized update feed has been published or exercised end to end. That real update and rollback acceptance remains required before the native path is called release-ready.
 - **Distribution:** the app is ad hoc signed only. Developer ID signing, notarization, final ZIP/DMG packaging, clean-Mac installation, and Gatekeeper validation remain.
-- **Historical exposure:** sensitive artifacts removed from the current branch remain recoverable from older repository history until separately remediated.
+- **Historical exposure:** the repeatable metadata audit confirms recipient media and private app archives remain recoverable from older repository history. The required coordinated rewrite and any necessary archive-related credential rotation have been decided and documented but not executed.
 - **Google pilot:** the current OAuth approach is accepted for this pilot. Gmail scope verification and commercial compliance are intentionally deferred until the product decision to market it.
 
 ## Remaining Lifecycle
