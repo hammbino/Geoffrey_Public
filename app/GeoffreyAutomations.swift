@@ -26,6 +26,22 @@ struct GeoffreyAutomationInventory: Codable {
     )
 }
 
+enum GeoffreyAutomationRefresh {
+    static func resolve(
+        output: String,
+        status: Int32,
+        previous: GeoffreyAutomationInventory
+    ) -> (inventory: GeoffreyAutomationInventory, issue: String?) {
+        if status == 0,
+           let latest = try? JSONDecoder().decode(GeoffreyAutomationInventory.self, from: Data(output.utf8)),
+           latest.schemaVersion == 1 {
+            return (latest, nil)
+        }
+        let reason = status == 124 ? "The check took too long." : "Recurring work could not be checked."
+        return (previous, "\(reason) The last known list is unchanged. Try refreshing again; Geoffrey has not changed your schedules.")
+    }
+}
+
 struct GeoffreyAutomationSummary: Codable {
     let total: Int
     let cloud: Int
@@ -286,13 +302,40 @@ struct AutomationCenterView: View {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(.bordered)
+                    .disabled(model.isRefreshingAccounts)
+                    .accessibilityLabel("Refresh automations")
                 }
 
-                HStack(spacing: 12) {
-                    AutomationMetric(value: model.automationInventory.summary.total, label: "Found", icon: "repeat")
-                    AutomationMetric(value: model.automationInventory.summary.cloud, label: "Cloud capable", icon: "cloud.fill")
-                    AutomationMetric(value: model.automationInventory.summary.local, label: "Mac required", icon: "desktopcomputer")
-                    AutomationMetric(value: model.automationInventory.summary.queuedRuns, label: "Queued", icon: "clock.arrow.circlepath")
+                if let issue = model.automationRefreshIssue {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Automation status could not be refreshed")
+                            .font(.headline)
+                        Text(issue).font(.callout).foregroundStyle(.secondary)
+                        Button("Try refreshing automations again") { model.refresh() }
+                            .disabled(model.isRefreshingAccounts)
+                            .accessibilityIdentifier("automations-retry-refresh")
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                if model.isRefreshingAccounts || (!model.hasLoadedAutomations && model.automationRefreshIssue == nil) {
+                    HStack {
+                        ProgressView().controlSize(.small)
+                        Text("Checking recurring work…")
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Checking recurring work")
+                }
+
+                if model.hasLoadedAutomations {
+                    HStack(spacing: 12) {
+                        AutomationMetric(value: model.automationInventory.summary.total, label: "Found", icon: "repeat")
+                        AutomationMetric(value: model.automationInventory.summary.cloud, label: "Cloud capable", icon: "cloud.fill")
+                        AutomationMetric(value: model.automationInventory.summary.local, label: "Mac required", icon: "desktopcomputer")
+                        AutomationMetric(value: model.automationInventory.summary.queuedRuns, label: "Queued", icon: "clock.arrow.circlepath")
+                    }
                 }
 
                 HStack(alignment: .top, spacing: 12) {
@@ -310,19 +353,21 @@ struct AutomationCenterView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 if model.automations.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Image(systemName: "clock.badge.questionmark")
-                            .font(.title)
-                            .foregroundStyle(.secondary)
-                        Text("No recurring work found on this Mac").font(.title3.weight(.semibold))
-                        Text("When an existing Geoffrey installation updates, Geoffrey will look in private memory for briefings, routines, and schedules. Any imported item will appear here for review before Geoffrey changes it.")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: 650, alignment: .leading)
+                    if model.hasLoadedAutomations && !model.isRefreshingAccounts && model.automationRefreshIssue == nil {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Image(systemName: "clock.badge.questionmark")
+                                .font(.title)
+                                .foregroundStyle(.secondary)
+                            Text("No recurring work found on this Mac").font(.title3.weight(.semibold))
+                            Text("When an existing Geoffrey installation updates, Geoffrey will look in private memory for briefings, routines, and schedules. Any imported item will appear here for review before Geoffrey changes it.")
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: 650, alignment: .leading)
+                        }
+                        .padding(24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    .padding(24)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(nsColor: .controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
                     if model.automationInventory.summary.failedRuns > 0 {
                         Label("\(model.automationInventory.summary.failedRuns) run\(model.automationInventory.summary.failedRuns == 1 ? "" : "s") need a retry", systemImage: "exclamationmark.triangle.fill")
@@ -354,6 +399,7 @@ private struct AutomationMetric: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon).foregroundStyle(Color(red: 0.08, green: 0.45, blue: 0.36))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(value)").font(.title3.weight(.semibold))
                 Text(label).font(.caption).foregroundStyle(.secondary)
@@ -363,6 +409,9 @@ private struct AutomationMetric: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(nsColor: .controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue("\(value)")
     }
 }
 
@@ -377,6 +426,7 @@ private struct AutomationCard: View {
                     .font(.title3)
                     .foregroundStyle(automation.routePresentation.color)
                     .frame(width: 26)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(automation.name).font(.title3.weight(.semibold))
                     Text(automation.purpose).foregroundStyle(.secondary)
@@ -412,7 +462,8 @@ private struct AutomationCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: automation.status.lastRunStatus == "succeeded" ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .foregroundStyle(automation.status.lastRunStatus == "succeeded" ? Color.green : Color.orange)
-                    Text("Last run: \(lastRunAt)")
+                        .accessibilityHidden(true)
+                    Text("Last run: \(automation.status.lastRunStatus == "succeeded" ? "succeeded" : "needs attention") · \(lastRunAt)")
                     if let error = automation.status.lastError { Text("· \(error)") }
                 }
                 .font(.caption)
@@ -433,16 +484,19 @@ private struct AutomationCard: View {
                 Button("Edit") { model.presentAutomationReview(automation) }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
+                    .accessibilityLabel("Edit \(automation.name)")
                 if let resultPath = automation.status.lastResultPath {
                     Button("Open last result") { model.openAutomationResult(resultPath) }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .accessibilityLabel("Open last result for \(automation.name)")
                 }
                 if model.runningAutomationIDs.contains(automation.id) {
                     ProgressView().controlSize(.small)
                     Text("Running").font(.caption).foregroundStyle(.secondary)
                 } else if automation.approval.state != "approved" || !automation.enabled {
                     Button("Review") { model.reviewAutomation(automation) }
+                        .accessibilityLabel("Review for \(automation.name)")
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                 } else if automation.execution.route == "cloud" {
@@ -452,6 +506,7 @@ private struct AutomationCard: View {
                             Text("Checking results").font(.caption).foregroundStyle(.secondary)
                         } else {
                             Button("Check results") { model.importCloudAutomationResults(automation) }
+                                .accessibilityLabel("Check results for \(automation.name)")
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
                         }
@@ -459,10 +514,12 @@ private struct AutomationCard: View {
                     Button(automation.execution.deploymentState == "active" ? "Review cloud" : automation.execution.deploymentState == "connected" ? "Verify cloud" : "Connect cloud") {
                         model.openCloudAutomationSetup(automation)
                     }
+                        .accessibilityHint("Opens cloud setup for \(automation.name)")
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                 } else if automation.execution.route == "local" && automation.status.failedRuns > 0 {
                     Button("Retry") { model.runAutomation(automation, retry: true) }
+                        .accessibilityLabel("Retry for \(automation.name)")
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                         .disabled(!model.runningAutomationIDs.isEmpty)
@@ -470,11 +527,13 @@ private struct AutomationCard: View {
                     Button(automation.status.queuedRuns > 0 ? "Run queued" : "Run now") {
                         model.runAutomation(automation)
                     }
+                    .accessibilityHint("Runs \(automation.name) on this Mac")
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                     .disabled(!model.runningAutomationIDs.isEmpty)
                 } else {
                     Button("Review instructions") { model.reviewAutomation(automation) }
+                        .accessibilityLabel("Review instructions for \(automation.name)")
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                 }

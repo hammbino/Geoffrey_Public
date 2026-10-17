@@ -34,6 +34,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - A live authenticated two-turn Claude session successfully resumed the same session and recalled information from the first turn.
 - Geoffrey's exact `stream-json` flags were verified against the installed Claude Code `2.1.301` event format.
 - The Mac conversation interface has been visually inspected in the built app.
+- Automation refresh now preserves the last known workflows and counts on command failure, malformed or unsupported inventory, and timeout. Loading and failed-refresh states do not claim no workflows exist; a separate retry action is available, and card actions identify the workflow for assistive technology.
 - The Automation Center discovers portable workflow manifests plus likely terminal-era briefing/routine files without changing a schedule.
 - Workflows are classified as Claude-cloud capable, Mac-required, or needing review based on declared dependencies and connection readiness.
 - Imported workflows remain disabled until explicitly approved, and the interface distinguishes “cloud capable” from an actually active Claude cloud deployment.

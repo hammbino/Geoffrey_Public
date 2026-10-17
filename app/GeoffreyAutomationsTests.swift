@@ -30,6 +30,20 @@ struct GeoffreyAutomationsTests {
         expect(inventory.workflows.first?.cadence.times.count == 3, "editable schedule times")
         expect(inventory.workflows.first?.execution.resultBranch == "claude/geoffrey-results-social-briefing-test", "cloud result branch contract")
 
+        let validOutput = String(decoding: data, as: UTF8.self)
+        let unsupportedOutput = validOutput.replacingOccurrences(of: "\"schema_version\": 1", with: "\"schema_version\": 2")
+        let failures: [(String, Int32)] = [("invalid", 0), (validOutput, 1), ("", 124), (unsupportedOutput, 0)]
+        for (output, status) in failures {
+            let failed = GeoffreyAutomationRefresh.resolve(output: output, status: status, previous: inventory)
+            expect(failed.inventory.workflows.first?.id == "social-briefing", "failure preserves recurring work")
+            expect(failed.inventory.summary.total == 1, "failure preserves counts")
+            expect(failed.issue != nil, "failure offers recovery")
+            if status == 124 { expect(failed.issue?.contains("too long") == true, "timeout guidance") }
+        }
+        let recovered = GeoffreyAutomationRefresh.resolve(output: String(decoding: try JSONEncoder().encode(GeoffreyAutomationInventory.empty), as: UTF8.self), status: 0, previous: inventory)
+        expect(recovered.inventory.workflows.isEmpty, "successful empty inventory replaces old list")
+        expect(recovered.issue == nil, "successful refresh clears failure")
+
         let request = GeoffreyAutomationSaveRequest(
             id: "social-briefing",
             name: "Social briefing",

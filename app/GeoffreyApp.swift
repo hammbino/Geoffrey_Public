@@ -2549,6 +2549,8 @@ final class GeoffreyModel: ObservableObject {
     @Published var accounts: [GeoffreyAccount] = []
     @Published var capabilities: [GeoffreyCapability] = []
     @Published var automationInventory = GeoffreyAutomationInventory.empty
+    @Published var automationRefreshIssue: String?
+    @Published var hasLoadedAutomations = false
     @Published var showingAutomationReview = false
     @Published var isSavingAutomation = false
     @Published var automationSaveOutcome: String?
@@ -2783,8 +2785,7 @@ final class GeoffreyModel: ObservableObject {
                 : nil
             let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"])
             let capabilities = (try? JSONDecoder().decode([GeoffreyCapability].self, from: Data(capabilityResult.output.utf8))) ?? []
-            let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"])
-            let automationInventory = (try? JSONDecoder().decode(GeoffreyAutomationInventory.self, from: Data(automationResult.output.utf8))) ?? .empty
+            let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"], timeout: 30)
             let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync-status"])
             let memorySyncStatus = (try? JSONDecoder().decode(GeoffreyMemorySyncStatus.self, from: Data(syncResult.output.utf8))) ?? .notChecked
             let portableResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state"])
@@ -2804,7 +2805,14 @@ final class GeoffreyModel: ObservableObject {
                 self.accounts = accountRefresh.value
                 self.connectionRefreshIssue = accountRefresh.issue
                 self.capabilities = capabilities
-                self.automationInventory = automationInventory
+                let automationRefresh = GeoffreyAutomationRefresh.resolve(
+                    output: automationResult.output,
+                    status: automationResult.status,
+                    previous: self.automationInventory
+                )
+                self.automationInventory = automationRefresh.inventory
+                self.automationRefreshIssue = automationRefresh.issue
+                if automationRefresh.issue == nil { self.hasLoadedAutomations = true }
                 self.memorySyncStatus = memorySyncStatus
                 self.portableStateStatus = portableStateStatus
                 self.isRefreshingAccounts = false
