@@ -1304,6 +1304,28 @@ struct ConnectionsView: View {
                         .buttonStyle(.borderedProminent)
                 }
 
+                if let issue = model.connectionRefreshIssue {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(Color.orange)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Account status could not be refreshed").font(.headline)
+                            Text(issue).font(.callout).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Try again") { model.refresh() }
+                            .buttonStyle(.bordered)
+                            .disabled(model.isRefreshingAccounts)
+                    }
+                    .padding(16)
+                    .background(Color.orange.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Account status could not be refreshed")
+                    .accessibilityValue(issue)
+                }
+
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
                         Label("Email and calendars", systemImage: "envelope.fill").font(.headline)
@@ -1312,11 +1334,28 @@ struct ConnectionsView: View {
                         Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
                             .buttonStyle(.borderless)
                             .help("Check account connections")
+                            .disabled(model.isRefreshingAccounts)
                     }
                     .padding(.bottom, 8)
 
                     if model.accounts.isEmpty {
-                        Text("No accounts connected yet.").foregroundStyle(.secondary).padding(.vertical, 12)
+                        if model.isRefreshingAccounts {
+                            HStack(spacing: 9) {
+                                ProgressView().controlSize(.small)
+                                Text("Checking connected accounts…")
+                            }
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 12)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("Checking connected accounts")
+                        } else {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("No accounts connected yet.").font(.headline)
+                                Text("Connect Gmail or Outlook to add read-only email and calendar context to Geoffrey.")
+                                    .font(.callout).foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 12)
+                        }
                     } else {
                         ForEach(model.accounts) { account in
                             ManagedAccountRow(account: account)
@@ -2485,6 +2524,7 @@ final class GeoffreyModel: ObservableObject {
     @Published var testingAccountIDs = Set<String>()
     @Published var accountTestOutcomes: [String: String] = [:]
     @Published var accountTestSucceededIDs = Set<String>()
+    @Published var connectionRefreshIssue: String?
     @Published var accountConnectionOutcome: String?
     @Published var accountConnectionFailed = false
     @Published var accounts: [GeoffreyAccount] = []
@@ -2702,6 +2742,7 @@ final class GeoffreyModel: ObservableObject {
     }
 
     func refresh() {
+        guard !isRefreshingAccounts else { return }
         isRefreshingAccounts = true
         Task.detached { [geoffreyHome] in
             _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-migrate"])
@@ -2711,8 +2752,14 @@ final class GeoffreyModel: ObservableObject {
                 let pair = line.split(separator: "\t", maxSplits: 1).map(String.init)
                 if pair.count == 2 { values[pair[0]] = pair[1] }
             }
-            let accountResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-accounts"])
-            let accounts = (try? JSONDecoder().decode([GeoffreyAccount].self, from: Data(accountResult.output.utf8))) ?? []
+            let accountResult = Self.run(
+                executable: geoffreyHome + "/bin/geoffrey",
+                arguments: ["app-accounts"],
+                timeout: 30
+            )
+            let accounts: [GeoffreyAccount]? = accountResult.status == 0
+                ? try? JSONDecoder().decode([GeoffreyAccount].self, from: Data(accountResult.output.utf8))
+                : nil
             let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"])
             let capabilities = (try? JSONDecoder().decode([GeoffreyCapability].self, from: Data(capabilityResult.output.utf8))) ?? []
             let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"])
@@ -2724,11 +2771,17 @@ final class GeoffreyModel: ObservableObject {
             await MainActor.run {
                 let shouldOfferFirstRun = !GeoffreySetupProgress.make(
                     health: entries,
-                    accountCount: accounts.count,
+                    accountCount: accounts?.count ?? self.accounts.count,
                     hasEngine: self.hasGeoffreyEngine
                 ).isComplete
                 self.health = entries
-                self.accounts = accounts
+                let accountRefresh = GeoffreyConnectionRefresh.resolve(
+                    latest: accounts,
+                    previous: self.accounts,
+                    timedOut: accountResult.status == 124
+                )
+                self.accounts = accountRefresh.value
+                self.connectionRefreshIssue = accountRefresh.issue
                 self.capabilities = capabilities
                 self.automationInventory = automationInventory
                 self.memorySyncStatus = memorySyncStatus

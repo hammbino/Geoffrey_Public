@@ -54,6 +54,12 @@ ok "Readiness tests cover healthy, repair, and first-use states"
 "$TEST_HOME/geoffrey-setup-tests" >/dev/null || fail "First-run setup must preserve completed steps and select the next safe action."
 ok "First-run setup is resumable and follows the native setup sequence"
 
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" \
+  "$ROOT/app/GeoffreyConnections.swift" "$ROOT/app/GeoffreyConnectionsTests.swift" \
+  -o "$TEST_HOME/geoffrey-connections-tests"
+"$TEST_HOME/geoffrey-connections-tests" >/dev/null || fail "Connection refresh must preserve prior accounts and expose useful recovery guidance."
+ok "Connection refresh tests cover success, failure preservation, and timeout recovery"
+
 "$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" -D AUTOMATION_LOGIC_ONLY \
   "$ROOT/app/GeoffreyAutomations.swift" "$ROOT/app/GeoffreyAutomationsTests.swift" \
   -o "$TEST_HOME/geoffrey-automation-tests"
@@ -298,6 +304,10 @@ printf '%s' "$account_test" | node -e 'let input = ""; process.stdin.on("data", 
 rg -F 'Button("Test connection")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Each connected account needs an explicit test action."
 rg -F 'arguments: ["app-test-account", "--id", account.id]' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Account tests must use the targeted secret-free health contract."
 ok "Individual account tests verify email and calendar access with recovery guidance"
+rg -F 'Text("Account status could not be refreshed")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Account refresh failures need a visible recovery state."
+rg -F 'Text("Checking connected accounts…")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connections need an explicit loading state instead of a false empty state."
+rg -F 'GeoffreyConnectionRefresh.resolve(' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "A failed account refresh must preserve the last known connections."
+ok "Connections preserve prior state and expose loading, failure, and retry states"
 
 "$ROOT/scripts/check-release-safety.sh" "$APP" >/dev/null || fail "Built application contains unsafe release material."
 ok "Built application excludes private and development-only material"
