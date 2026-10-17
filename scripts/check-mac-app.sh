@@ -292,6 +292,13 @@ accounts="$(HOME="$TEST_HOME" "$ROOT/bin/geoffrey" app-accounts)"
 printf '%s' "$accounts" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const accounts = JSON.parse(input); if (!Array.isArray(accounts) || accounts.some(account => !account.id || !account.email || !account.calendar?.state)) process.exit(1); });' || fail "Account-health data is not valid."
 ok "Account-health data is valid"
 
+printf '%s\n' '{"version":1,"credential_storage_version":1,"accounts":[{"id":"fixture","provider":"google","email":"fixture@example.com","purpose":"Release check","credential_store":"macos_keychain"}]}' > "$TEST_HOME/.geoffrey/accounts.json"
+account_test="$(HOME="$TEST_HOME" GEOFFREY_KEYCHAIN_COMMAND=/usr/bin/false "$ROOT/bin/geoffrey" app-test-account --id fixture)"
+printf '%s' "$account_test" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const account = JSON.parse(input); if (account.id !== "fixture" || account.credential_state !== "needs_reconnect" || account.mail?.state !== "needs_reconnect" || account.calendar?.state !== "needs_reconnect" || /token|secret/i.test(JSON.stringify(account))) process.exit(1); });' || fail "A targeted account test must return secret-free email and calendar recovery state."
+rg -F 'Button("Test connection")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Each connected account needs an explicit test action."
+rg -F 'arguments: ["app-test-account", "--id", account.id]' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Account tests must use the targeted secret-free health contract."
+ok "Individual account tests verify email and calendar access with recovery guidance"
+
 "$ROOT/scripts/check-release-safety.sh" "$APP" >/dev/null || fail "Built application contains unsafe release material."
 ok "Built application excludes private and development-only material"
 

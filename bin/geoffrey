@@ -113,6 +113,7 @@ Commands:
   app-sync-status Read the most recent private-memory backup status without using the network.
   app-portable-state Read or update the secret-free skills, connections, and recovery map.
   app-restore-memory Restore and verify private memory without restoring credentials.
+  app-test-account Test one account's email sign-in and calendar access without reading messages.
   launch       Open Claude Code in the user's Geoffrey memory repo.
   chief-of-staff
                Build the memory repo's tool map, plugin plan, rhythms, and first skills.
@@ -895,6 +896,19 @@ app_add_account() {
 app_accounts() {
   ensure_store
   node "$MCP_DIR/bin/account-status.js"
+}
+
+app_test_account() {
+  id=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --id) id="${2:-}"; shift 2 ;;
+      *) say "Unknown account option: $1"; return 2 ;;
+    esac
+  done
+  if [ -z "$id" ]; then say "Choose an account to test."; return 2; fi
+  ensure_store
+  exec node "$MCP_DIR/bin/account-status.js" --id "$id"
 }
 
 app_remove_account() {
@@ -3502,6 +3516,10 @@ case "${1:-}" in
     ;;
   app-accounts)
     app_accounts
+    ;;
+  app-test-account)
+    shift
+    app_test_account "$@"
     ;;
   app-remove-account)
     shift

@@ -61,7 +61,8 @@ The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RE
 - [x] Complete the native first-run setup guide without Terminal use, with saved progress and safe resume.
 - [ ] Validate the full first-run sequence with clean-Mac and pilot-account acceptance.
 - [x] Keep automation definition and approval inside the Mac app with plain-language safety boundaries.
-- [ ] Finish add/test/repair/remove connection flows for multiple accounts.
+- [x] Finish native add/test/repair/remove connection flows for multiple accounts.
+- [ ] Validate add/test/repair/remove against Dustin's real Gmail and Outlook accounts.
 - [ ] Add accessible states, useful empty states, understandable errors, and recovery actions.
 - [ ] Test core workflows with a nontechnical user who has no developer assistance.
 

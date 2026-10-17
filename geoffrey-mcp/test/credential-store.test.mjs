@@ -167,8 +167,22 @@ test("preserves legacy plaintext when Keychain migration cannot complete", () =>
       env: { ...item.env, GEOFFREY_FAKE_KEYCHAIN_FAIL_ADD: "1" }, encoding: "utf8",
     }));
     assert.equal(status[0].credential_state, "needs_reconnect");
+    assert.equal(status[0].mail.state, "needs_reconnect");
     assert.equal(status[0].calendar.state, "needs_reconnect");
     assert.equal(Object.hasOwn(status[0], "refresh_token"), false);
+    const tested = JSON.parse(execFileSync(process.execPath, [accountStatusScript, "--id", "work"], {
+      env: { ...item.env, GEOFFREY_FAKE_KEYCHAIN_FAIL_ADD: "1" }, encoding: "utf8",
+    }));
+    assert.equal(tested.id, "work");
+    assert.equal(tested.credential_state, "needs_reconnect");
+    assert.equal(tested.mail.state, "needs_reconnect");
+    assert.equal(tested.calendar.state, "needs_reconnect");
+    assert.equal(Object.hasOwn(tested, "refresh_token"), false);
+    const unknown = spawnSync(process.execPath, [accountStatusScript, "--id", "missing"], {
+      env: { ...item.env, GEOFFREY_FAKE_KEYCHAIN_FAIL_ADD: "1" }, encoding: "utf8",
+    });
+    assert.notEqual(unknown.status, 0);
+    assert.match(unknown.stderr, /no longer connected/i);
     assert.match(readFileSync(join(item.store, "accounts.json"), "utf8"), /keep-until-safe/);
     assert.match(readFileSync(backup, "utf8"), /keep-until-safe/);
     assert.equal(existsSync(item.keychain), false);

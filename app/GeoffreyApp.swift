@@ -1296,7 +1296,7 @@ struct ConnectionsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Connections")
                             .font(.system(size: 30, weight: .semibold))
-                        Text("Geoffrey only sees the accounts you choose. Email and calendars are read-only unless you explicitly approve an action.")
+                        Text("Geoffrey only sees the accounts you choose. Tests verify sign-in and calendar access without reading messages. Geoffrey always asks before sending or changing anything.")
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -1355,6 +1355,7 @@ struct ManagedAccountRow: View {
     @State private var showingRemovalConfirmation = false
 
     private var calendarReady: Bool { account.calendar.state == "ready" }
+    private var mailReady: Bool { account.mail?.state == "ready" }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -1383,15 +1384,36 @@ struct ManagedAccountRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 7) {
+                Label(account.mail?.detail ?? "Email not tested", systemImage: mailReady ? "envelope.fill" : "envelope.badge")
+                    .font(.caption)
+                    .foregroundStyle(mailReady ? Color.green : Color.orange)
                 Label(account.calendar.detail, systemImage: calendarReady ? "calendar.badge.checkmark" : "calendar.badge.exclamationmark")
                     .font(.caption)
                     .foregroundStyle(calendarReady ? Color.green : Color.orange)
-                if !calendarReady {
+                if let outcome = model.accountTestOutcomes[account.id] {
+                    Label(outcome, systemImage: model.accountTestSucceededIDs.contains(account.id) ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(model.accountTestSucceededIDs.contains(account.id) ? Color.green : Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 280, alignment: .trailing)
+                }
+                HStack(spacing: 8) {
+                    if model.testingAccountIDs.contains(account.id) {
+                        ProgressView().controlSize(.small)
+                        Text("Testing…").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Button("Test connection") { model.testAccount(account) }
+                            .buttonStyle(.bordered)
+                    }
+                }
+                if !account.isHealthy {
                     Button("Reconnect") { model.presentAccountConnection(account) }
                         .buttonStyle(.bordered)
                 }
             }
             Menu {
+                Button("Test connection") { model.testAccount(account) }
+                    .disabled(model.testingAccountIDs.contains(account.id))
                 Button("Reconnect") { model.presentAccountConnection(account) }
                 Divider()
                 Button("Remove connection", role: .destructive) { showingRemovalConfirmation = true }
@@ -2358,7 +2380,7 @@ struct GeoffreyConversationMessage: Codable, Identifiable {
 }
 
 struct GeoffreyAccount: Codable, Identifiable {
-    struct CalendarHealth: Codable {
+    struct AccountHealth: Codable {
         let state: String
         let detail: String
     }
@@ -2367,16 +2389,21 @@ struct GeoffreyAccount: Codable, Identifiable {
     let provider: String
     let email: String
     let purpose: String
-    let calendar: CalendarHealth
+    let mail: AccountHealth?
+    let calendar: AccountHealth
     let duplicateCount: Int
     let credentialStore: String?
     let credentialState: String
 
     enum CodingKeys: String, CodingKey {
-        case id, provider, email, purpose, calendar
+        case id, provider, email, purpose, mail, calendar
         case duplicateCount = "duplicate_count"
         case credentialStore = "credential_store"
         case credentialState = "credential_state"
+    }
+
+    var isHealthy: Bool {
+        credentialState == "ready" && mail?.state == "ready" && calendar.state == "ready"
     }
 }
 
@@ -2455,6 +2482,9 @@ final class GeoffreyModel: ObservableObject {
     @Published var showingAccountConnection = false
     @Published var isConnectingAccount = false
     @Published var isRefreshingAccounts = false
+    @Published var testingAccountIDs = Set<String>()
+    @Published var accountTestOutcomes: [String: String] = [:]
+    @Published var accountTestSucceededIDs = Set<String>()
     @Published var accountConnectionOutcome: String?
     @Published var accountConnectionFailed = false
     @Published var accounts: [GeoffreyAccount] = []
@@ -2638,7 +2668,7 @@ final class GeoffreyModel: ObservableObject {
         GeoffreyReadiness.items(
             health: health,
             accountCount: accounts.count,
-            accountsNeedingRepair: accounts.filter { $0.calendar.state != "ready" }.count,
+            accountsNeedingRepair: accounts.filter { !$0.isHealthy }.count,
             capabilityCount: capabilities.count,
             capabilitiesNeedingRepair: capabilities.filter { !$0.isReady }.count
         )
@@ -3047,7 +3077,46 @@ final class GeoffreyModel: ObservableObject {
         accountConnectionOutcome = nil
         accountConnectionFailed = false
         accountConnectionSeed = account
+        if let account {
+            accountTestOutcomes[account.id] = nil
+            accountTestSucceededIDs.remove(account.id)
+        }
         showingAccountConnection = true
+    }
+
+    func testAccount(_ account: GeoffreyAccount) {
+        guard !testingAccountIDs.contains(account.id) else { return }
+        testingAccountIDs.insert(account.id)
+        accountTestOutcomes[account.id] = nil
+        accountTestSucceededIDs.remove(account.id)
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(
+                executable: geoffreyHome + "/bin/geoffrey",
+                arguments: ["app-test-account", "--id", account.id],
+                timeout: 30
+            )
+            let tested = try? JSONDecoder().decode(GeoffreyAccount.self, from: Data(result.output.utf8))
+            await MainActor.run {
+                self.testingAccountIDs.remove(account.id)
+                if result.status == 0, let tested {
+                    if let index = self.accounts.firstIndex(where: { $0.id == tested.id }) {
+                        self.accounts[index] = tested
+                    }
+                    if tested.isHealthy {
+                        self.accountTestSucceededIDs.insert(account.id)
+                        self.accountTestOutcomes[account.id] = "Email sign-in and calendar access are ready. No messages were read."
+                    } else if tested.credentialState != "ready" || tested.mail?.state == "needs_reconnect" || tested.calendar.state == "needs_reconnect" {
+                        self.accountTestOutcomes[account.id] = "This account needs a secure sign-in. Choose Reconnect; nothing was changed."
+                    } else {
+                        self.accountTestOutcomes[account.id] = "The account did not answer completely. Check the internet connection and test again; reconnect if it continues."
+                    }
+                } else if result.status == 124 {
+                    self.accountTestOutcomes[account.id] = "The test took too long. Check the internet connection and try again; nothing was changed."
+                } else {
+                    self.accountTestOutcomes[account.id] = "Geoffrey could not test this account. It may have been removed; refresh Connections and try again."
+                }
+            }
+        }
     }
 
     func presentFirstRunSetup() {
@@ -3142,6 +3211,8 @@ final class GeoffreyModel: ObservableObject {
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-remove-account", "--id", account.id])
             await MainActor.run {
                 if result.status == 0 {
+                    self.accountTestOutcomes[account.id] = nil
+                    self.accountTestSucceededIDs.remove(account.id)
                     self.refresh()
                 } else {
                     self.finishWithIssue(result.output)
@@ -3696,7 +3767,12 @@ final class GeoffreyModel: ObservableObject {
         showingIssue = true
     }
 
-    nonisolated private static func run(executable: String, arguments: [String], workingDirectory: String? = nil) -> CommandResult {
+    nonisolated private static func run(
+        executable: String,
+        arguments: [String],
+        workingDirectory: String? = nil,
+        timeout: TimeInterval? = nil
+    ) -> CommandResult {
         let process = Process()
         let output = Pipe()
         let error = Pipe()
@@ -3710,10 +3786,21 @@ final class GeoffreyModel: ObservableObject {
         process.environment = environment
         do {
             try process.run()
+            var didTimeOut = false
+            if let timeout {
+                let deadline = Date().addingTimeInterval(timeout)
+                while process.isRunning && Date() < deadline {
+                    Thread.sleep(forTimeInterval: 0.05)
+                }
+                if process.isRunning {
+                    didTimeOut = true
+                    process.terminate()
+                }
+            }
             process.waitUntilExit()
             let standard = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             let errors = String(data: error.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            return CommandResult(status: process.terminationStatus, output: standard.isEmpty ? errors : standard)
+            return CommandResult(status: didTimeOut ? 124 : process.terminationStatus, output: standard.isEmpty ? errors : standard)
         } catch {
             return CommandResult(status: 1, output: error.localizedDescription)
         }

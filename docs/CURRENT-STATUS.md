@@ -11,6 +11,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - The Memory screen can build and refresh a versioned, secret-free recovery map covering approved private-memory skills, email/calendar connection definitions, Claude MCP/plugin definitions, hashes, Git repository metadata, and explicit reconnect requirements.
 - A guided Memory-screen restore clones private GitHub memory into a new owner-only folder, rejects overwrites, credentials, symbolic links, unsupported maps, changed skill hashes, and unverified checkout artifacts, then restores only the verified memory pointer. A clean second-environment test proves credentials and connected-account state are not recreated, and a failed pointer update removes the staged clone.
 - Account labels and connection metadata remain in an owner-only, secret-free registry while OAuth client details and refresh tokens live in versioned macOS Keychain items. Existing plaintext registries migrate transactionally on first use; legacy backups are scrubbed only after Keychain storage succeeds, and failed migration preserves the original state for retry. The Connections screen shows the protection or reconnect state.
+- Every connected email/calendar account now has an explicit bounded Test connection action. It verifies mailbox identity and calendar access without reading messages, returns only secret-free health, and gives targeted ready, reconnect, network, timeout, or removed-account recovery guidance.
 - Settings now uses a native signed-update flow instead of handing the owner to the legacy Git checkout. Signed manifest verification, HTTPS-only transport, bounded archive size, exact SHA-256 and byte-count checks, unsafe-path and symlink rejection, same-bundle and same-Developer-ID-team validation, release notes, daily quiet checks, private staging, a second helper-side signature check, failure relaunch, and one-version rollback are implemented. Ad-hoc builds refuse installation, and the production release builder requires Developer ID signing plus Apple notarization.
 - The 0.14.0 Settings update state was visually inspected in the built dark-mode app; version, action, safety explanation, and the honest ad-hoc-build status were legible and unclipped.
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
@@ -56,6 +57,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Completing a real Claude Routine setup and reviewed test run against a pilot workflow.
 - Clean-pilot validation of the guided restore against a real private GitHub repository.
 - Dustin-state acceptance of the Keychain migration and connection repair flow.
+- Dustin-state acceptance of per-account tests across his real Gmail and Outlook accounts.
 - Developer ID and notarized end-to-end update/rollback acceptance on a clean Mac; the updater and release tooling are implemented, but production signing credentials have not been exercised.
 - Clean-Mac and pilot-account acceptance of the complete native first-run sequence; its state model, resume behavior, build, and dark-mode layout are locally proven.
 
