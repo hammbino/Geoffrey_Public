@@ -102,10 +102,12 @@ rg -F 'conversation.json' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The 
 rg -F 'Button("New conversation")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The owner needs a clear way to start a new Claude session."
 rg -F 'Button("Stop")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The owner needs to be able to stop a Claude request."
 rg -F 'process.terminate()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Stopping a request must terminate the active Claude process."
+rg -F 'Button("Try request again") { model.retryLastRequest() }' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "A failed Claude request needs a direct retry action."
+rg -F 'run(task: task, repeatingOwnerMessage: false)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Retrying a failed request must not duplicate the owner’s chat message."
 if rg -F 'Do not read files or call tools' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
   fail "General Geoffrey requests must not disable Claude files and tools."
 fi
-ok "Ask Geoffrey streams and preserves a resumable, cancellable conversation"
+ok "Ask Geoffrey streams and preserves a resumable, cancellable, retryable conversation"
 
 rg -F 'OperationalResultDisplay' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results must use the structured renderer."
 rg -F 'ResultEmptyState' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results need an explicit no-items state."

@@ -121,6 +121,9 @@ struct GeoffreyRootView: View {
         }
         .tint(Color(red: 0.08, green: 0.45, blue: 0.36))
         .alert("Geoffrey needs a little attention", isPresented: $model.showingIssue) {
+            if model.canRetryLastRequest {
+                Button("Try request again") { model.retryLastRequest() }
+            }
             Button("OK", role: .cancel) { }
         } message: {
             Text(model.issueMessage)
@@ -2580,6 +2583,7 @@ final class GeoffreyModel: ObservableObject {
     private var claudeProcess: Process?
     private var activeClaudeRunID: UUID?
     private var cancelledClaudeRunID: UUID?
+    @Published private var failedTask: GeoffreyTask?
 
     let geoffreyHome: String
     private var accountConnectionProcess: Process?
@@ -2707,6 +2711,7 @@ final class GeoffreyModel: ObservableObject {
 
     var hasMemory: Bool { (health["memory"] ?? "").hasPrefix("/") }
     var canTalk: Bool { health["claude"] == "ready" && hasMemory }
+    var canRetryLastRequest: Bool { failedTask != nil && canTalk && !isRunning }
     var hasGeoffreyEngine: Bool { FileManager.default.isExecutableFile(atPath: geoffreyHome + "/bin/geoffrey") }
     var setupProgress: GeoffreySetupProgress {
         GeoffreySetupProgress.make(health: health, accountCount: accounts.count, hasEngine: hasGeoffreyEngine)
@@ -2812,13 +2817,14 @@ final class GeoffreyModel: ObservableObject {
         scheduleAutomaticUpdateCheck()
     }
 
-    func run(task: GeoffreyTask) {
+    func run(task: GeoffreyTask, repeatingOwnerMessage: Bool = true) {
         guard !isRunning else { return }
         guard canTalk else {
             issueMessage = "Finish setup first so Geoffrey can use your private memory and connected tools."
             showingIssue = true
             return
         }
+        failedTask = nil
         isRunning = true
         runningTask = task
         streamingResponse = ""
@@ -2827,7 +2833,7 @@ final class GeoffreyModel: ObservableObject {
         let runID = UUID()
         activeClaudeRunID = runID
         cancelledClaudeRunID = nil
-        if case let .ask(question) = task {
+        if case let .ask(question) = task, repeatingOwnerMessage {
             conversation.append(GeoffreyConversationMessage(text: question, isOwner: true))
             persistConversation()
         }
@@ -2852,7 +2858,7 @@ final class GeoffreyModel: ObservableObject {
             guard prompt.status == 0 else {
                 await MainActor.run {
                     guard self.activeClaudeRunID == runID else { return }
-                    self.finishWithIssue(prompt.output)
+                    self.finishWithIssue(prompt.output, retrying: task)
                 }
                 return
             }
@@ -2920,7 +2926,7 @@ final class GeoffreyModel: ObservableObject {
         do {
             try process.run()
         } catch {
-            finishWithIssue(error.localizedDescription)
+            finishWithIssue(error.localizedDescription, retrying: task)
             return
         }
 
@@ -3045,7 +3051,10 @@ final class GeoffreyModel: ObservableObject {
         guard completion.status == 0, completion.errorMessage == nil, !answer.isEmpty else {
             streamingResponse = ""
             conversationStatus = ""
-            finishWithIssue(completion.errorMessage ?? (answer.isEmpty ? "Geoffrey could not complete that request. Please try again." : answer))
+            finishWithIssue(
+                completion.errorMessage ?? (answer.isEmpty ? "Geoffrey could not complete that request. Please try again." : answer),
+                retrying: task
+            )
             return
         }
 
@@ -3790,11 +3799,18 @@ final class GeoffreyModel: ObservableObject {
     func openMemory() { if hasMemory { NSWorkspace.shared.open(URL(fileURLWithPath: memoryDetail)) } }
     func openGeoffreyFolder() { NSWorkspace.shared.open(URL(fileURLWithPath: geoffreyHome)) }
 
-    private func finishWithIssue(_ raw: String) {
+    func retryLastRequest() {
+        guard let task = failedTask, !isRunning else { return }
+        showingIssue = false
+        run(task: task, repeatingOwnerMessage: false)
+    }
+
+    private func finishWithIssue(_ raw: String, retrying task: GeoffreyTask? = nil) {
         claudeProcess = nil
         activeClaudeRunID = nil
         isRunning = false
         runningTask = nil
+        failedTask = task
         streamingResponse = ""
         conversationStatus = ""
         let message = raw.trimmingCharacters(in: .whitespacesAndNewlines)

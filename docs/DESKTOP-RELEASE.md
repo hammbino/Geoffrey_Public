@@ -75,7 +75,7 @@ The current tree and packages pass the safety checker, but the metadata-only Oct
 
 - General requests and skill building may use Claude tools and files; prepared read-only views remain constrained.
 - Ask Geoffrey uses Claude's streaming JSON output, displays partial text, records the returned Claude session ID, and resumes that session for later turns.
-- The owner can stop an active Claude process, start a new conversation, and see plain-language status when Geoffrey is thinking, reading approved information, checking the web or a connected account, or preparing an approved change.
+- The owner can stop an active Claude process, start a new conversation, and see plain-language status when Geoffrey is thinking, reading approved information, checking the web or a connected account, or preparing an approved change. A failed request retains a direct retry action without adding a duplicate owner message to the visible conversation.
 - The visible conversation persists across app restarts in Application Support with owner-only file permissions.
 - The app detects Claude CLI authentication and can start Claude's supported login flow.
 - Improve Geoffrey inventories available user, private, and bundled skills plus installed Claude plugins and MCP servers.
@@ -145,6 +145,7 @@ The current verified result is:
 - JavaScript syntax checks: pass;
 - behavioral tests: 44 passed, 0 failed;
 - isolated Claude stream parser tests: pass for session identity, partial text, tool activity, final results, structured failures, and non-JSON diagnostics;
+- Ask Geoffrey recovery checks: pass for a direct failed-request retry that reuses the original task without duplicating the owner message;
 - isolated readiness tests: pass for all-ready, multi-account repair, signed-out, first-use, empty-inventory, and capability-attention states;
 - isolated first-run tests: pass for helper repair, Claude, email, GitHub, existing-memory backup, completion, and safe progress preservation;
 - targeted account-health tests: pass for secret-free email/calendar recovery state, missing Keychain credentials, and removed-account refusal;
