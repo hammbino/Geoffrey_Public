@@ -1,6 +1,6 @@
 # Current Product Status
 
-Updated: October 16, 2026
+Updated: October 17, 2026
 
 The current effort is the native Mac release for Dustin. The terminal interface is not the future product, but its state must be preserved. The authoritative scope, evidence, limitations, and release gate are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
@@ -17,6 +17,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - The 0.14.0 Settings update state was visually inspected in the built dark-mode app; version, action, safety explanation, and the honest ad-hoc-build status were legible and unclipped.
 - The app installs its versioned engine in `~/Library/Application Support/Geoffrey/engine`.
 - Incomplete first-run setup now opens a native, resumable guide for the Geoffrey helper, Claude sign-in, one email/calendar account, private GitHub backup, and private memory. Completed steps remain saved, dismissal returns to a visible Continue setup action, and create/restore flows stay inside Geoffrey.
+- Each first-run step is exposed as a separate macOS accessibility element with an explicit complete, next-step, or not-complete state and its recovery detail.
 - Legacy setup discovery covers the Geoffrey workspace, account registry, current-memory pointer, private GitHub memory, and likely automation files.
 - Migration creates a permission-restricted local backup and a secret-free inventory without deleting or relocating the old state.
 - Ask Geoffrey streams Claude responses, records and resumes Claude session IDs, and preserves the visible conversation locally with `0600` permissions.

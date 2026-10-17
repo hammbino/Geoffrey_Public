@@ -137,6 +137,7 @@ ok "Account credentials migrate to macOS Keychain and remain visible as a repair
 rg -F 'FirstRunSetupSheet()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Incomplete setup needs a native resumable guide."
 rg -F 'Button("Continue setup")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The setup guide must remain available after it is dismissed."
 rg -F 'You can stop at any time. Completed steps stay saved' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "First-run setup must explain safe resume behavior."
+rg -F '.accessibilityIdentifier("setup-step-\(step.id.rawValue)")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Each first-run step needs its own stable accessibility element."
 ok "First-run setup stays inside Geoffrey and can be safely resumed"
 portable_state="$(HOME="$TEST_HOME" PATH="$TEST_BIN:$PATH" "$ROOT/bin/geoffrey" app-portable-state --write)"
 printf '%s' "$portable_state" | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const state = JSON.parse(input); if (state.schema_version !== 1 || state.state !== "ready" || state.manifest_path !== "memory/portable-state.json") process.exit(1); });' || fail "Portable recovery state is not valid."

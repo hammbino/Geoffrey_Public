@@ -1,6 +1,6 @@
 # Geoffrey Desktop Roadmap
 
-Updated: October 16, 2026
+Updated: October 17, 2026
 
 The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RELEASE.md).
 

@@ -1855,7 +1855,6 @@ struct FirstRunSetupSheet: View {
                     if step.id != progress.steps.last?.id { Divider() }
                 }
             }
-            .accessibilityElement(children: .contain)
             .padding(.horizontal, 18)
             .background(Color(nsColor: .controlBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -1919,7 +1918,9 @@ private struct FirstRunSetupRow: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 13)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("setup-step-\(step.id.rawValue)")
+        .accessibilityAddTraits(.isStaticText)
         .accessibilityLabel("\(step.title), \(step.isComplete ? "complete" : (isNext ? "next step" : "not complete"))")
         .accessibilityValue(step.detail)
     }
