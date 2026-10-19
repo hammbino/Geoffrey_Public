@@ -1465,7 +1465,7 @@ struct ManagedAccountRow: View {
         HStack(spacing: 14) {
             Image(systemName: "envelope.circle.fill")
                 .font(.title2)
-                .foregroundStyle(account.provider == "google" ? Color.red : Color.blue)
+                .foregroundStyle(.secondary)
                 .frame(width: 30)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
