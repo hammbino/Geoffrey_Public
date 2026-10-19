@@ -4,6 +4,18 @@ Updated: October 19, 2026
 
 The current effort is the native Mac release for Dustin. The terminal interface is not the future product, but its state must be preserved. The authoritative scope, evidence, limitations, and release gate are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
+## Chat email access — local build 28
+
+Build 28 gives chat fresh connected-account context and an explicit local request date. Email and calendar searches use a per-request `geoffrey_readonly` MCP server backed by the packaged engine and existing Geoffrey Connections. Only six explicit read tools are allowlisted. The server does not register label changes or draft creation in this mode, and no persistent Claude permission settings are changed. Tool permission denials are retained from Claude's result and produce a retryable app error rather than publishing a historical fallback as a successful answer. Failed snapshots are explicitly unverified; old briefings cannot establish pending replies or current meetings. Normal action permission mode is selected by omitting the optional CLI mode flag, matching the bundled CLI.
+
+The native build, complete Mac app checks, and all 82 engine tests pass. Tests cover fresh chat context, current date, the read-only tool registry, failure handling, and permission denial despite a nominally successful Claude result. The corrected app is installed and relaunched locally. After explicit owner approval, a live read-only test through the installed packaged Claude runner in planning mode successfully listed accounts, searched one Google mailbox for one recent message, and read that message using `geoffrey_readonly`. All three calls succeeded, the result was `READ_OK`, and permission denials were empty. No mailbox changes were made and no message content was included in the verification output. The published owner test remains build 26.
+
+## Local interaction improvements — build 27
+
+Local build 27 moves Feedback to section headers, with separate item reactions and notes inside each section's popover. Start here now has a Do this button that submits the selected action and dated briefing context, opens Ask Geoffrey, and displays progress and results there. Each selected task starts a fresh Claude session with normal tool permission checks; follow-up answers resume that task, and New conversation resets to planning mode. Future briefings describe a concrete task and use the button instead of asking the owner to reply yes. The build number refreshes the installed engine so the new action prompt is included.
+
+The native build, app checks, and isolated UI handoff pass. Fixture tests cover exact action/context routing, duplicate clicks, results, follow-ups, failures, retry, and session reset. These checks do not establish a live mailbox mutation. Build 27 is local only; the published owner test remains build 26.
+
 ## Feedback and briefing corrections — build 26
 
 Build 26 is published as owner-test prerelease `v0.14.0-desktop-test.9`, including the feedback and calendar corrections below. Its unauthenticated public download matches the verified ZIP. The production signing preflight still reports zero valid Developer ID Application identities; no clean-Mac or signed-update acceptance is claimed. The release builder now takes the update manifest's minimum macOS version from the finished app bundle so it follows the bundled runtime requirement.

@@ -40,7 +40,14 @@ const server = new McpServer(
   }
 );
 
-server.registerTool(
+function registerReadTool(name, config, handler) {
+  server.registerTool(name, {
+    ...config,
+    annotations: { readOnlyHint: true, destructiveHint: false },
+  }, handler);
+}
+
+registerReadTool(
   "list_accounts",
   {
     title: "List connected accounts",
@@ -66,7 +73,7 @@ server.registerTool(
   }
 );
 
-server.registerTool(
+registerReadTool(
   "search_messages",
   {
     title: "Search one mailbox",
@@ -104,7 +111,7 @@ server.registerTool(
   }
 );
 
-server.registerTool(
+registerReadTool(
   "get_message",
   {
     title: "Read one message",
@@ -126,7 +133,7 @@ server.registerTool(
   }
 );
 
-server.registerTool(
+registerReadTool(
   "list_labels",
   {
     title: "List labels in a mailbox",
@@ -147,7 +154,7 @@ server.registerTool(
   }
 );
 
-server.registerTool(
+if (process.env.GEOFFREY_READ_ONLY !== "1") server.registerTool(
   "modify_labels",
   {
     title: "Label, archive, or mark read",
@@ -173,7 +180,7 @@ server.registerTool(
   }
 );
 
-server.registerTool(
+if (process.env.GEOFFREY_READ_ONLY !== "1") server.registerTool(
   "create_draft",
   {
     title: "Draft a reply or new message",
@@ -200,7 +207,7 @@ server.registerTool(
   }
 );
 
-server.registerTool(
+registerReadTool(
   "list_calendars",
   {
     title: "List calendars in an account",
@@ -221,7 +228,7 @@ server.registerTool(
   }
 );
 
-server.registerTool(
+registerReadTool(
   "list_events",
   {
     title: "List calendar events",

@@ -7,6 +7,7 @@ struct ClaudeStreamUpdate: Equatable, Sendable {
     var sessionID: String?
     var errorMessage: String?
     var isResult = false
+    var deniedTools: [String] = []
 }
 
 struct ClaudeRunCompletion: Sendable {
@@ -15,6 +16,7 @@ struct ClaudeRunCompletion: Sendable {
     let finalText: String?
     let sessionID: String?
     let errorMessage: String?
+    var deniedTools: [String] = []
 }
 
 enum ClaudeStreamParser {
@@ -68,7 +70,8 @@ enum ClaudeStreamParser {
                 finalText: isError ? nil : result,
                 sessionID: sessionID,
                 errorMessage: isError ? (result ?? "Claude could not complete the request.") : nil,
-                isResult: true
+                isResult: true,
+                deniedTools: (payload["permission_denials"] as? [[String: Any]] ?? []).compactMap { $0["tool_name"] as? String }
             )
 
         default:

@@ -1,6 +1,28 @@
 import Foundation
 import Darwin
 
+/// A per-request reader for accounts the owner already connected in Geoffrey.
+/// Its server omits write tools; the allowlist never grants mailbox mutations.
+enum GeoffreyReadOnlyConnection {
+    static let permissionIssue = "Claude blocked an email or calendar read before it could run. This is a tool-permission problem, not confirmation that your account sign-in failed. Try request again to retry through Geoffrey's connected-account reader."
+    static let toolNames = ["list_accounts", "search_messages", "get_message", "list_labels", "list_calendars", "list_events"]
+        .map { "mcp__geoffrey_readonly__" + $0 }
+
+    static func configuration(engine: String) throws -> String {
+        let config: [String: Any] = ["mcpServers": ["geoffrey_readonly": [
+            "command": "/usr/bin/env",
+            "args": ["node", engine + "/geoffrey-mcp/src/index.js"],
+            "env": ["GEOFFREY_READ_ONLY": "1"],
+        ]]]
+        return String(decoding: try JSONSerialization.data(withJSONObject: config, options: [.sortedKeys]), as: UTF8.self)
+    }
+
+    static func isConnectedReadTool(_ name: String) -> Bool {
+        let name = name.lowercased()
+        return name.hasPrefix("mcp__") && (name.contains("gmail") || name.contains("outlook") || name.contains("calendar") || name.contains("geoffrey_readonly"))
+    }
+}
+
 struct CommandResult: Sendable {
     let status: Int32
     let output: String

@@ -13,6 +13,16 @@ async function inZone(zone, action) {
 const monday = new Date('2026-10-19T20:07:00Z');
 const event = (id, start, end, extra = {}) => ({ id, summary: id, start, end, ...extra });
 const account = { id: 'work', email: 'fixture@example.test', provider: 'google' };
+
+test('chat gets live dated context and can read beyond the bounded unread snapshot', async () => inZone('America/Denver', async () => {
+  const fixture = source();
+  const packet = await buildBriefingContext({ ...fixture, task: 'ask' });
+  assert.match(packet, /TODAY'S LOCAL DATE: 2026-10-19/);
+  assert.match(packet, /limited snapshot.*not a complete inbox search/);
+  assert.match(packet, /using the geoffrey_readonly tools/);
+  assert.match(packet, /does not establish whether a reply has been sent/);
+  assert.doesNotMatch(packet, /Do not call email or calendar tools/);
+}));
 function source(events = [], extra = {}) {
   const calls = [];
   const provider = {

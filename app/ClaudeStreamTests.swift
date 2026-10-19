@@ -20,6 +20,9 @@ struct ClaudeStreamTests {
 
         let failure = ClaudeStreamParser.parse(line: #"{"type":"result","subtype":"error","is_error":true,"result":"Not logged in","session_id":"session-2"}"#)
         expect(failure?.isResult == true && failure?.errorMessage == "Not logged in" && failure?.finalText == nil, "captures a structured failure")
+        let denied = ClaudeStreamParser.parse(line: #"{"type":"result","is_error":false,"result":"Fallback from saved briefings","permission_denials":[{"tool_name":"mcp__claude_ai_Gmail__search_threads"}]}"#)
+        expect(denied?.deniedTools == ["mcp__claude_ai_Gmail__search_threads"], "preserves tool denials even when Claude reports a successful fallback")
+        expect(success?.deniedTools.isEmpty == true, "normal responses have no tool denials")
         expect(ClaudeStreamParser.parse(line: "not json") == nil, "ignores non-JSON diagnostic lines")
 
         print("Claude stream parser tests passed.")

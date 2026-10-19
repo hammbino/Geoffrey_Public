@@ -129,35 +129,31 @@ extension GeoffreyModel {
     }
 }
 
-struct ItemFeedbackButton: View {
+struct SectionFeedbackButton: View {
     @EnvironmentObject private var model: GeoffreyModel
-    let context: GeoffreyFeedbackContext
+    let title: String
+    let contexts: [GeoffreyFeedbackContext]
     @State private var showing = false
 
-    private var savedSummary: String? {
-        guard let record = model.itemFeedback[context.id] else { return nil }
-        var choices: [String] = []
-        if record.rating == "good" { choices.append("Good") }
-        if record.rating == "bad" { choices.append("Bad") }
-        if record.more { choices.append("More") }
-        return choices.isEmpty ? "Saved" : choices.joined(separator: " + ")
+    private var savedCount: Int {
+        contexts.filter { model.itemFeedback[$0.id] != nil }.count
     }
 
     var body: some View {
         Button { showing = true } label: {
             HStack(spacing: 5) {
                 Image(systemName: "bubble.left")
-                Text(savedSummary.map { "Feedback · \($0)" } ?? "Feedback")
-                if savedSummary != nil { Image(systemName: "checkmark") }
+                Text("Feedback")
+                if savedCount > 0 { Image(systemName: "checkmark") }
             }
         }
         .font(.caption.weight(.medium))
         .buttonStyle(FeedbackControlStyle())
-        .accessibilityLabel("Feedback on \(context.section): \(context.item)")
-        .accessibilityValue(savedSummary ?? "No feedback yet")
-        .accessibilityHint("Opens optional feedback for this item")
-        .popover(isPresented: $showing, arrowEdge: .trailing) {
-            ItemFeedbackPopover(context: context, close: { showing = false })
+        .accessibilityLabel("Feedback on \(title)")
+        .accessibilityValue(savedCount == 0 ? "No feedback yet" : "Feedback saved for \(savedCount) items")
+        .accessibilityHint("Opens feedback for each item in this section")
+        .popover(isPresented: $showing, arrowEdge: .bottom) {
+            SectionFeedbackPopover(title: title, contexts: contexts, close: { showing = false })
                 .environmentObject(model)
         }
     }
@@ -185,10 +181,44 @@ private struct FeedbackControlStyle: ButtonStyle {
     }
 }
 
-private struct ItemFeedbackPopover: View {
+private struct SectionFeedbackPopover: View {
+    let title: String
+    let contexts: [GeoffreyFeedbackContext]
+    let close: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.headline)
+                    Text("Give feedback on any item below.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button(action: close) { Image(systemName: "xmark") }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Close feedback")
+            }
+            .padding(18)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    ForEach(Array(contexts.enumerated()), id: \.element.id) { index, context in
+                        if index > 0 { Divider() }
+                        ItemFeedbackEditor(context: context)
+                    }
+                }
+                .padding(18)
+            }
+            .frame(maxHeight: 500)
+        }
+        .frame(width: 440)
+    }
+}
+
+private struct ItemFeedbackEditor: View {
     @EnvironmentObject private var model: GeoffreyModel
     let context: GeoffreyFeedbackContext
-    let close: () -> Void
     @State private var rating: String?
     @State private var more = false
     @State private var note = ""
@@ -196,20 +226,17 @@ private struct ItemFeedbackPopover: View {
     @State private var saving = false
     @State private var issue: String?
     @State private var loadFailed = false
+    @State private var confirmation: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Feedback").font(.headline)
+                Text(["Briefing", "Overall result"].contains(context.section) ? "This briefing or result" : context.item)
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 if loading || saving { ProgressView().controlSize(.small) }
-                Button(action: close) { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Close feedback")
-                    .disabled(saving)
             }
-            Text(["Briefing", "Overall result"].contains(context.section) ? "This briefing or result" : context.item)
-                .font(.caption).foregroundStyle(.secondary).lineLimit(3)
             HStack(spacing: 6) {
                 reaction("Good", icon: "hand.thumbsup", selected: rating == "good") {
                     save(rating: rating == "good" ? nil : "good", more: more)
@@ -222,8 +249,11 @@ private struct ItemFeedbackPopover: View {
             TextField("Anything to add? (optional)", text: $note, axis: .vertical)
                 .lineLimit(2...4)
                 .textFieldStyle(.roundedBorder)
-                .accessibilityLabel("Optional feedback note")
-                .onChange(of: note) { _, value in if value.count > 2000 { note = String(value.prefix(2000)) } }
+                .accessibilityLabel("Optional feedback note for \(context.item)")
+                .onChange(of: note) { _, value in
+                    if value.count > 2000 { note = String(value.prefix(2000)) }
+                    if value != (model.itemFeedback[context.id]?.note ?? "") { confirmation = nil }
+                }
             if let issue {
                 Text(issue).font(.caption).foregroundStyle(.red).accessibilityLabel("Feedback error: \(issue)")
             }
@@ -232,14 +262,15 @@ private struct ItemFeedbackPopover: View {
                 else if model.itemFeedback[context.id] != nil {
                     Button("Clear feedback") { save(rating: nil, more: false, clear: true) }
                 }
+                if let confirmation {
+                    Text(confirmation).font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button("Send note") { save(rating: rating, more: more) }
                     .disabled(loadFailed || note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .controlSize(.small)
         }
-        .padding(18)
-        .frame(width: 340)
         .disabled(loading || saving)
         .task { await load() }
     }
@@ -272,10 +303,14 @@ private struct ItemFeedbackPopover: View {
         let shouldClear = clear || (rating == nil && !more && trimmed.isEmpty)
         saving = true
         issue = nil
+        confirmation = nil
         Task {
             do {
                 try await model.saveItemFeedback(context, rating: rating, more: more, note: trimmed, clear: shouldClear)
-                close()
+                self.rating = shouldClear ? nil : rating
+                self.more = shouldClear ? false : more
+                note = shouldClear ? "" : trimmed
+                confirmation = shouldClear ? "Cleared" : "Saved"
             } catch { issue = error.localizedDescription }
             saving = false
         }

@@ -306,7 +306,7 @@ ok "Private-memory backup status and conflict recovery are visible"
 
 rg -F 'if task.isDailyBriefing {' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Only the daily briefing may replace the briefing dashboard."
 rg -F 'self.latestBriefing = response' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Daily briefing must retain the dashboard state."
-rg -F 'ItemFeedbackButton(context: response.feedbackContext(section: section.title, item: item))' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Each briefing section item must support contextual feedback."
+rg -F 'SectionFeedbackButton(title: section.title, contexts: feedbackContexts)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing section headers must open contextual item feedback."
 rg -F '"Waiting on"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing must support waiting-item context."
 rg -F '"Clarifications"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing must support clarification context."
 ok "Briefing dashboard keeps rankings and section feedback"
