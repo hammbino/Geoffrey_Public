@@ -1,8 +1,8 @@
 # Geoffrey Mac Setup Test Download
 
-[Download Geoffrey for Apple Silicon Macs](https://github.com/hammbino/Geoffrey_Public/releases/download/v0.14.0-desktop-test.2/Geoffrey-0.14.0-macOS-arm64-test.2.zip)
+[Download Geoffrey for Apple Silicon Macs](https://github.com/hammbino/Geoffrey_Public/releases/download/v0.14.0-desktop-test.3/Geoffrey-0.14.0-macOS-arm64-test.3.zip)
 
-The current owner test is **0.14.0 (18)**, published as [v0.14.0-desktop-test.2](https://github.com/hammbino/Geoffrey_Public/releases/tag/v0.14.0-desktop-test.2). It requires an Apple Silicon Mac on macOS 14 or later. No GitHub account is needed to download it.
+The current owner test is **0.14.0 (19)**, published as [v0.14.0-desktop-test.3](https://github.com/hammbino/Geoffrey_Public/releases/tag/v0.14.0-desktop-test.3). It requires an Apple Silicon Mac on macOS 14 or later. No GitHub account is needed to download it.
 
 ## Install or replace the previous test
 
@@ -16,6 +16,8 @@ This uses the same public-download installation route planned for Dustin. It rem
 
 ## Included fixes
 
+- Successful Claude sign-in updates readiness without displaying a misleading attention alert; failures retain recovery guidance.
+
 - Direct Google/Microsoft sign-in without account-name or purpose questions.
 - Provider-verified email names for new accounts and preservation of existing aliases.
 - Locally created private memory stays selected if GitHub backup fails, with separate backup recovery guidance.
@@ -23,14 +25,16 @@ This uses the same public-download installation route planned for Dustin. It rem
 
 ## Verification
 
-Built from commit `6f253116d20db633bdc14253a1f8529c57e3d27a`. Full local verification passed, including 52 connector tests, native checks, package safety, and strict ad-hoc signature verification. A ZIP round trip passed signature and payload checks. The published ZIP was downloaded without authentication and matched the tested bytes and GitHub asset digest.
+Built from commit `65dc92a46dd3246786d7facc7b798a959f6a5217`. Native checks, package safety, and strict ad-hoc signature verification pass for this build. The preceding memory/account slice passed all 52 connector tests; this slice changes only native sign-in feedback. A ZIP round trip passed signature and payload checks. The published ZIP was downloaded without authentication and matched the tested bytes and GitHub asset digest.
 
-- ZIP size: **11,282,203 bytes**.
-- SHA-256: `4f2cb965b0b7ff42d3753653b7074324b561e0f9feeca27f207bc34e9645ef93`.
-- [Download checksums](https://github.com/hammbino/Geoffrey_Public/releases/download/v0.14.0-desktop-test.2/SHA256SUMS.txt).
+- ZIP size: **11,282,491 bytes**.
+- SHA-256: `e4db18e1fd2aa1de570aaed1a3b60d992cb8521229fa197c5586ea48ea672c61`.
+- [Download checksums](https://github.com/hammbino/Geoffrey_Public/releases/download/v0.14.0-desktop-test.3/SHA256SUMS.txt).
 
 The package excludes owner accounts, private memory, owner OAuth configuration, recipient screenshots, Git metadata, and private release evidence. Real account connection and owner memory-setup acceptance remain pending.
 
 ## Earlier first-install test
 
 The retained `v0.14.0-desktop-test.1` download was build 16 from `18bf94f3d80ef5ef0057c2d04c41f81dfb5e4fd0`, size 11,274,915 bytes, SHA-256 `18f44806ce4e38cfcc570e7cf4477c6ec41c4cf9df05d87f1f38e34dcd5143e8`. Gatekeeper blocked its first launch. The owner subsequently manually approved it and reached setup, exposing the account-form and memory-completion problems addressed in build 18. Manual approval does not establish normal Gatekeeper acceptance.
+
+Test.2 remains available as build 18 from `6f253116d20db633bdc14253a1f8529c57e3d27a`; test.3 adds the Claude success-feedback correction.
