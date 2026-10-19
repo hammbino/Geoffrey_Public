@@ -35,11 +35,13 @@ if (args[0] === "add-generic-password") {
   process.exit(0);
 }
 if (args[0] === "find-generic-password") {
+  if (process.env.GEOFFREY_FAKE_KEYCHAIN_DENY_ACCOUNT === value("-a")) process.exit(1);
   if (!Object.hasOwn(state, key)) process.exit(44);
   process.stdout.write(state[key]);
   process.exit(0);
 }
 if (args[0] === "delete-generic-password") {
+  if (process.env.GEOFFREY_FAKE_KEYCHAIN_DENY_ACCOUNT === value("-a")) process.exit(1);
   if (!Object.hasOwn(state, key)) process.exit(44);
   delete state[key];
   writeFileSync(statePath, JSON.stringify(state));
@@ -295,5 +297,42 @@ test("failed registry removal restores even a malformed Keychain value", () => {
       console.log(JSON.stringify({ failed, count: JSON.parse(readFileSync(storePath(), "utf8")).accounts.length, preserved: JSON.stringify(state) === readFileSync(path, "utf8") }));
     `));
     assert.deepEqual(result, { failed: true, count: 1, preserved: true });
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});
+
+
+test("reconnect never reads an inaccessible old item and selects only the verified replacement", () => {
+  const item = fixture("geoffrey-keychain-inaccessible-reconnect-");
+  try {
+    const result = JSON.parse(run(item, `
+      import { readFileSync, writeFileSync } from "node:fs";
+      import { upsertAccount, getAccount, listAccounts } from ${JSON.stringify(storeModule)};
+      const account = { id: "work", provider: "google", email: "owner@example.test", client_id: "client", refresh_token: "old" };
+      const original = upsertAccount(account);
+      process.env.GEOFFREY_FAKE_KEYCHAIN_DENY_ACCOUNT = original.credential_key;
+      writeFileSync(process.env.GEOFFREY_FAKE_KEYCHAIN_LOG, "[]");
+      const updated = upsertAccount({ ...account, refresh_token: "new-refresh-".repeat(1000) });
+      const calls = JSON.parse(readFileSync(process.env.GEOFFREY_FAKE_KEYCHAIN_LOG, "utf8"));
+      const oldReads = calls.filter(args => args[0] === "find-generic-password" && args.includes(original.credential_key)).length;
+      console.log(JSON.stringify({ oldReads, switched: original.credential_key !== updated.credential_key, accountCount: listAccounts().length, complete: getAccount("work").refresh_token === "new-refresh-".repeat(1000) }));
+    `));
+    assert.deepEqual(result, { oldReads: 0, switched: true, accountCount: 1, complete: true });
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});
+
+test("failed registry switch discards the staged credential and preserves the original connection", () => {
+  const item = fixture("geoffrey-keychain-reconnect-rollback-");
+  try {
+    const result = JSON.parse(run(item, `
+      import { readFileSync, mkdirSync } from "node:fs";
+      import { upsertAccount, getAccount, storePath } from ${JSON.stringify(storeModule)};
+      const account = { id: "work", provider: "google", email: "owner@example.test", client_id: "client", refresh_token: "original-refresh" };
+      const original = upsertAccount(account);
+      mkdirSync(storePath() + ".tmp-" + process.pid);
+      let failed = false;
+      try { upsertAccount({ ...account, refresh_token: "replacement-refresh" }); } catch { failed = true; }
+      console.log(JSON.stringify({ failed, preserved: getAccount("work").refresh_token === "original-refresh", selected: JSON.parse(readFileSync(storePath(), "utf8")).accounts[0].credential_key === original.credential_key, items: Object.keys(JSON.parse(readFileSync(process.env.GEOFFREY_FAKE_KEYCHAIN, "utf8"))).length }));
+    `));
+    assert.deepEqual(result, { failed: true, preserved: true, selected: true, items: 1 });
   } finally { rmSync(item.root, { recursive: true, force: true }); }
 });

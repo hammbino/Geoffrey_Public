@@ -5,6 +5,7 @@
 // as one versioned generic-password item per account in the login Keychain.
 
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
   chmodSync,
   existsSync,
@@ -24,21 +25,21 @@ const LEGACY_BACKUP = join(DIR, "backups", "pre-desktop-v1", "accounts.json");
 const KEYCHAIN_SERVICE = "com.geoffrey.desktop.oauth.v1";
 const NATIVE_KEYCHAIN = fileURLToPath(new URL("../bin/geoffrey-keychain", import.meta.url));
 const DEVELOPMENT_KEYCHAIN = fileURLToPath(new URL("../../build/Geoffrey.app/Contents/Resources/GeoffreyEngine/geoffrey-mcp/bin/geoffrey-keychain", import.meta.url));
-const KEYCHAIN_COMMAND = process.env.GEOFFREY_KEYCHAIN_COMMAND || "/usr/bin/security";
-const KEYCHAIN_WRITE_COMMAND = process.env.GEOFFREY_KEYCHAIN_COMMAND
+const KEYCHAIN_COMMAND = process.env.GEOFFREY_KEYCHAIN_COMMAND
   || [NATIVE_KEYCHAIN, DEVELOPMENT_KEYCHAIN].find((path) => existsSync(path));
 const SECRET_FIELDS = ["client_id", "client_secret", "refresh_token", "scope"];
 
 function keychainAccount(account) {
-  return `${account.provider}:${account.id}`;
+  return account.credential_key || `${account.provider}:${account.id}`;
 }
 
 function runKeychain(parameters, input = undefined) {
-  const command = parameters[0] === "add-generic-password" ? KEYCHAIN_WRITE_COMMAND : KEYCHAIN_COMMAND;
+  const command = KEYCHAIN_COMMAND;
   if (!command) {
     throw new Error("The Geoffrey Keychain helper is missing. Reinstall the current desktop build and try again.");
   }
-  const result = spawnSync(command, parameters, {
+  const arguments_ = process.env.GEOFFREY_KEYCHAIN_COMMAND ? parameters : [...parameters, "--no-ui"];
+  const result = spawnSync(command, arguments_, {
     encoding: "utf8",
     input,
     stdio: ["pipe", "pipe", "pipe"],
@@ -275,8 +276,13 @@ export function upsertAccount(account) {
   const merged = { ...(previousAccount ?? {}), ...account };
   const credential = credentialFrom(merged);
   if (!credential) throw new Error(`No OAuth credential was provided for "${account.id}".`);
-  const previousCredential = previousAccount ? readStoredCredential(previousAccount) : null;
-  const nextMetadata = metadataFrom(merged);
+  // A reconnect must not read or overwrite the old item: it may be damaged or
+  // protected by a different executable's ACL. Stage a fresh native-owned item
+  // and atomically switch the secret-free registry pointer only after read-back.
+  const nextMetadata = metadataFrom({
+    ...merged,
+    credential_key: `${account.provider}:${account.id}:${randomUUID()}`,
+  });
 
   try {
     writeCredential(nextMetadata, credential);
@@ -285,16 +291,13 @@ export function upsertAccount(account) {
     data.credential_storage_version = 1;
     atomicRegistry(FILE, data);
   } catch (error) {
-    try {
-      if (previousCredential !== null) writeStoredCredential(previousAccount, previousCredential);
-      else deleteCredential(nextMetadata);
-    } catch {
-      // Keep the registry error as the primary failure; the next upsert uses -U.
-    }
+    try { deleteCredential(nextMetadata); } catch { /* preserve the primary error */ }
     throw error;
   }
-  if (previousAccount && keychainAccount(previousAccount) !== keychainAccount(nextMetadata)) {
-    try { deleteCredential(previousAccount); } catch { /* old item contains no new credential */ }
+  if (previousAccount) {
+    // An inaccessible obsolete item must not undo a verified reconnect. It is
+    // never read or selected again; cleanup also prohibits Keychain dialogs.
+    try { deleteCredential(previousAccount); } catch { /* leave the old item unselected */ }
   }
   return nextMetadata;
 }
