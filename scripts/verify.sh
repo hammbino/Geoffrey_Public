@@ -16,6 +16,9 @@ npm test --prefix geoffrey-mcp
 printf '\n== Historical archive audit tests\n'
 PYTHONDONTWRITEBYTECODE=1 python3 ./scripts/test-history-archives.py
 
+printf '\n== Mac signing preflight tests\n'
+PYTHONDONTWRITEBYTECODE=1 python3 ./scripts/test-mac-signing-identity.py
+
 printf '\n== Dustin release gate (report only)\n'
 node ./scripts/check-dustin-release-gate.mjs --report-only
 

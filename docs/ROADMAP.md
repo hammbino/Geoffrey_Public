@@ -1,6 +1,6 @@
 # Geoffrey Desktop Roadmap
 
-Updated: October 17, 2026
+Updated: October 18, 2026
 
 The detailed scope and proof standard are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
@@ -83,6 +83,8 @@ The archived Google OAuth configuration was confirmed to be an installed-app pub
 - [x] Implement an app-native signed updater with release notes, strict publisher verification, and rollback.
 - [x] Add a fail-closed, commit-bound release-gate report that requires owner-reviewed evidence for every Dustin criterion.
 - [x] Publish and verify a clean, explicitly unnotarized owner-test download for first-install testing.
+- [x] Record the real Gatekeeper-blocked first launch and add an early, secret-free production signing-identity check.
+- [ ] Resolve Developer Program enrollment/team access, install a Developer ID Application identity, and publish a notarized replacement for first-install acceptance.
 - [ ] Publish and exercise a Developer ID-signed, notarized update and rollback on a clean Mac.
 - [ ] Sign with Developer ID, notarize, and verify Gatekeeper on a clean Mac.
 - [ ] Publish a release candidate ZIP or DMG and checksum.

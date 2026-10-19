@@ -1,13 +1,14 @@
 # Current Product Status
 
-Updated: October 17, 2026
+Updated: October 18, 2026
 
 The current effort is the native Mac release for Dustin. The terminal interface is not the future product, but its state must be preserved. The authoritative scope, evidence, limitations, and release gate are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
 ## Proven Now
 
 - Native Mac app builds as Geoffrey `0.14.0` (build 16).
-- A clean [owner/pilot test download](desktop-test-download.md) is published as `v0.14.0-desktop-test.1` for Apple Silicon Macs on macOS 14+. Its public unauthenticated download matches the verified app ZIP. It remains ad-hoc signed and unnotarized, is not marked latest, publishes no production update feed, and is not Dustin-ready.
+- A clean [owner/pilot test download](desktop-test-download.md) is published as `v0.14.0-desktop-test.1` for Apple Silicon Macs on macOS 14+. Its public unauthenticated download matches the verified app ZIP. It remains ad-hoc signed and unnotarized, is not marked latest, publishes no production update feed, and is not Dustin-ready. The owner’s real first-launch attempt is now confirmed blocked by Gatekeeper; onboarding and account testing through this download have not started.
+- Production release builds now fail before app rebuild/output creation when the requested signing identity is missing, ad-hoc, the wrong certificate type, malformed, revoked, or unmatched. Secret-free identity preflight checks and isolated regression tests pass. The checked Mac has zero valid identities; the owner’s Apple account shows an enrollment prompt.
 - Geoffrey's revised illustrated identity is packaged in native Mac icon sizes and appears in the sidebar as “Geoffrey — Your AI chief of staff”; the original portrait asset remains preserved.
 - The Memory screen can build and refresh a versioned, secret-free recovery map covering approved private-memory skills, email/calendar connection definitions, Claude MCP/plugin definitions, hashes, Git repository metadata, and explicit reconnect requirements.
 - A guided Memory-screen restore clones private GitHub memory into a new owner-only folder, rejects overwrites, credentials, symbolic links, unsupported maps, changed skill hashes, and unverified checkout artifacts, then restores only the verified memory pointer. A clean second-environment test proves credentials and connected-account state are not recreated, and a failed pointer update removes the staged clone.
@@ -70,6 +71,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 - Clean-pilot validation of the guided restore against a real private GitHub repository.
 - Dustin-state acceptance of the Keychain migration and connection repair flow.
 - Dustin-state acceptance of per-account tests across his real Gmail and Outlook accounts.
+- Resolving Apple Developer Program enrollment/team access and installing the Developer ID Application identity needed for first-launch acceptance.
 - Developer ID and notarized end-to-end update/rollback acceptance on a clean Mac; the updater and release tooling are implemented, but production signing credentials have not been exercised.
 - Clean-Mac and pilot-account acceptance of the complete native first-run sequence; its state model, resume behavior, build, and dark-mode layout are locally proven.
 - GitHub server-side cached-object cleanup and the eventual guided transition of Dustin’s old source checkout, described in [Git History Remediation Record](HISTORY-REMEDIATION.md). The branch rewrite, beta removal, and fresh-clone verification are complete.

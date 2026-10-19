@@ -18,6 +18,20 @@ Settings exposes that prior version as an explicit rollback action. Memory,
 account metadata, and Keychain items live outside the app bundle and are not
 replaced by an update or rollback.
 
+## Current first-install blocker
+
+The public `v0.14.0-desktop-test.1` app failed its owner first-launch test: Gatekeeper displayed an “Apple could not verify” dialog before onboarding could start. Local `spctl --assess --type execute` also rejected the ad-hoc build. ZIP integrity and ad-hoc code-signature validity are different checks from Apple publisher/notarization acceptance.
+
+The checked Mac has zero valid signing identities. The owner’s developer account showed an enrollment prompt on October 18, 2026. To unblock distribution:
+
+1. The owner signs into [Apple Developer Account](https://developer.apple.com/account/) and resolves [Developer Program enrollment](https://developer.apple.com/programs/enroll/) or access to an existing eligible team. The owner completes any agreement/payment directly with Apple.
+2. Create or import a [Developer ID Application certificate](https://developer.apple.com/help/account/certificates/create-developer-id-certificates) with its private key on the signing Mac. Apple Development and Developer ID Installer identities do not satisfy app distribution signing.
+3. Run `./scripts/check-mac-signing.sh`. To verify a specific certificate, set `GEOFFREY_CODESIGN_IDENTITY` to its exact public certificate name or fingerprint. Output contains status/counts, not private keys or certificate names.
+4. The owner configures the notarytool Keychain profile through its interactive credentials flow. Never paste an Apple password, app-specific password, or private key into chat, release notes, or committed files.
+5. Complete the existing update-key and release-notes setup below, build the signed/notarized archive, then test its actual browser download and first launch before presenting it as a normal install.
+
+The production release builder now checks the requested Developer ID Application identity before rebuilding the app or creating release output. Missing, ad-hoc, wrong-type, malformed, revoked, or unmatched identities fail closed. A passing identity check does not prove Apple notarization, Gatekeeper acceptance, update acceptance, or Dustin release readiness.
+
 ## One-Time Release Setup
 
 Generate the Ed25519 key once, writing the private half outside this repository:

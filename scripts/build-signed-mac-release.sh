@@ -10,6 +10,10 @@ ARCHIVE="$RELEASE_DIR/Geoffrey-$VERSION.zip"
 MANIFEST="$RELEASE_DIR/update.json"
 SIGNER="$RELEASE_DIR/GeoffreyUpdateManifestSigner"
 
+# Refuse missing, ad-hoc, wrong-type, or unavailable publisher identities
+# before creating output or rebuilding the development app.
+"$ROOT/scripts/check-mac-signing.sh"
+
 : "${GEOFFREY_CODESIGN_IDENTITY:?Set GEOFFREY_CODESIGN_IDENTITY to the Developer ID Application identity.}"
 : "${GEOFFREY_UPDATE_PUBLIC_KEY:?Set GEOFFREY_UPDATE_PUBLIC_KEY to the base64 Ed25519 public key.}"
 : "${GEOFFREY_UPDATE_PRIVATE_KEY_FILE:?Set GEOFFREY_UPDATE_PRIVATE_KEY_FILE to the owner-only private key file.}"

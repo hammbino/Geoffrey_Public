@@ -1,6 +1,6 @@
 # Geoffrey Desktop Release Record
 
-Updated: October 17, 2026
+Updated: October 18, 2026
 
 This is the authoritative record for the Mac desktop release being prepared for Dustin. It defines the intended product, what is already proven, what remains unproven, and the gate Geoffrey must pass before Dustin is asked to update.
 
@@ -153,6 +153,7 @@ The current verified result is:
 - connection accessibility checks: pass for a separately addressable refresh failure and retry action, explicit icon-only control labels, and decorative status-icon suppression;
 - isolated memory-status tests: pass for failed/malformed/timeout reads, structured sync-failure reports, wrong-shape rejection, and honest unchecked recovery-map labels;
 - isolated automation tests: pass for cloud-capable, active-cloud, Mac-required, and review labels, failed/malformed/unsupported/timeout inventory preservation, and successful empty-list recovery;
+- signing-identity preflight tests: pass for exact public names/fingerprints, absent identities, ad-hoc identities, wrong certificate types, malformed/revoked rows, unmatched selections, and secret-free CLI output; a real missing-identity release-builder attempt left the existing app and release-output state unchanged;
 - isolated owner-evidence packaging checks: pass for root/nested evidence exclusion, bundle freshness with local evidence present, rejection of evidence injected into both ZIPs, and native payload rejection outside the engine;
 - Claude package safety/currentness: pass;
 - Mac app build and payload safety: pass;
@@ -186,7 +187,7 @@ The following are not complete and must not be presented as finished:
 - **Connections:** native add, bounded per-account test, reconnect, remove, accessible loading/failure/empty states, separately addressable retry and management controls, last-known-state preservation, and health explanations exist. Secret-free failure states and accessibility semantics are automated; populated results and real Gmail/Outlook behavior still require clean-Mac and Dustin-state acceptance testing.
 - **First run:** the native ordered guide, automatic first incomplete-state presentation, safe dismissal/resume, and transitions to existing native setup flows are implemented and locally inspected. A complete clean-Mac run using pilot Claude, email, GitHub, and private-memory state remains acceptance work.
 - **Updates:** the legacy GitHub updater can deliver the first desktop transition. The native signed client, release notes, automatic check, verified replacement helper, and rollback path are implemented, but no production Developer ID/notarized update feed has been published or exercised end to end. That real update and rollback acceptance remains required before the native path is called release-ready.
-- **Distribution:** a clean [owner-test ZIP](desktop-test-download.md) is publicly downloadable as `v0.14.0-desktop-test.1`, with its unauthenticated download and SHA-256 verified. It is an Apple Silicon-only, ad-hoc-signed, unnotarized prerelease, is not marked latest, and includes no signed update feed. Developer ID signing, notarization, final release packaging, clean-Mac installation, and Gatekeeper validation remain.
+- **Distribution:** a clean [owner-test ZIP](desktop-test-download.md) is publicly downloadable as `v0.14.0-desktop-test.1`, with its unauthenticated download and SHA-256 verified. It is an Apple Silicon-only, ad-hoc-signed, unnotarized prerelease, is not marked latest, and includes no signed update feed. The owner’s browser-downloaded copy failed first launch with an “Apple could not verify” Gatekeeper dialog; local assessment also rejects the ad-hoc build. Onboarding and account tests have not started through it. The checked Mac has zero valid signing identities and the owner’s developer account shows an enrollment prompt. An early signing-identity preflight now rejects unusable publisher identities before rebuilding/creating output. Developer Program enrollment/team access, Developer ID signing, notarization, final release packaging, clean-Mac installation, and Gatekeeper validation remain.
 - **Historical cleanup:** the owner approved cleanup after confirming there is one developer and Dustin is the only other installation. Eighteen risky blobs were stripped from distributed history, the contaminated beta release/download/tag were removed, and both branches were published with exact ref leases. Candidate and fresh-GitHub-clone audits report `status=clean`; retained branch-tip source files are identical to the originals, and this checkout now uses fresh clean Git metadata. GitHub still serves sampled old commits by ID, so server-side cached-object cleanup remains pending. Dustin’s old checkout also needs a guided transition before its next Git update. The archived Google credential was confirmed to be an installed-app public-client configuration; the owner deferred rotation, and no account compromise is asserted.
 - **Google pilot:** the current OAuth approach is accepted for this pilot. Gmail scope verification and commercial compliance are intentionally deferred until the product decision to market it.
 
@@ -263,7 +264,8 @@ The check exits nonzero unless the working tree is clean, the historical-exposur
 | `d8cb39a` | Excluded owner evidence from repository ZIPs and rejected evidence paths in bundle/native-payload checks. |
 | `a81f05b` | Added bounded nested-ZIP auditing and regression tests and prepared private recovery/inventory material. |
 | `18bf94f` | Recorded verified two-branch history cleanup, beta removal, fresh-clone adoption, and pending server purge/source transition. |
+| `48f068e` | Published and verified the public first-install test download and recorded its unnotarized development boundary. |
 
-The first-install download slice following `18bf94f` publishes `v0.14.0-desktop-test.1` from that exact commit with a verified app-only ZIP and checksum. Its unnotarized development status is explicit; it is not a production update or a Dustin release. Earlier Change Record hashes above were translated through git-filter-repo’s commit map. GitHub cached-object cleanup and Dustin’s source-checkout transition remain pending.
+The signing-preflight slice following `48f068e` records the owner’s Gatekeeper-blocked first launch and adds an early secret-free identity check to production release builds. A missing Developer ID Application identity blocks before app/output mutation. Enrollment/team access, notarization, real downloaded launch acceptance, and Dustin release evidence remain outstanding. Earlier Change Record hashes above were translated through git-filter-repo’s commit map. GitHub cached-object cleanup and Dustin’s source-checkout transition remain pending.
 
 This record is updated with each completed slice. A branch push is not a Dustin release and does not imply that the release gate has passed.
