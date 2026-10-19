@@ -2519,6 +2519,7 @@ final class GeoffreyModel: ObservableObject {
     private var accountConnectionProcess: Process?
     var accountConnectionSeed: GeoffreyAccount?
     private var hasOfferedFirstRunSetup = false
+    private var refreshRequested = false
     private var pendingFirstRunTransition: FirstRunTransition?
 
     enum FirstRunTransition {
@@ -2693,7 +2694,12 @@ final class GeoffreyModel: ObservableObject {
     }
 
     func refresh() {
-        guard !isRefreshingAccounts, !isSyncingMemory, !isUpdatingPortableState else { return }
+        guard !isRefreshingAccounts else {
+            refreshRequested = true
+            return
+        }
+        guard !isSyncingMemory, !isUpdatingPortableState else { return }
+        refreshRequested = false
         isRefreshingAccounts = true
         Task.detached { [geoffreyHome] in
             _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-migrate"])
@@ -2756,6 +2762,7 @@ final class GeoffreyModel: ObservableObject {
                     self.hasOfferedFirstRunSetup = true
                     self.showingFirstRunSetup = true
                 }
+                if self.refreshRequested { self.refresh() }
             }
         }
         scheduleAutomaticUpdateCheck()
@@ -3452,17 +3459,22 @@ final class GeoffreyModel: ObservableObject {
         memorySetupOutcome = nil
         Task.detached { [geoffreyHome] in
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["memory", "--name", cleanOwner, "--business", cleanBusiness.isEmpty ? "Personal" : cleanBusiness, "--github", cleanGitHub, "--push"])
+            let status = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-status"], timeout: 30)
+            let memoryPath = GeoffreyReadinessRefresh.health(output: status.output, status: status.status)?["memory"]
             await MainActor.run {
                 self.isCreatingMemory = false
+                if let memoryPath, memoryPath.hasPrefix("/") { self.health["memory"] = memoryPath }
                 if result.status == 0 {
                     self.memorySetupOutcome = "Your private Geoffrey memory is ready and backed up to GitHub."
-                    self.refresh()
+                } else if let memoryPath, memoryPath.hasPrefix("/") {
+                    self.memorySetupOutcome = "Your private memory is ready on this Mac. GitHub backup needs attention; open Memory to check it and try syncing again."
                 } else {
                     let detail = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
                     self.memorySetupOutcome = detail.isEmpty
                         ? "Geoffrey could not create private memory yet. Please try again."
                         : detail
                 }
+                self.refresh()
             }
         }
     }

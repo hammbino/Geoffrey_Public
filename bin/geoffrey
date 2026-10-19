@@ -966,6 +966,7 @@ mailbox_summary() {
 memory_repo() {
   name=""
   business="Personal"
+  business_supplied=false
   github=""
   target=""
   repo=""
@@ -979,6 +980,7 @@ memory_repo() {
         ;;
       --business)
         business="${2:-}"
+        business_supplied=true
         shift 2
         ;;
       --github)
@@ -1015,7 +1017,7 @@ memory_repo() {
     exit 1
   fi
 
-  if [ "$business" = "Personal" ]; then
+  if [ "$business_supplied" = false ] && [ "$business" = "Personal" ]; then
     business="$(ask "What business or team should Geoffrey support? (example: JLH Global; use Personal if none)" "$business")"
   fi
 
@@ -1076,6 +1078,9 @@ memory_repo() {
   git -C "$target" commit -m "Create Geoffrey memory" >/dev/null
   git -C "$target" branch -M main
 
+  # Local creation and cloud backup are separate outcomes. Persist the selected
+  # folder before any network/authentication step can fail or time out.
+  record_memory_path "$target"
   say "Created Geoffrey memory repo: $target"
 
   if [ "$push" = "yes" ]; then
@@ -1105,7 +1110,6 @@ memory_repo() {
   fi
 
   say ""
-  record_memory_path "$target"
   ensure_launch_memory_files "$target"
   install_launcher || true
   say ""
