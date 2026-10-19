@@ -90,7 +90,7 @@ for tool in ('node', 'claude', 'gh', 'git'):
     relocate(source, bindir / tool)
     if tool == 'git':
         git_core = pathlib.Path(output(source, '--exec-path').strip())
-        for helper in ('git-remote-http', 'git-remote-https'):
+        for helper in ('git-remote-http', 'git-remote-https', 'git-credential-osxkeychain'):
             relocate(git_core / helper, runtime / 'git-core' / helper)
 
 # Prove relocation with no developer PATH; no auth or network operations.

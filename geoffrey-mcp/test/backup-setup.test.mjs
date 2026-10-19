@@ -20,6 +20,8 @@ fi
 if [ "$2" = view ]; then
   if [ -f "$HOME/occupied" ]; then
     echo '{"isPrivate":true,"defaultBranchRef":{"name":"main"},"url":"https://github.com/fixture/geoffrey-fixture-owner"}'
+  elif [ -f "$HOME/blank-default-branch" ]; then
+    echo '{"isPrivate":true,"defaultBranchRef":{"name":""},"url":"https://github.com/fixture/geoffrey-fixture-owner"}'
   else
     echo '{"isPrivate":true,"defaultBranchRef":null,"url":"https://github.com/fixture/geoffrey-fixture-owner"}'
   fi
@@ -71,6 +73,31 @@ test('backup setup never adopts an existing repository with unrelated history', 
   const f = fixture();
   try {
     writeFileSync(join(f.home, 'occupied'), '');
+    const result = f.run('app-backup');
+    assert.equal(result.status, 1);
+    assert.match(JSON.parse(result.stdout).message, /will not be overwritten/);
+    assert.equal(spawnSync('git', ['-C', f.memory, 'remote', 'get-url', 'origin']).status, 2);
+  } finally { rmSync(f.home, { recursive: true, force: true }); }
+});
+
+test('backup setup accepts GitHub’s blank default branch only when Git has no refs', () => {
+  const f = fixture();
+  try {
+    writeFileSync(join(f.home, 'blank-default-branch'), '');
+    const retry = f.run('app-backup');
+    assert.equal(retry.status, 0, retry.stderr || retry.stdout);
+    assert.equal(JSON.parse(retry.stdout).state, 'synced');
+    assert.equal(execFileSync('git', ['-C', f.memory, 'remote', 'get-url', 'origin'], { encoding: 'utf8' }).trim(),
+      'https://github.com/fixture/geoffrey-fixture-owner.git');
+  } finally { rmSync(f.home, { recursive: true, force: true }); }
+});
+
+test('backup setup refuses existing Git refs even when GitHub reports a blank default branch', () => {
+  const f = fixture();
+  try {
+    writeFileSync(join(f.home, 'blank-default-branch'), '');
+    execFileSync('git', ['init', '--bare', join(f.home, 'remote.git')]);
+    execFileSync('git', ['--git-dir', join(f.home, 'remote.git'), 'fetch', f.memory, 'main:refs/heads/main']);
     const result = f.run('app-backup');
     assert.equal(result.status, 1);
     assert.match(JSON.parse(result.stdout).message, /will not be overwritten/);

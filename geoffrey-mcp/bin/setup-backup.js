@@ -34,8 +34,16 @@ try {
     const inspected = run('gh', ['repo', 'view', repository, '--json', 'isPrivate,defaultBranchRef,url']);
     let remote;
     try { remote = JSON.parse(inspected.stdout); } catch { /* reported below */ }
-    if (inspected.status !== 0 || remote?.isPrivate !== true || remote.defaultBranchRef != null
+    const namedDefaultBranch = typeof remote?.defaultBranchRef?.name === 'string'
+      && remote.defaultBranchRef.name.trim().length > 0;
+    if (inspected.status !== 0 || remote?.isPrivate !== true || namedDefaultBranch
         || remote.url !== `https://github.com/${repository}`) {
+      throw new Error('Could not create an empty private backup. An existing repository with files will not be overwritten.');
+    }
+    // GitHub may return { name: "" } for an empty repository. Verify Git's
+    // actual refs as well, so a misleading API response cannot adopt history.
+    const refs = run('git', ['ls-remote', remote.url + '.git']);
+    if (refs.status !== 0 || refs.stdout?.trim()) {
       throw new Error('Could not create an empty private backup. An existing repository with files will not be overwritten.');
     }
     if (run('git', ['-C', root, 'remote', 'add', 'origin', remote.url + '.git']).status !== 0) {

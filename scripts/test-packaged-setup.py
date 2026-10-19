@@ -24,6 +24,7 @@ with tempfile.TemporaryDirectory(prefix='geoffrey-packaged-setup-') as folder:
     for tool in ('node', 'claude', 'gh', 'git'):
         subprocess.run([str(engine / 'runtime/bin' / tool), '--version'], env=env,
                        check=True, capture_output=True, timeout=30)
+    assert os.access(engine / 'runtime/git-core/git-credential-osxkeychain', os.X_OK)
     subprocess.run([str(engine / 'runtime/bin/node'), '--input-type=module', '-e',
                     'await import("@modelcontextprotocol/sdk/server/mcp.js")'],
                    cwd=engine / 'geoffrey-mcp', env=env, check=True, capture_output=True, timeout=30)
