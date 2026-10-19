@@ -1,6 +1,6 @@
 # Geoffrey Desktop Release Record
 
-Updated: October 18, 2026
+Updated: October 19, 2026
 
 This is the authoritative record for the Mac desktop release being prepared for Dustin. It defines the intended product, what is already proven, what remains unproven, and the gate Geoffrey must pass before Dustin is asked to update.
 
@@ -281,3 +281,7 @@ Following the owner’s request to download the update through the same browser 
 The Claude sign-in feedback correction following `569e78d` removes the generic “needs a little attention” modal from successful login. Success updates Claude readiness and refreshes setup; only unsuccessful login displays the existing recovery alert. The owner screenshot showed the older contradictory success/attention dialog. Build 19 contains the correction; live owner acceptance and the Dustin gate remain pending.
 
 Build 19 from `65dc92a46dd3246786d7facc7b798a959f6a5217` is published as `v0.14.0-desktop-test.3`. Native and package checks, ZIP round-trip signature/payload checks, draft target/digest inspection, and an unauthenticated public download comparison pass. It retains the preceding setup fixes and adds the Claude-success alert correction. This remains an unnotarized prerelease with no production update feed or Dustin readiness claim.
+
+The connection-removal correction following `216c843` addresses the owner-reported failure on a malformed Keychain entry. A read-only diagnostic reported invalid JSON and a 128-byte stored value without displaying credentials. A uniquely named dummy reproduced incomplete storage through the old security-tool password prompt. The new native writer uses SecItemUpdate/SecItemAdd with bounded stdin data, permits only Geoffrey’s service, and configures access for the helper and Apple’s fixed security tool. Existing system read/delete lookup remains scoped to service and account. Exact read-back is required before registry migration or connection success. Raw prior values support removal and reconnect rollback even when JSON is damaged. Missing writer binaries fail closed rather than reuse the truncating write path; source checkouts can use the helper from their local app build.
+
+Initial diagnostic attempts could prompt for Keychain access; the owner was told to deny the diagnostic prompt. Those checks were replaced with a reversible native proof using `--no-ui`, which disables Keychain interaction and fails rather than asks for a password. The proof creates, updates, fully reads, and deletes long dummy values; fixture cleanup passes. It is deliberately separate from the default isolated verification suite because it uses the login Keychain. No real account credential was altered by these diagnostics. Build 20 includes the helper and targeted removal recovery copy. The published test.3 asset still has the old writer; refreshed download and real account acceptance remain pending.

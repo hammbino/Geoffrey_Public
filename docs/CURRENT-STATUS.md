@@ -1,10 +1,12 @@
 # Current Product Status
 
-Updated: October 18, 2026
+Updated: October 19, 2026
 
 The current effort is the native Mac release for Dustin. The terminal interface is not the future product, but its state must be preserved. The authoritative scope, evidence, limitations, and release gate are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
 ## Proven Now
+
+- The owner’s removal failure was traced without exposing credential values to an invalid 128-byte Keychain entry. A dummy-item proof reproduced truncation through the previous interactive password transport. Build 20 uses a bundled native Security-framework writer with stdin-only full-length values and verifies exact read-back before treating a write as successful. Removal and reconnect preserve raw prior values for rollback instead of requiring valid JSON. Regression tests cover malformed-entry removal/repair, long credentials, truncated-write refusal, and failed-registry rollback. Reversible native dummy checks prohibit Keychain UI and clean up their fixture; real account reconnect/removal acceptance remains pending.
 
 - Successful Claude sign-in now marks Claude ready and refreshes setup without displaying the generic attention alert. Failed sign-in still shows recovery guidance. The owner’s screenshot confirms successful sign-in in the earlier build; live acceptance of the quieter transition remains pending.
 
@@ -12,7 +14,7 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 - Account connection now starts with **Continue with Google** or **Continue with Microsoft**, which opens provider sign-in immediately. New accounts use the provider-verified email address without requiring a label or purpose. Existing aliases and purposes survive reconnect, and a different signed-in mailbox cannot replace the original account. Local identity tests and a native build cover the change; live provider acceptance remains pending. The published test.3 download includes this improvement; test.1 remains unchanged.
 
-- Native Mac app builds as Geoffrey `0.14.0` (build 19).
+- Native Mac app builds as Geoffrey `0.14.0` (build 20).
 - The current [owner test download](desktop-test-download.md), `v0.14.0-desktop-test.3`, publishes build 19 with direct account sign-in, the memory-completion fix, and quieter Claude sign-in success. Its unauthenticated public download matches the tested ZIP and GitHub digest. It remains ad-hoc signed, unnotarized, not marked latest, and has no production update feed. Manual approval supports owner testing; normal Gatekeeper acceptance and Dustin readiness remain blocked. Earlier test.1 first launch was blocked before the owner manually approved it and reached setup.
 - Production release builds now fail before app rebuild/output creation when the requested signing identity is missing, ad-hoc, the wrong certificate type, malformed, revoked, or unmatched. Secret-free identity preflight checks and isolated regression tests pass. The checked Mac has zero valid identities; the owner’s Apple account shows an enrollment prompt.
 - Geoffrey's revised illustrated identity is packaged in native Mac icon sizes and appears in the sidebar as “Geoffrey — Your AI chief of staff”; the original portrait asset remains preserved.

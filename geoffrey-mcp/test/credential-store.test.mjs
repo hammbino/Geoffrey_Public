@@ -29,9 +29,8 @@ const key = value("-s") + "\\u0000" + value("-a");
 if (args[0] === "add-generic-password") {
   if (process.env.GEOFFREY_FAKE_KEYCHAIN_FAIL_ADD === "1"
       || process.env.GEOFFREY_FAKE_KEYCHAIN_FAIL_ACCOUNT === value("-a")) process.exit(1);
-  const input = readFileSync(0, "utf8").trimEnd().split(/\\r?\\n/);
-  if (input.length < 2 || input[0] !== input[1]) process.exit(3);
-  state[key] = input[0];
+  const input = readFileSync(0, "utf8");
+  state[key] = process.env.GEOFFREY_FAKE_KEYCHAIN_TRUNCATE === "1" ? input.slice(0, 128) : input;
   writeFileSync(statePath, JSON.stringify(state));
   process.exit(0);
 }
@@ -220,4 +219,81 @@ test("rolls back earlier Keychain items when a later account cannot migrate", ()
   } finally {
     rmSync(item.root, { recursive: true, force: true });
   }
+});
+
+test("removes a connection even when its existing Keychain value is malformed", () => {
+  const item = fixture("geoffrey-keychain-malformed-remove-");
+  try {
+    const result = JSON.parse(run(item, `
+      import { readFileSync, writeFileSync } from "node:fs";
+      import { upsertAccount, removeAccount, listAccounts } from ${JSON.stringify(storeModule)};
+      upsertAccount({ id: "broken", provider: "google", email: "owner@example.test", client_id: "client", refresh_token: "refresh" });
+      const path = process.env.GEOFFREY_FAKE_KEYCHAIN;
+      const state = JSON.parse(readFileSync(path, "utf8"));
+      for (const key of Object.keys(state)) state[key] = '{"schema_version":1,"truncated":';
+      writeFileSync(path, JSON.stringify(state));
+      removeAccount("broken");
+      console.log(JSON.stringify({ remaining: listAccounts(), stored: JSON.parse(readFileSync(path, "utf8")) }));
+    `));
+    assert.deepEqual(result, { remaining: [], stored: {} });
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});
+
+test("reconnecting replaces a malformed credential with the full long value", () => {
+  const item = fixture("geoffrey-keychain-malformed-repair-");
+  try {
+    const result = JSON.parse(run(item, `
+      import { readFileSync, writeFileSync } from "node:fs";
+      import { upsertAccount, getAccount } from ${JSON.stringify(storeModule)};
+      const account = { id: "work", provider: "google", email: "owner@example.test", client_id: "client", refresh_token: "old" };
+      upsertAccount(account);
+      const path = process.env.GEOFFREY_FAKE_KEYCHAIN;
+      const state = JSON.parse(readFileSync(path, "utf8"));
+      for (const key of Object.keys(state)) state[key] = "damaged";
+      writeFileSync(path, JSON.stringify(state));
+      upsertAccount({ ...account, refresh_token: "long-refresh-".repeat(1000) });
+      console.log(JSON.stringify({ length: getAccount("work").refresh_token.length }));
+    `));
+    assert.equal(result.length, 13000);
+    assert.doesNotMatch(readFileSync(item.log, "utf8"), /long-refresh-/);
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});
+
+test("truncated Keychain writes cannot be marked connected or discard legacy credentials", () => {
+  const item = fixture("geoffrey-keychain-truncated-");
+  try {
+    mkdirSync(item.store);
+    const registry = { accounts: [{ id: "legacy", provider: "google", email: "owner@example.test", client_id: "client", refresh_token: "long-refresh-".repeat(1000) }] };
+    const before = JSON.stringify(registry);
+    writeFileSync(join(item.store, "accounts.json"), before);
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
+      import { listAccounts } from ${JSON.stringify(storeModule)};
+      listAccounts();
+    `], { env: { ...item.env, GEOFFREY_FAKE_KEYCHAIN_TRUNCATE: "1" }, encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /round-trip completely/);
+    assert.equal(readFileSync(join(item.store, "accounts.json"), "utf8"), before);
+    assert.deepEqual(JSON.parse(readFileSync(item.keychain, "utf8")), {});
+    assert.doesNotMatch(result.stderr, /long-refresh-/);
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});
+
+test("failed registry removal restores even a malformed Keychain value", () => {
+  const item = fixture("geoffrey-keychain-remove-rollback-");
+  try {
+    const result = JSON.parse(run(item, `
+      import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+      import { upsertAccount, removeAccount, storePath } from ${JSON.stringify(storeModule)};
+      upsertAccount({ id: "work", provider: "google", email: "owner@example.test", client_id: "client", refresh_token: "old" });
+      const path = process.env.GEOFFREY_FAKE_KEYCHAIN;
+      const state = JSON.parse(readFileSync(path, "utf8"));
+      for (const key of Object.keys(state)) state[key] = "damaged";
+      writeFileSync(path, JSON.stringify(state));
+      mkdirSync(storePath() + ".tmp-" + process.pid);
+      let failed = false;
+      try { removeAccount("work"); } catch { failed = true; }
+      console.log(JSON.stringify({ failed, count: JSON.parse(readFileSync(storePath(), "utf8")).accounts.length, preserved: JSON.stringify(state) === readFileSync(path, "utf8") }));
+    `));
+    assert.deepEqual(result, { failed: true, count: 1, preserved: true });
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
 });

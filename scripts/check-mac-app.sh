@@ -139,7 +139,8 @@ if rg -F 'refresh_token' "$TEST_HOME/.geoffrey/migration-v1.json" >/dev/null; th
 fi
 ok "Terminal-era state is backed up and inventoried without exposing secrets"
 rg -F 'const KEYCHAIN_SERVICE = "com.geoffrey.desktop.oauth.v1"' "$ROOT/geoffrey-mcp/src/store.js" >/dev/null || fail "Account credentials must use the versioned macOS Keychain service."
-rg -F '"-w",' "$ROOT/geoffrey-mcp/src/store.js" >/dev/null || fail "Keychain writes must read credentials from stdin instead of command arguments."
+[ -x "$APP/Contents/Resources/GeoffreyEngine/geoffrey-mcp/bin/geoffrey-keychain" ] || fail "The app must bundle its full-length stdin Keychain writer."
+rg -F '], value);' "$ROOT/geoffrey-mcp/src/store.js" >/dev/null || fail "Keychain writes must use stdin instead of command arguments."
 rg -F 'Credential protected by macOS Keychain' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Connections must show the owner where account credentials are protected."
 ok "Account credentials migrate to macOS Keychain and remain visible as a repairable connection state"
 rg -F 'FirstRunSetupSheet()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Incomplete setup needs a native resumable guide."

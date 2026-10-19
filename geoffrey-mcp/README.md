@@ -81,3 +81,5 @@ users sign in through Microsoft's browser consent flow.
 This is a stdio server so it works locally today. Only the transport is
 throwaway — the account registry and provider code move to the hosted Cloudflare
 version unchanged.
+
+The desktop app bundles a native Keychain writer so full OAuth JSON travels through stdin without the security tool’s interactive-input length limit. Writes require an exact read-back match. Source checkouts use the helper from `./scripts/build-mac-app.sh`; without a helper they refuse credential writes. Reads and deletes continue through the system security tool. The optional `scripts/test-native-keychain.py` proof uses only uniquely named dummy items and disables Keychain dialogs; it is not part of default isolated checks.

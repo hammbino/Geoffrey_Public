@@ -128,6 +128,10 @@ for path in "${ENGINE_PATHS[@]}"; do
     "$ROOT/./$path" "$ENGINE/"
 done
 
+CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/geoffrey-clang-module-cache" \
+  "$SWIFTC" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library \
+  "$ROOT/app/GeoffreyKeychain.swift" -o "$ENGINE/geoffrey-mcp/bin/geoffrey-keychain" -framework Security
+
 "$ROOT/scripts/check-release-safety.sh" "$APP"
 if [ -n "${GEOFFREY_CODESIGN_IDENTITY:-}" ]; then
   codesign --force --deep --options runtime --timestamp --sign "$GEOFFREY_CODESIGN_IDENTITY" "$APP"

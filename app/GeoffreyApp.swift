@@ -3248,7 +3248,8 @@ final class GeoffreyModel: ObservableObject {
                     self.accountTestSucceededIDs.remove(account.id)
                     self.refresh()
                 } else {
-                    self.finishWithIssue(result.output)
+                    self.issueMessage = "Geoffrey could not remove this connection. Unlock your Mac and try again. If it still fails, keep the connection in place and update Geoffrey. Your mailbox and messages were not deleted."
+                    self.showingIssue = true
                 }
             }
         }

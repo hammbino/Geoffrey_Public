@@ -15,13 +15,18 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const DIR = join(homedir(), ".geoffrey");
 const FILE = join(DIR, "accounts.json");
 const LEGACY_BACKUP = join(DIR, "backups", "pre-desktop-v1", "accounts.json");
 const KEYCHAIN_SERVICE = "com.geoffrey.desktop.oauth.v1";
+const NATIVE_KEYCHAIN = fileURLToPath(new URL("../bin/geoffrey-keychain", import.meta.url));
+const DEVELOPMENT_KEYCHAIN = fileURLToPath(new URL("../../build/Geoffrey.app/Contents/Resources/GeoffreyEngine/geoffrey-mcp/bin/geoffrey-keychain", import.meta.url));
 const KEYCHAIN_COMMAND = process.env.GEOFFREY_KEYCHAIN_COMMAND || "/usr/bin/security";
+const KEYCHAIN_WRITE_COMMAND = process.env.GEOFFREY_KEYCHAIN_COMMAND
+  || [NATIVE_KEYCHAIN, DEVELOPMENT_KEYCHAIN].find((path) => existsSync(path));
 const SECRET_FIELDS = ["client_id", "client_secret", "refresh_token", "scope"];
 
 function keychainAccount(account) {
@@ -29,7 +34,11 @@ function keychainAccount(account) {
 }
 
 function runKeychain(parameters, input = undefined) {
-  const result = spawnSync(KEYCHAIN_COMMAND, parameters, {
+  const command = parameters[0] === "add-generic-password" ? KEYCHAIN_WRITE_COMMAND : KEYCHAIN_COMMAND;
+  if (!command) {
+    throw new Error("The Geoffrey Keychain helper is missing. Reinstall the current desktop build and try again.");
+  }
+  const result = spawnSync(command, parameters, {
     encoding: "utf8",
     input,
     stdio: ["pipe", "pipe", "pipe"],
@@ -45,7 +54,7 @@ function runKeychain(parameters, input = undefined) {
   return result;
 }
 
-function readCredential(account) {
+function readStoredCredential(account) {
   const result = runKeychain([
     "find-generic-password",
     "-s", KEYCHAIN_SERVICE,
@@ -54,8 +63,14 @@ function readCredential(account) {
   ]);
   if (result.status === 44) return null;
   if (result.status !== 0) throw new Error(`Geoffrey could not read the Keychain credential for "${account.id}". Reconnect this account.`);
+  return result.stdout.replace(/\r?\n$/, "");
+}
+
+function readCredential(account) {
+  const stored = readStoredCredential(account);
+  if (stored === null) return null;
   try {
-    const value = JSON.parse(result.stdout);
+    const value = JSON.parse(stored);
     if (value.schema_version !== 1 || value.id !== account.id || value.provider !== account.provider
         || typeof value.client_id !== "string" || typeof value.refresh_token !== "string") {
       throw new Error("invalid credential payload");
@@ -76,20 +91,21 @@ function writeCredential(account, credential) {
     refresh_token: credential.refresh_token,
     ...(credential.scope ? { scope: credential.scope } : {}),
   });
+  writeStoredCredential(account, value);
+}
+
+function writeStoredCredential(account, value) {
   const result = runKeychain([
-    "add-generic-password",
-    "-U",
+    "add-generic-password", "-U",
     "-s", KEYCHAIN_SERVICE,
     "-a", keychainAccount(account),
     "-l", `Geoffrey ${account.id} ${account.provider} OAuth`,
-    // With -w as the final option, macOS reads the password from stdin instead
-    // of exposing it in this process's command-line arguments.
     "-w",
-    // A new generic-password item asks for the value and a confirmation. Updates
-    // consume the first line and ignore the second, so the same non-argv input is
-    // safe for both create and replace.
-  ], value + "\n" + value + "\n");
+  ], value);
   if (result.status !== 0) throw new Error(`Geoffrey could not save the credential for "${account.id}" in macOS Keychain.`);
+  if (readStoredCredential(account) !== value) {
+    throw new Error("The Keychain credential did not round-trip completely. Nothing can be marked connected; reinstall Geoffrey and try again.");
+  }
 }
 
 function deleteCredential(account) {
@@ -168,7 +184,7 @@ function migrateLegacyRegistry(data) {
   let migrated;
   try {
     for (const account of legacy) {
-      const previous = readCredential(account);
+      const previous = readStoredCredential(account);
       rollback.push({ account, previous });
       writeCredential(account, credentialFrom(account));
     }
@@ -181,7 +197,7 @@ function migrateLegacyRegistry(data) {
   } catch (error) {
     for (const { account, previous } of rollback.reverse()) {
       try {
-        if (previous) writeCredential(account, previous);
+        if (previous !== null) writeStoredCredential(account, previous);
         else deleteCredential(account);
       } catch {
         // Preserve the original migration error. A repeated migration safely
@@ -259,18 +275,18 @@ export function upsertAccount(account) {
   const merged = { ...(previousAccount ?? {}), ...account };
   const credential = credentialFrom(merged);
   if (!credential) throw new Error(`No OAuth credential was provided for "${account.id}".`);
-  const previousCredential = previousAccount ? readCredential(previousAccount) : null;
+  const previousCredential = previousAccount ? readStoredCredential(previousAccount) : null;
   const nextMetadata = metadataFrom(merged);
 
-  writeCredential(nextMetadata, credential);
   try {
+    writeCredential(nextMetadata, credential);
     if (index >= 0) data.accounts[index] = nextMetadata;
     else data.accounts.push(nextMetadata);
     data.credential_storage_version = 1;
     atomicRegistry(FILE, data);
   } catch (error) {
     try {
-      if (previousCredential) writeCredential(previousAccount, previousCredential);
+      if (previousCredential !== null) writeStoredCredential(previousAccount, previousCredential);
       else deleteCredential(nextMetadata);
     } catch {
       // Keep the registry error as the primary failure; the next upsert uses -U.
@@ -288,14 +304,14 @@ export function removeAccount(id) {
   const index = data.accounts.findIndex((account) => account.id === id);
   if (index < 0) throw new Error(`Unknown account "${id}".`);
   const account = data.accounts[index];
-  const previousCredential = readCredential(account);
+  const previousCredential = readStoredCredential(account);
   deleteCredential(account);
   data.accounts.splice(index, 1);
   try {
     atomicRegistry(FILE, data);
   } catch (error) {
-    if (previousCredential) {
-      try { writeCredential(account, previousCredential); } catch { /* surface registry error */ }
+    if (previousCredential !== null) {
+      try { writeStoredCredential(account, previousCredential); } catch { /* surface registry error */ }
     }
     throw error;
   }
