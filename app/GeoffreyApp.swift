@@ -3724,12 +3724,12 @@ final class GeoffreyModel: ObservableObject {
             await MainActor.run {
                 self.isSigningIntoClaude = false
                 if result.status == 0 {
-                    self.issueMessage = "Claude is connected. Geoffrey is ready to use your Claude account."
+                    self.health["claude"] = "ready"
                     self.refresh()
                 } else {
                     self.issueMessage = "Claude sign-in did not finish. Try again when you are ready; no Geoffrey data was changed."
+                    self.showingIssue = true
                 }
-                self.showingIssue = true
             }
         }
     }
