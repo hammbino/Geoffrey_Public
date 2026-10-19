@@ -64,7 +64,7 @@ The archived Google OAuth configuration was confirmed to be an installed-app pub
 
 ## Phase 6: White-Glove UX — Pending
 
-- [x] Simplify email/calendar connection to direct Google or Microsoft sign-in, using verified email addresses and preserving existing aliases on reconnect. Live-provider acceptance and a refreshed test download remain pending.
+- [x] Simplify email/calendar connection to direct Google or Microsoft sign-in, using verified email addresses and preserving existing aliases on reconnect. A refreshed test.2 download is published; live-provider acceptance remains pending.
 
 - [x] Keep newly created local memory selected when GitHub backup fails and refresh setup after creation, including when another check is already running.
 - [x] Complete the native first-run setup guide without Terminal use, with saved progress and safe resume.
@@ -85,7 +85,7 @@ The archived Google OAuth configuration was confirmed to be an installed-app pub
 
 - [x] Implement an app-native signed updater with release notes, strict publisher verification, and rollback.
 - [x] Add a fail-closed, commit-bound release-gate report that requires owner-reviewed evidence for every Dustin criterion.
-- [x] Publish and verify a clean, explicitly unnotarized owner-test download for first-install testing.
+- [x] Publish and verify a clean, explicitly unnotarized owner-test download for first-install testing; test.2 refreshes account connection and memory setup.
 - [x] Record the real Gatekeeper-blocked first launch and add an early, secret-free production signing-identity check.
 - [ ] Resolve Developer Program enrollment/team access, install a Developer ID Application identity, and publish a notarized replacement for first-install acceptance.
 - [ ] Publish and exercise a Developer ID-signed, notarized update and rollback on a clean Mac.
