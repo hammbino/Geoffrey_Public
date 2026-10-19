@@ -14,7 +14,9 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { exec } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { credentialStoreName, upsertAccount } from "../src/store.js";
+import { credentialStoreName, listAccounts, upsertAccount } from "../src/store.js";
+
+import { resolveAccountIdentity } from "../src/account-identity.js";
 
 const PORT = 8731;
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -88,7 +90,7 @@ function waitForCode(expectedState, redirect) {
       const code = url.searchParams.get("code");
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(code
-        ? "<h2>Connected.</h2><p>Close this tab and return to the terminal.</p>"
+        ? "<h2>Connected.</h2><p>Close this tab and return to Geoffrey.</p>"
         : `<h2>Authorization failed.</h2><pre>${url.search}</pre>`);
       server.close();
       if (!code) return finish(reject, new Error(`No authorization code: ${url.search}`));
@@ -170,8 +172,9 @@ if (providerName === "google") {
   if (!existsSync(DEFAULT_MICROSOFT_OAUTH)) console.log(`Using Microsoft public client ${client_id}`);
 }
 
-const id = arg("id") ?? (await ask("Private label for this inbox, not the email address (e.g. work, personal, billing): "));
-const purpose = arg("purpose") ?? (await ask("What do you mainly use this inbox for? (e.g. client work, personal, invoices): "));
+const autoLabel = process.argv.includes("--auto-label");
+const requestedId = arg("id") ?? (autoLabel ? undefined : await ask("Private label for this inbox, not the email address (e.g. work, personal, billing): "));
+const requestedPurpose = arg("purpose") ?? (autoLabel ? undefined : await ask("What do you mainly use this inbox for? (e.g. client work, personal, invoices): "));
 
 // --- OAuth --------------------------------------------------------------------
 
@@ -227,6 +230,14 @@ if (!tokens.refresh_token) {
 // Confirm the grant actually reaches the API. A token that refreshes but cannot
 // read mail is a silent failure that would surface days later.
 const who = await cfg.identify(tokens.access_token);
+const { id, purpose } = resolveAccountIdentity({
+  provider: providerName,
+  email: who.email,
+  accounts: listAccounts(),
+  id: requestedId,
+  purpose: requestedPurpose,
+  expectedEmail: arg("expected-email"),
+});
 
 upsertAccount({
   id,

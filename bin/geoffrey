@@ -861,11 +861,15 @@ app_add_account() {
   provider=""
   id=""
   purpose=""
+  auto_label=false
+  expected_email=""
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --provider) provider="${2:-}"; shift 2 ;;
       --id) id="${2:-}"; shift 2 ;;
+      --auto-label) auto_label=true; shift ;;
+      --expected-email) expected_email="${2:-}"; shift 2 ;;
       --purpose) purpose="${2:-}"; shift 2 ;;
       *) say "Unknown account option: $1"; return 2 ;;
     esac
@@ -875,10 +879,9 @@ app_add_account() {
     google|microsoft) ;;
     *) say "Choose Gmail or Outlook to continue."; return 2 ;;
   esac
-  if [ -z "$id" ]; then
+  if [ -z "$id" ] && [ "$auto_label" != true ]; then
     say "Give this account a short name, such as Work or Personal."; return 2
   fi
-  if [ -z "$purpose" ]; then purpose="General"; fi
 
   ensure_store
   ensure_node_deps
@@ -890,7 +893,10 @@ app_add_account() {
   fi
 
   cd "$MCP_DIR"
-  exec npm run add-account -- --provider "$provider" --id "$id" --purpose "$purpose"
+  if [ "$auto_label" = true ]; then
+    exec npm run add-account -- --provider "$provider" --auto-label
+  fi
+  exec npm run add-account -- --provider "$provider" --id "$id" --purpose "$purpose" --expected-email "$expected_email"
 }
 
 app_accounts() {

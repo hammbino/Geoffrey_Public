@@ -17,7 +17,7 @@ This download is version **0.14.0 (16)** for **Apple Silicon / arm64** and requi
 
 ## Test-build boundary
 
-This is an ad-hoc-signed development build. It is **not Developer ID signed or Apple notarized**; macOS has blocked the tested launch. The owner supplied the “Apple could not verify” dialog as failure evidence; first-run setup and connected-account testing have not started through this download. This is not proof of production Gatekeeper acceptance and is not a Dustin-ready release.
+This is an ad-hoc-signed development build. It is **not Developer ID signed or Apple notarized**; macOS has blocked the tested launch. The owner supplied the “Apple could not verify” dialog as failure evidence; the owner subsequently approved this app manually and reached account setup. Connected-account acceptance remains pending; manual approval is not normal Gatekeeper acceptance. This is not proof of production Gatekeeper acceptance and is not a Dustin-ready release.
 
 The prerelease is not marked as the latest production release and publishes no signed `update.json`. Geoffrey’s production install, update, rollback, and Dustin acceptance gates remain pending.
 
@@ -33,8 +33,12 @@ The app passed release-payload checks and strict ad-hoc signature verification a
 
 The package excludes owner accounts, private memory, owner OAuth configuration, recipient screenshots, Git metadata, and private release evidence.
 
-## Next prerequisite
+## Normal-install prerequisite
 
 The checked Mac currently has zero valid signing identities. The owner’s Apple Developer account showed a **Join the Apple Developer Program / Enroll today** prompt on October 18, 2026. Enrollment or an existing eligible developer team must be resolved before issuing the Developer ID Application signing identity and setting up notarization. A free Apple developer login is not evidence that these distribution capabilities are available.
 
 Run `./scripts/check-mac-signing.sh` to check local Developer ID Application identity availability without printing certificate names. Its success establishes only certificate availability, not notarization or Gatekeeper acceptance. See [signed release setup](desktop-updates.md).
+
+## Account-flow revision
+
+The owner reached the account form after manually approving launch. Source now simplifies that form to direct Google/Microsoft sign-in without label or purpose questions. This published test.1 asset is unchanged and still contains the earlier form; a refreshed build is needed to test the new flow. Apple Developer enrollment is deferred by the owner; manual approval can be used for local testing while signed distribution remains pending.

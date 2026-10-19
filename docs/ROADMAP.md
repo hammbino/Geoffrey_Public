@@ -64,6 +64,8 @@ The archived Google OAuth configuration was confirmed to be an installed-app pub
 
 ## Phase 6: White-Glove UX — Pending
 
+- [x] Simplify email/calendar connection to direct Google or Microsoft sign-in, using verified email addresses and preserving existing aliases on reconnect. Live-provider acceptance and a refreshed test download remain pending.
+
 - [x] Complete the native first-run setup guide without Terminal use, with saved progress and safe resume.
 - [ ] Validate the full first-run sequence with clean-Mac and pilot-account acceptance.
 - [x] Keep automation definition and approval inside the Mac app with plain-language safety boundaries.

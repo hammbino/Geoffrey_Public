@@ -1996,11 +1996,6 @@ struct AccountConnectionSheet: View {
     @EnvironmentObject private var model: GeoffreyModel
     @Environment(\.dismiss) private var dismiss
     @State private var provider = "google"
-    @State private var label = ""
-    @State private var purpose = ""
-
-    private var cleanLabel: String { label.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var cleanPurpose: String { purpose.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isReconnect: Bool { model.accountConnectionSeed != nil }
 
     var body: some View {
@@ -2037,43 +2032,26 @@ struct AccountConnectionSheet: View {
                     }
                 }
             } else {
-                Text(isReconnect ? "Reconnect email and calendar" : "Add an email and calendar")
+                Text(isReconnect ? "Reconnect account" : "Connect an account")
                     .font(.title2.weight(.semibold))
                 Text(isReconnect
-                    ? "Reconnect this account once to let Geoffrey read its calendar again. Geoffrey will not send or change anything."
-                    : "Connect one account at a time. Geoffrey can read email and calendar details to prepare your briefing, but it will always ask before sending or changing anything.")
+                    ? "Sign in to \(model.accountConnectionSeed?.email ?? "your account") again. Your saved account name will stay the same."
+                    : "Choose your provider to connect email and calendar. Geoffrey will use your email address as the account name.")
                     .foregroundStyle(.secondary)
 
-                Picker("Account type", selection: $provider) {
-                    Text("Gmail and Google Calendar").tag("google")
-                    Text("Outlook and Microsoft Calendar").tag("microsoft")
+                if isReconnect {
+                    Button("Sign in again") { connect(provider) }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    Button("Continue with Google") { connect("google") }
+                        .buttonStyle(.borderedProminent)
+                    Button("Continue with Microsoft") { connect("microsoft") }
+                        .buttonStyle(.bordered)
                 }
-                .pickerStyle(.radioGroup)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("What should Geoffrey call this account?").font(.headline)
-                    TextField("For example: Work, Personal, or Billing", text: $label)
-                        .textFieldStyle(.roundedBorder)
-                    Text("This is only a private label inside Geoffrey. It does not change your email address.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("What is this account mainly for?").font(.headline)
-                    TextField("For example: Clients, personal mail, or invoices", text: $purpose)
-                        .textFieldStyle(.roundedBorder)
-                }
-
-                HStack {
-                    Button("Cancel") { dismiss() }
-                    Spacer()
-                    Button(isReconnect ? "Reconnect securely" : "Continue to secure sign-in") {
-                        model.beginAccountConnection(provider: provider, label: cleanLabel, purpose: cleanPurpose)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(cleanLabel.isEmpty)
-                }
+                Text("Geoffrey will ask before sending email or changing anything.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Cancel") { dismiss() }
             }
         }
         .padding(24)
@@ -2081,10 +2059,13 @@ struct AccountConnectionSheet: View {
         .onAppear {
             guard let account = model.accountConnectionSeed else { return }
             provider = account.provider
-            label = account.id
-            purpose = account.purpose
         }
         .onDisappear { model.refresh() }
+    }
+
+    private func connect(_ selectedProvider: String) {
+        provider = selectedProvider
+        model.beginAccountConnection(provider: selectedProvider)
     }
 }
 
@@ -3196,16 +3177,20 @@ final class GeoffreyModel: ObservableObject {
         }
     }
 
-    func beginAccountConnection(provider: String, label: String, purpose: String) {
+    func beginAccountConnection(provider: String) {
         guard !isConnectingAccount else { return }
-        let cleanLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanLabel.isEmpty else { return }
 
         let process = Process()
         let output = Pipe()
         let error = Pipe()
         process.executableURL = URL(fileURLWithPath: geoffreyHome + "/bin/geoffrey")
-        process.arguments = ["app-add-account", "--provider", provider, "--id", cleanLabel, "--purpose", purpose.isEmpty ? "General" : purpose]
+        var arguments = ["app-add-account", "--provider", provider]
+        if let account = accountConnectionSeed {
+            arguments += ["--id", account.id, "--purpose", account.purpose, "--expected-email", account.email]
+        } else {
+            arguments += ["--auto-label"]
+        }
+        process.arguments = arguments
         process.currentDirectoryURL = URL(fileURLWithPath: geoffreyHome)
         process.standardOutput = output
         process.standardError = error
@@ -3228,7 +3213,7 @@ final class GeoffreyModel: ObservableObject {
                     self.isConnectingAccount = false
                     self.accountConnectionFailed = process.terminationStatus != 0
                     if process.terminationStatus == 0 {
-                        self.accountConnectionOutcome = "\(cleanLabel) is connected. Its email and read-only calendar will be available in Geoffrey shortly."
+                        self.accountConnectionOutcome = "Your email and calendar are connected. You can find this account in Connections."
                         self.refresh()
                     } else {
                         self.accountConnectionOutcome = Self.connectionFailureMessage(message)

@@ -6,8 +6,10 @@ The current effort is the native Mac release for Dustin. The terminal interface 
 
 ## Proven Now
 
-- Native Mac app builds as Geoffrey `0.14.0` (build 16).
-- A clean [owner/pilot test download](desktop-test-download.md) is published as `v0.14.0-desktop-test.1` for Apple Silicon Macs on macOS 14+. Its public unauthenticated download matches the verified app ZIP. It remains ad-hoc signed and unnotarized, is not marked latest, publishes no production update feed, and is not Dustin-ready. The owner’s real first-launch attempt is now confirmed blocked by Gatekeeper; onboarding and account testing through this download have not started.
+- Account connection now starts with **Continue with Google** or **Continue with Microsoft**, which opens provider sign-in immediately. New accounts use the provider-verified email address without requiring a label or purpose. Existing aliases and purposes survive reconnect, and a different signed-in mailbox cannot replace the original account. Local identity tests and a native build cover the change; live provider acceptance remains pending. The published test.1 download still contains the earlier form.
+
+- Native Mac app builds as Geoffrey `0.14.0` (build 17).
+- A clean [owner/pilot test download](desktop-test-download.md) is published as `v0.14.0-desktop-test.1` for Apple Silicon Macs on macOS 14+. Its public unauthenticated download matches the verified app ZIP. It remains ad-hoc signed and unnotarized, is not marked latest, publishes no production update feed, and is not Dustin-ready. The owner’s real first-launch attempt is now confirmed blocked by Gatekeeper; the owner subsequently approved it manually and reached account setup. That does not establish normal Gatekeeper acceptance.
 - Production release builds now fail before app rebuild/output creation when the requested signing identity is missing, ad-hoc, the wrong certificate type, malformed, revoked, or unmatched. Secret-free identity preflight checks and isolated regression tests pass. The checked Mac has zero valid identities; the owner’s Apple account shows an enrollment prompt.
 - Geoffrey's revised illustrated identity is packaged in native Mac icon sizes and appears in the sidebar as “Geoffrey — Your AI chief of staff”; the original portrait asset remains preserved.
 - The Memory screen can build and refresh a versioned, secret-free recovery map covering approved private-memory skills, email/calendar connection definitions, Claude MCP/plugin definitions, hashes, Git repository metadata, and explicit reconnect requirements.
