@@ -5,7 +5,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 printf '== Shell syntax\n'
-bash -n bin/geoffrey scripts/*.sh
+for file in bin/geoffrey scripts/*.sh; do
+  bash -n "$file"
+done
 
 printf '\n== Connector syntax and behavioral tests\n'
 for file in geoffrey-mcp/src/*.js geoffrey-mcp/src/providers/*.js geoffrey-mcp/bin/*.js; do

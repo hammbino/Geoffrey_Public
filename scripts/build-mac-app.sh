@@ -47,7 +47,7 @@ done
 build_app() {
   CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/geoffrey-clang-module-cache" \
     "$1" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library \
-    "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" "$SETUP_SOURCE" "$CONNECTIONS_SOURCE" "$MEMORY_SOURCE" "$AUTOMATIONS_SOURCE" "$UPDATER_SOURCE" \
+    "$ROOT/app/GeoffreyCommand.swift" "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" "$SETUP_SOURCE" "$CONNECTIONS_SOURCE" "$MEMORY_SOURCE" "$AUTOMATIONS_SOURCE" "$UPDATER_SOURCE" \
     -o "$APP/Contents/MacOS/Geoffrey" -framework SwiftUI -framework AppKit -framework Security
 }
 
@@ -132,10 +132,12 @@ CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/geoffrey-clang-module-cache" \
   "$SWIFTC" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library \
   "$ROOT/app/GeoffreyKeychain.swift" -o "$ENGINE/geoffrey-mcp/bin/geoffrey-keychain" -framework Security
 
+python3 "$ROOT/scripts/bundle-mac-runtime.py" "$APP"
+
 "$ROOT/scripts/check-release-safety.sh" "$APP"
 if [ -n "${GEOFFREY_CODESIGN_IDENTITY:-}" ]; then
-  codesign --force --deep --options runtime --timestamp --sign "$GEOFFREY_CODESIGN_IDENTITY" "$APP"
+  codesign --force --deep --preserve-metadata=entitlements --options runtime --timestamp --sign "$GEOFFREY_CODESIGN_IDENTITY" "$APP"
 else
-  codesign --force --deep --sign - "$APP"
+  codesign --force --deep --preserve-metadata=entitlements --sign - "$APP"
 fi
 echo "Built $APP"

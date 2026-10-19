@@ -51,7 +51,7 @@ function credentialReason(path, content) {
   }
   if (/-----BEGIN [^-]*PRIVATE KEY-----/i.test(content)) return "a private key";
   if (/\b(?:sk-ant-|gh[pousr]_|ya29\.)[A-Za-z0-9._-]+\b/i.test(content)) return "an access token";
-  if (/\bBearer\s+[^\s"']+/i.test(content)) return "a bearer credential";
+  if (/\bBearer\s+[A-Za-z0-9._~+/-]{12,}/i.test(content)) return "a bearer credential";
   if (/\b(?:access_token|refresh_token|client_secret|api_key|password)\s*[:=]\s*["']?[^\s"']+/i.test(content)) {
     return "a named credential";
   }
@@ -176,6 +176,10 @@ if (!memoryRoot || !existsSync(join(memoryRoot, "memory")) || !existsSync(join(m
   let stored = null;
   try { stored = JSON.parse(readFileSync(statusPath, "utf8")); } catch { /* First status check. */ }
   const fallback = currentStatus(memoryRoot);
+  if (git(memoryRoot, ["remote", "get-url", "origin"]).status !== 0) {
+    stored = { state: "local_only", message: "Memory is saved on this Mac. GitHub backup is optional.",
+      recovery: "Choose Set up GitHub backup in Memory when you are ready." };
+  }
   const status = stored && typeof stored === "object" ? {
     ...fallback,
     ...stored,
@@ -228,7 +232,7 @@ if (!memoryRoot || !existsSync(join(memoryRoot, "memory")) || !existsSync(join(m
         finish(memoryRoot, {
           state: "local_only",
           message: "Memory is saved on this Mac, but no GitHub backup is connected.",
-          recovery: "Connect GitHub backup in Geoffrey, then choose Sync now.",
+          recovery: "Choose Set up GitHub backup in Memory. You can keep using Geoffrey without backup.",
         });
       } else {
         const fetched = git(memoryRoot, ["fetch", "--prune", "origin"], { timeout: 90_000 });

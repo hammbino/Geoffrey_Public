@@ -2,7 +2,9 @@ import AppKit
 import Foundation
 import SwiftUI
 
+#if !GEOFFREY_MODEL_TESTS
 @main
+#endif
 struct GeoffreyApp: App {
     @StateObject private var model = GeoffreyModel()
 
@@ -101,9 +103,9 @@ struct GeoffreyRootView: View {
             .navigationTitle("Geoffrey")
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 8) {
-                    Circle().fill(model.isReady ? Color.green : Color.orange).frame(width: 8, height: 8)
+                    Circle().fill(model.sidebarStatus == .ready ? Color.green : Color.orange).frame(width: 8, height: 8)
                         .accessibilityHidden(true)
-                    Text(model.setupStatusIssue != nil ? "Setup status needs a check" : (model.health.isEmpty ? "Checking setup" : (model.isReady ? "Ready to help" : "Finishing setup")))
+                    Text(model.sidebarStatus.rawValue)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -1596,6 +1598,10 @@ struct MemoryView: View {
                                 ProgressView().controlSize(.small).accessibilityHidden(true)
                                 Text("Backing up…").font(.callout)
                             }
+                            if ["local_only", "not_configured", "not_checked"].contains(model.memorySyncStatus.state) {
+                                Button("Set up GitHub backup") { model.setupBackup() }
+                                    .disabled(model.isSyncingMemory)
+                            }
                             Button("Sync now") { model.syncMemory() }
                                 .buttonStyle(.borderedProminent)
                                 .disabled(model.isSyncingMemory || model.isUpdatingPortableState || model.isRefreshingAccounts)
@@ -1679,7 +1685,7 @@ struct MemorySetupOptions: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Start fresh", systemImage: "plus.circle.fill").font(.headline)
-                    Text("Create a new private memory and GitHub backup for this Geoffrey setup.")
+                    Text("Create private memory on this Mac. You can add GitHub backup later.")
                         .font(.callout).foregroundStyle(.secondary)
                     Button("Create new memory") { model.presentMemorySetup() }
                         .buttonStyle(.bordered)
@@ -1839,8 +1845,8 @@ struct FirstRunSetupSheet: View {
                 Text(progress.isComplete ? "Geoffrey is ready" : "Let’s get Geoffrey ready")
                     .font(.title2.weight(.semibold))
                 Text(progress.isComplete
-                    ? "Claude, your first account, private backup, and memory are ready."
-                    : "Connect Claude, one inbox, and private memory. You can stop at any time. Completed steps stay saved, and Continue setup will bring you back here.")
+                    ? "Claude, your accounts, and local memory are ready. Add GitHub backup anytime in Memory."
+                    : "Connect Claude, your inboxes, and private memory. You can stop at any time. Completed steps stay saved, and Continue setup will bring you back here.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -2008,6 +2014,11 @@ struct AccountConnectionSheet: View {
                     .font(.title2.weight(.semibold))
                 Text(outcome).foregroundStyle(.secondary)
                 HStack {
+                    Button(model.accountConnectionFailed ? "Try again" : "Add another account") {
+                        if !model.accountConnectionFailed { model.accountConnectionSeed = nil }
+                        model.accountConnectionOutcome = nil
+                        model.accountConnectionFailed = false
+                    }
                     Spacer()
                     Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
                 }
@@ -2036,7 +2047,7 @@ struct AccountConnectionSheet: View {
                     .font(.title2.weight(.semibold))
                 Text(isReconnect
                     ? "Sign in to \(model.accountConnectionSeed?.email ?? "your account") again. Your saved account name will stay the same."
-                    : "Choose your provider to connect email and calendar. Geoffrey will use your email address as the account name.")
+                    : "Connect as many Google and Microsoft accounts as you need. Geoffrey uses each email address as its account name.")
                     .foregroundStyle(.secondary)
 
                 if isReconnect {
@@ -2074,18 +2085,15 @@ struct MemorySetupSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var owner = ""
     @State private var business = ""
-    @State private var github = ""
 
     private var canCreate: Bool {
-        !owner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !github.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        model.health["github"] == "ready"
+        !owner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Create your private memory").font(.title2.weight(.semibold))
-            Text("This is Geoffrey’s private, GitHub-backed record of your preferences, projects, and feedback. It is never shared with other Geoffrey users.").foregroundStyle(.secondary)
+            Text("Your preferences, projects, and feedback stay on this Mac. You can connect a private GitHub backup later in Memory.").foregroundStyle(.secondary)
             if let outcome = model.memorySetupOutcome {
                 Label(outcome, systemImage: model.hasMemory ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                     .foregroundStyle(model.hasMemory ? Color.green : Color.orange)
@@ -2099,17 +2107,11 @@ struct MemorySetupSheet: View {
                     Text("Business or team").font(.headline)
                     TextField("For example: JLH Global (optional)", text: $business).textFieldStyle(.roundedBorder)
                 }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("GitHub username").font(.headline)
-                    TextField("For example: jeffreyhammond", text: $github).textFieldStyle(.roundedBorder)
-                    Text(model.health["github"] == "ready" ? "GitHub is connected. Geoffrey will create a private backup." : "Connect GitHub in Settings before creating private memory.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
                 HStack {
                     Button("Cancel") { dismiss() }
                     Spacer()
                     if model.isCreatingMemory { ProgressView().controlSize(.small) }
-                    Button("Create private memory") { model.createMemory(owner: owner, business: business, github: github) }
+                    Button("Create private memory") { model.createMemory(owner: owner, business: business) }
                         .buttonStyle(.borderedProminent).disabled(!canCreate || model.isCreatingMemory)
                 }
             }
@@ -2516,10 +2518,14 @@ final class GeoffreyModel: ObservableObject {
     @Published private var failedTask: GeoffreyTask?
 
     let geoffreyHome: String
-    private var accountConnectionProcess: Process?
+    private let restoresSession: Bool
+    private var accountConnectionProcess: GeoffreyCommand?
     var accountConnectionSeed: GeoffreyAccount?
     private var hasOfferedFirstRunSetup = false
     private var refreshRequested = false
+    private var didMigrate = false
+    private var isRefreshingDetails = false
+    private var memoryOperationVersion = 0
     private var pendingFirstRunTransition: FirstRunTransition?
 
     enum FirstRunTransition {
@@ -2527,8 +2533,14 @@ final class GeoffreyModel: ObservableObject {
         case restoreMemory
     }
 
-    init() {
-        geoffreyHome = Self.resolvedGeoffreyHome()
+    init(engine: String? = nil, restoreSession: Bool = true) {
+        restoresSession = restoreSession
+        geoffreyHome = engine ?? Self.resolvedGeoffreyHome()
+        if !restoreSession {
+            modelChoice = "automatic"
+            customModel = ""
+            return
+        }
         modelChoice = UserDefaults.standard.string(forKey: "geoffreyModelChoice") ?? "automatic"
         customModel = UserDefaults.standard.string(forKey: "geoffreyCustomModel") ?? ""
         conversation = Self.loadConversation()
@@ -2645,9 +2657,19 @@ final class GeoffreyModel: ObservableObject {
     var canRetryLastRequest: Bool { failedTask != nil && canTalk && !isRunning }
     var hasGeoffreyEngine: Bool { FileManager.default.isExecutableFile(atPath: geoffreyHome + "/bin/geoffrey") }
     var setupProgress: GeoffreySetupProgress {
-        GeoffreySetupProgress.make(health: health, accountCount: accounts.count, hasEngine: hasGeoffreyEngine)
+        GeoffreySetupProgress.make(health: health, accountCount: accounts.filter(\.isHealthy).count, hasEngine: hasGeoffreyEngine)
     }
     var isReady: Bool { setupProgress.isComplete }
+    var sidebarStatus: GeoffreySidebarStatus {
+        GeoffreySidebarStatus.resolve(
+            hasHealth: !health.isEmpty,
+            setupComplete: setupProgress.isComplete,
+            isRefreshing: isRefreshingAccounts,
+            setupCheckFailed: setupStatusIssue != nil,
+            connectionCheckFailed: connectionRefreshIssue != nil,
+            accountsNeedingRepair: accounts.filter { !$0.isHealthy }.count
+        )
+    }
     var memoryDetail: String { hasMemory ? health["memory"]! : "Not created yet" }
     var defaultMemoryRestoreTarget: String {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Geoffrey").path
@@ -2701,9 +2723,9 @@ final class GeoffreyModel: ObservableObject {
         guard !isSyncingMemory, !isUpdatingPortableState else { return }
         refreshRequested = false
         isRefreshingAccounts = true
+        let needsMigration = !didMigrate
         Task.detached { [geoffreyHome] in
-            _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-migrate"])
-            _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automation-queue"])
+            let migration = needsMigration ? Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-migrate"], timeout: 15) : nil
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-status"], timeout: 30)
             let entries = GeoffreyReadinessRefresh.health(output: result.output, status: result.status)
             let accountResult = Self.run(
@@ -2714,19 +2736,13 @@ final class GeoffreyModel: ObservableObject {
             let accounts: [GeoffreyAccount]? = accountResult.status == 0
                 ? try? JSONDecoder().decode([GeoffreyAccount].self, from: Data(accountResult.output.utf8))
                 : nil
-            let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"], timeout: 30)
-            let capabilities = GeoffreyReadinessRefresh.capabilities(output: capabilityResult.output, status: capabilityResult.status)
-            let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"], timeout: 30)
-            let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync-status"], timeout: 30)
-            let memorySyncStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyMemorySyncStatus.self, output: syncResult.output, status: syncResult.status)
-            let portableResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state"], timeout: 30)
-            let portableStateStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyPortableStateStatus.self, output: portableResult.output, status: portableResult.status)
             await MainActor.run {
                 let shouldOfferFirstRun = entries != nil && accounts != nil && !GeoffreySetupProgress.make(
                     health: entries ?? self.health,
-                    accountCount: accounts?.count ?? self.accounts.count,
+                    accountCount: accounts?.filter(\.isHealthy).count ?? self.accounts.filter(\.isHealthy).count,
                     hasEngine: self.hasGeoffreyEngine
                 ).isComplete
+                if migration?.status == 0 { self.didMigrate = true }
                 if let entries { self.health = entries }
                 self.setupStatusIssue = entries == nil
                     ? GeoffreyReadinessRefresh.issue(status: result.status, subject: "setup status") : nil
@@ -2737,6 +2753,36 @@ final class GeoffreyModel: ObservableObject {
                 )
                 self.accounts = accountRefresh.value
                 self.connectionRefreshIssue = accountRefresh.issue
+                self.isRefreshingAccounts = false
+                if shouldOfferFirstRun && !self.hasOfferedFirstRunSetup {
+                    self.hasOfferedFirstRunSetup = true
+                    self.showingFirstRunSetup = true
+                }
+                if let migration, migration.status != 0 {
+                    self.setupStatusIssue = "Geoffrey could not preserve the previous setup yet. Try refreshing again."
+                }
+                if self.refreshRequested { self.refresh() }
+                else { self.refreshDetails() }
+            }
+        }
+        if restoresSession { scheduleAutomaticUpdateCheck() }
+    }
+
+    // Optional inventories never hold up setup/account results.
+    private func refreshDetails() {
+        guard hasMemory, !isRefreshingDetails, !isSyncingMemory, !isUpdatingPortableState else { return }
+        isRefreshingDetails = true
+        let memoryVersion = memoryOperationVersion
+        Task.detached { [geoffreyHome] in
+            _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automation-queue"], timeout: 15)
+            let capabilityResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-capabilities"], timeout: 30)
+            let capabilities = GeoffreyReadinessRefresh.capabilities(output: capabilityResult.output, status: capabilityResult.status)
+            let automationResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"], timeout: 30)
+            let syncResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync-status"], timeout: 30)
+            let memorySyncStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyMemorySyncStatus.self, output: syncResult.output, status: syncResult.status)
+            let portableResult = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state"], timeout: 30)
+            let portableStateStatus = GeoffreyMemoryStatusRefresh.decode(GeoffreyPortableStateStatus.self, output: portableResult.output, status: portableResult.status)
+            await MainActor.run {
                 if let capabilities {
                     self.capabilities = capabilities
                     self.hasLoadedCapabilities = true
@@ -2751,21 +2797,17 @@ final class GeoffreyModel: ObservableObject {
                 self.automationInventory = automationRefresh.inventory
                 self.automationRefreshIssue = automationRefresh.issue
                 if automationRefresh.issue == nil { self.hasLoadedAutomations = true }
-                if let memorySyncStatus { self.memorySyncStatus = memorySyncStatus }
-                self.memoryStatusIssue = memorySyncStatus == nil
-                    ? GeoffreyMemoryStatusRefresh.issue(status: syncResult.status, subject: "the backup status") : nil
-                if let portableStateStatus { self.portableStateStatus = portableStateStatus }
-                self.portableStatusIssue = portableStateStatus == nil
-                    ? GeoffreyMemoryStatusRefresh.issue(status: portableResult.status, subject: "the recovery map") : nil
-                self.isRefreshingAccounts = false
-                if shouldOfferFirstRun && !self.hasOfferedFirstRunSetup {
-                    self.hasOfferedFirstRunSetup = true
-                    self.showingFirstRunSetup = true
+                if self.memoryOperationVersion == memoryVersion && !self.isSyncingMemory && !self.isUpdatingPortableState {
+                    if let memorySyncStatus { self.memorySyncStatus = memorySyncStatus }
+                    self.memoryStatusIssue = memorySyncStatus == nil
+                        ? GeoffreyMemoryStatusRefresh.issue(status: syncResult.status, subject: "the backup status") : nil
+                    if let portableStateStatus { self.portableStateStatus = portableStateStatus }
+                    self.portableStatusIssue = portableStateStatus == nil
+                        ? GeoffreyMemoryStatusRefresh.issue(status: portableResult.status, subject: "the recovery map") : nil
                 }
-                if self.refreshRequested { self.refresh() }
+                self.isRefreshingDetails = false
             }
         }
-        scheduleAutomaticUpdateCheck()
     }
 
     func run(task: GeoffreyTask, repeatingOwnerMessage: Bool = true) {
@@ -2870,9 +2912,7 @@ final class GeoffreyModel: ObservableObject {
         }
         process.standardOutput = output
         process.standardError = output
-        var environment = ProcessInfo.processInfo.environment
-        environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        process.environment = environment
+        process.environment = GeoffreyCommand.environment(engine: geoffreyHome)
 
         do {
             try process.run()
@@ -3187,54 +3227,35 @@ final class GeoffreyModel: ObservableObject {
     func beginAccountConnection(provider: String) {
         guard !isConnectingAccount else { return }
 
-        let process = Process()
-        let output = Pipe()
-        let error = Pipe()
-        process.executableURL = URL(fileURLWithPath: geoffreyHome + "/bin/geoffrey")
+        let command = GeoffreyCommand()
         var arguments = ["app-add-account", "--provider", provider]
         if let account = accountConnectionSeed {
             arguments += ["--id", account.id, "--purpose", account.purpose, "--expected-email", account.email]
         } else {
             arguments += ["--auto-label"]
         }
-        process.arguments = arguments
-        process.currentDirectoryURL = URL(fileURLWithPath: geoffreyHome)
-        process.standardOutput = output
-        process.standardError = error
-        var environment = ProcessInfo.processInfo.environment
-        environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        process.environment = environment
-
-        do {
-            try process.run()
-            accountConnectionProcess = process
-            isConnectingAccount = true
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                process.waitUntilExit()
-                let standard = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-                let errors = String(data: error.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-                let message = (standard.isEmpty ? errors : standard).trimmingCharacters(in: .whitespacesAndNewlines)
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.accountConnectionProcess = nil
-                    self.isConnectingAccount = false
-                    self.accountConnectionFailed = process.terminationStatus != 0
-                    if process.terminationStatus == 0 {
-                        self.accountConnectionOutcome = "Your email and calendar are connected. You can find this account in Connections."
-                        self.refresh()
-                    } else {
-                        self.accountConnectionOutcome = Self.connectionFailureMessage(message)
-                    }
+        accountConnectionProcess = command
+        isConnectingAccount = true
+        Task.detached { [geoffreyHome, arguments] in
+            let result = command.run(executable: geoffreyHome + "/bin/geoffrey", arguments: arguments,
+                workingDirectory: geoffreyHome, environment: GeoffreyCommand.environment(engine: geoffreyHome), timeout: 300)
+            await MainActor.run {
+                guard self.accountConnectionProcess === command else { return }
+                self.accountConnectionProcess = nil
+                self.isConnectingAccount = false
+                self.accountConnectionFailed = result.status != 0
+                if result.status == 0 {
+                    self.accountConnectionOutcome = "Your email and calendar are connected. You can find this account in Connections."
+                    self.refresh()
+                } else {
+                    self.accountConnectionOutcome = Self.connectionFailureMessage(result.output + result.standardError)
                 }
             }
-        } catch {
-            accountConnectionFailed = true
-            accountConnectionOutcome = "Geoffrey could not start the secure sign-in. Please try again."
         }
     }
 
     func cancelAccountConnection() {
-        accountConnectionProcess?.terminate()
+        accountConnectionProcess?.cancel()
         accountConnectionProcess = nil
         isConnectingAccount = false
     }
@@ -3269,6 +3290,7 @@ final class GeoffreyModel: ObservableObject {
 
     func restoreMemory(repository: String, target: String) {
         guard !isRestoringMemory else { return }
+        memoryOperationVersion += 1
         isRestoringMemory = true
         memoryRestoreResponse = nil
         Task.detached { [geoffreyHome] in
@@ -3447,26 +3469,22 @@ final class GeoffreyModel: ObservableObject {
         }
     }
 
-    func createMemory(owner: String, business: String, github: String) {
+    func createMemory(owner: String, business: String) {
         let cleanOwner = owner.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanBusiness = business.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanGitHub = github.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanOwner.isEmpty, !cleanGitHub.isEmpty else { return }
-        guard health["github"] == "ready" else {
-            memorySetupOutcome = "Sign in to GitHub first, then return here to create your private backup."
-            return
-        }
+        guard !cleanOwner.isEmpty else { return }
+        memoryOperationVersion += 1
         isCreatingMemory = true
         memorySetupOutcome = nil
         Task.detached { [geoffreyHome] in
-            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["memory", "--name", cleanOwner, "--business", cleanBusiness.isEmpty ? "Personal" : cleanBusiness, "--github", cleanGitHub, "--push"])
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["memory", "--name", cleanOwner, "--business", cleanBusiness.isEmpty ? "Personal" : cleanBusiness, "--local"])
             let status = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-status"], timeout: 30)
             let memoryPath = GeoffreyReadinessRefresh.health(output: status.output, status: status.status)?["memory"]
             await MainActor.run {
                 self.isCreatingMemory = false
                 if let memoryPath, memoryPath.hasPrefix("/") { self.health["memory"] = memoryPath }
                 if result.status == 0 {
-                    self.memorySetupOutcome = "Your private Geoffrey memory is ready and backed up to GitHub."
+                    self.memorySetupOutcome = "Your private memory is ready on this Mac. You can add GitHub backup in Memory."
                 } else if let memoryPath, memoryPath.hasPrefix("/") {
                     self.memorySetupOutcome = "Your private memory is ready on this Mac. GitHub backup needs attention; open Memory to check it and try syncing again."
                 } else {
@@ -3480,8 +3498,25 @@ final class GeoffreyModel: ObservableObject {
         }
     }
 
+    func setupBackup() {
+        guard hasMemory, !isSyncingMemory else { return }
+        guard health["github"] == "ready" else { openGitHubLogin(); return }
+        memoryOperationVersion += 1
+        isSyncingMemory = true
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-backup"], timeout: 180)
+            let status = GeoffreyMemoryStatusRefresh.decode(GeoffreyMemorySyncStatus.self, output: result.output, status: result.status, acceptsFailureReport: true)
+            await MainActor.run {
+                self.isSyncingMemory = false
+                if let status { self.memorySyncStatus = status }
+                self.memoryStatusIssue = status == nil ? "Backup setup did not finish. Your local memory is safe. Try Set up GitHub backup again." : nil
+            }
+        }
+    }
+
     func syncMemory() {
         guard hasMemory, !isSyncingMemory, !isUpdatingPortableState, !isRefreshingAccounts else { return }
+        memoryOperationVersion += 1
         isSyncingMemory = true
         Task.detached { [geoffreyHome] in
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"])
@@ -3497,6 +3532,7 @@ final class GeoffreyModel: ObservableObject {
 
     func updatePortableState() {
         guard hasMemory, !isUpdatingPortableState, !isSyncingMemory, !isRefreshingAccounts else { return }
+        memoryOperationVersion += 1
         isUpdatingPortableState = true
         Task.detached { [geoffreyHome] in
             let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-portable-state", "--write"])
@@ -3720,8 +3756,8 @@ final class GeoffreyModel: ObservableObject {
     func openClaudeLogin() {
         guard !isSigningIntoClaude else { return }
         isSigningIntoClaude = true
-        Task.detached {
-            let result = Self.run(executable: "/usr/bin/env", arguments: ["claude", "auth", "login"])
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-login-claude"], timeout: 300)
             await MainActor.run {
                 self.isSigningIntoClaude = false
                 if result.status == 0 {
@@ -3740,11 +3776,8 @@ final class GeoffreyModel: ObservableObject {
         isSigningIntoGitHub = true
         issueMessage = "GitHub sign-in is opening in your browser. The one-time code is copied to your clipboard. Approve only the account you want to hold Geoffrey's private memory."
         showingIssue = true
-        Task.detached {
-            let result = Self.run(
-                executable: "/usr/bin/env",
-                arguments: ["gh", "auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web", "--clipboard"]
-            )
+        Task.detached { [geoffreyHome] in
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-login-github"], timeout: 300)
             await MainActor.run {
                 self.isSigningIntoGitHub = false
                 self.issueMessage = result.status == 0
@@ -3812,46 +3845,13 @@ final class GeoffreyModel: ObservableObject {
     }
 
     nonisolated private static func run(
-        executable: String,
-        arguments: [String],
-        workingDirectory: String? = nil,
+        executable: String, arguments: [String], workingDirectory: String? = nil,
         timeout: TimeInterval? = nil
     ) -> CommandResult {
-        let process = Process()
-        let output = Pipe()
-        let error = Pipe()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        process.currentDirectoryURL = workingDirectory.flatMap { URL(fileURLWithPath: $0) }
-        process.standardOutput = output
-        process.standardError = error
-        var environment = ProcessInfo.processInfo.environment
-        environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        process.environment = environment
-        do {
-            try process.run()
-            var didTimeOut = false
-            if let timeout {
-                let deadline = Date().addingTimeInterval(timeout)
-                while process.isRunning && Date() < deadline {
-                    Thread.sleep(forTimeInterval: 0.05)
-                }
-                if process.isRunning {
-                    didTimeOut = true
-                    process.terminate()
-                }
-            }
-            process.waitUntilExit()
-            let standard = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            let errors = String(data: error.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            return CommandResult(status: didTimeOut ? 124 : process.terminationStatus, output: standard.isEmpty ? errors : standard)
-        } catch {
-            return CommandResult(status: 1, output: error.localizedDescription)
-        }
+        let engine = executable.hasSuffix("/bin/geoffrey")
+            ? String(executable.dropLast("/bin/geoffrey".count)) : nil
+        return GeoffreyCommand().run(executable: executable, arguments: arguments,
+            workingDirectory: workingDirectory, environment: GeoffreyCommand.environment(engine: engine),
+            timeout: timeout ?? 120)
     }
-}
-
-struct CommandResult {
-    let status: Int32
-    let output: String
 }

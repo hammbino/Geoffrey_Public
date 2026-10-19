@@ -3,6 +3,29 @@ import Foundation
 @main
 struct GeoffreyReadinessTests {
     static func main() {
+        // Completing onboarding must not hide a broken or unchecked mailbox.
+        for (refreshing, setupFailed, connectionsFailed, repairCount, expected) in [
+            (false, false, false, 0, GeoffreySidebarStatus.ready),
+            (false, false, false, 1, .connectionsNeedAttention),
+            (false, false, true, 0, .connectionsUnchecked),
+            (false, true, false, 0, .setupUnchecked),
+            (true, false, false, 0, .checking),
+        ] {
+            expect(GeoffreySidebarStatus.resolve(
+                hasHealth: true, setupComplete: true, isRefreshing: refreshing,
+                setupCheckFailed: setupFailed, connectionCheckFailed: connectionsFailed,
+                accountsNeedingRepair: repairCount
+            ) == expected, "sidebar must reflect connection health even after setup completes")
+        }
+        expect(GeoffreySidebarStatus.resolve(
+            hasHealth: false, setupComplete: false, isRefreshing: false,
+            setupCheckFailed: false, connectionCheckFailed: false, accountsNeedingRepair: 0
+        ) == .checking, "unchecked startup must not claim readiness")
+        expect(GeoffreySidebarStatus.resolve(
+            hasHealth: true, setupComplete: false, isRefreshing: false,
+            setupCheckFailed: false, connectionCheckFailed: false, accountsNeedingRepair: 0
+        ) == .finishingSetup, "incomplete setup remains visible")
+
         let ready = GeoffreyReadiness.items(
             health: ["claude": "ready", "github": "ready", "memory": "/private/memory"],
             accountCount: 2,

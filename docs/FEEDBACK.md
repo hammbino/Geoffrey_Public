@@ -4,6 +4,8 @@ Record direct user feedback here. Keep it short and factual. Link each repeatabl
 
 | Date | Person | What happened | What Geoffrey should do | Status |
 | --- | --- | --- | --- | --- |
+| 2026-10-19 | Geoffrey owner | Basic setup repeatedly failed despite passing checks; architecture felt too complex. Multiple email accounts are a defining feature. | Stabilize the actual setup journey, make backup optional, and preserve adding any number of Google/Microsoft accounts. | Local build 22 adds bundled runtimes, tested process execution, local-first memory, retryable backup, and Add another account. Packaged live acceptance remains pending. |
+| 2026-10-19 | Geoffrey owner | Sidebar said “Ready to help” while Gmail needed repair. | Derive the sidebar message and color from account health and check failures as well as setup completion. | Corrected locally; regression tests cover completed setup with broken accounts, failed checks, and refresh in progress. Native build and isolated Mac checks pass; packaged live acceptance remains pending. |
 | 2026-10-13 | Dustin | Terminal felt text-heavy and did not speak to him. | Make the Geoffrey Mac app the normal experience and reduce setup text. | Addressed in part; first-run wizard remains. |
 | 2026-10-13 | Geoffrey owner | The setup added only one Gmail account and had no Back option. | Support multiple accounts plus Back, cancel, retry, switch-provider, and skip options. | Addressed in CLI; needs in-app flow. |
 | 2026-10-13 | Geoffrey owner | Morning briefing content is not always useful. | Capture feedback and use it in future briefing prompts. | Implemented. |

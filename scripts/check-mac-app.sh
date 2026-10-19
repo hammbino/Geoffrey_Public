@@ -26,6 +26,7 @@ ok() { printf 'OK  %s\n' "$1"; }
 
 [ -x "$APP/Contents/MacOS/Geoffrey" ] || fail "Build Geoffrey.app before running this check."
 ok "Geoffrey.app executable exists"
+python3 "$ROOT/scripts/test-packaged-setup.py" "$APP"
 
 TEST_SWIFTC="$(command -v swiftc)"
 for candidate in /opt/homebrew/opt/swift/*.xctoolchain/usr/bin/swiftc /usr/local/opt/swift/*.xctoolchain/usr/bin/swiftc; do
@@ -36,6 +37,10 @@ for candidate in /opt/homebrew/opt/swift/*.xctoolchain/usr/bin/swiftc /usr/local
 done
 TEST_SDK="$(xcrun --sdk macosx --show-sdk-path)"
 TEST_ARCH="$(uname -m)"
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" \
+  "$ROOT/app/GeoffreyCommand.swift" "$ROOT/app/GeoffreyCommandTests.swift" -o "$TEST_HOME/command-tests"
+"$TEST_HOME/command-tests"
+
 "$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" \
   "$ROOT/app/ClaudeStream.swift" "$ROOT/app/ClaudeStreamTests.swift" \
   -o "$TEST_HOME/claude-stream-tests"
@@ -96,6 +101,13 @@ printf '%s\n' 'Synthetic Geoffrey archive.' > "$TEST_HOME/Geoffrey.zip"
   || fail "The release signer output must verify in the app updater."
 ok "Updater tests cover signatures, versions, HTTPS, digests, and release-signer compatibility"
 
+"$TEST_SWIFTC" -sdk "$TEST_SDK" -target "$TEST_ARCH-apple-macosx14.0" -D GEOFFREY_MODEL_TESTS -parse-as-library \
+  "$ROOT/app/GeoffreyApp.swift" "$ROOT/app/GeoffreyCommand.swift" "$ROOT/app/ClaudeStream.swift" \
+  "$ROOT/app/GeoffreyReadiness.swift" "$ROOT/app/GeoffreySetup.swift" "$ROOT/app/GeoffreyConnections.swift" \
+  "$ROOT/app/GeoffreyMemory.swift" "$ROOT/app/GeoffreyAutomations.swift" "$ROOT/app/GeoffreyUpdater.swift" \
+  "$ROOT/app/GeoffreyModelTests.swift" -o "$TEST_HOME/model-tests" -framework SwiftUI -framework AppKit -framework Security
+"$TEST_HOME/model-tests"
+
 rg -F '.onSubmit(send)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must send when the owner presses Return."
 rg -F 'TextField("Ask about a task, decision, or problem you want off your plate"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must use a native editable text field."
 ok "Chat input is a native Return-to-send field"
@@ -113,7 +125,7 @@ rg -F 'run(task: task, repeatingOwnerMessage: false)' "$ROOT/app/GeoffreyApp.swi
 if rg -F 'Do not read files or call tools' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
   fail "General Geoffrey requests must not disable Claude files and tools."
 fi
-ok "Ask Geoffrey streams and preserves a resumable, cancellable, retryable conversation"
+ok "Source structure includes streaming, session storage, stop, and retry controls"
 
 rg -F 'OperationalResultDisplay' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results must use the structured renderer."
 rg -F 'ResultEmptyState' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results need an explicit no-items state."
@@ -121,7 +133,7 @@ rg -F 'Operational result feedback:' "$ROOT/app/GeoffreyApp.swift" >/dev/null ||
 if rg -F 'Text(response.text)' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
   fail "Operational results must not fall back to a raw text wall."
 fi
-ok "Long operational results use structured UI"
+ok "Source structure includes structured operational-result views"
 
 capability_context="$(HOME="$TEST_HOME" "$ROOT/bin/geoffrey" app-context --task capability-review)"
 printf '%s' "$capability_context" | rg -q '^PRIVATE GEOFFREY CONTEXT$' || fail "Capability review must receive a prepared private context packet."
@@ -147,7 +159,7 @@ rg -F 'FirstRunSetupSheet()' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "I
 rg -F 'Button("Continue setup")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The setup guide must remain available after it is dismissed."
 rg -F 'You can stop at any time. Completed steps stay saved' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "First-run setup must explain safe resume behavior."
 rg -F '.accessibilityIdentifier("setup-step-\(step.id.rawValue)")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Each first-run step needs its own stable accessibility element."
-ok "First-run setup stays inside Geoffrey and can be safely resumed"
+ok "Source structure includes native setup, resume controls, and accessibility identifiers"
 rg -F '.accessibilityIdentifier("connections-retry-refresh")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "A failed account refresh needs a separately addressable retry action."
 rg -F '.accessibilityHint("Checks the connected account list again")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "The account refresh retry action needs a useful accessibility hint."
 rg -F '.accessibilityLabel("Manage \(account.id) account")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Each connected account needs a clearly labeled management menu."

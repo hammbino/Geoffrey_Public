@@ -1,5 +1,29 @@
 import Foundation
 
+enum GeoffreySidebarStatus: String {
+    case checking = "Checking setup"
+    case setupUnchecked = "Setup status needs a check"
+    case connectionsUnchecked = "Connections need a check"
+    case finishingSetup = "Finishing setup"
+    case connectionsNeedAttention = "Connections need attention"
+    case ready = "Ready to help"
+
+    static func resolve(
+        hasHealth: Bool,
+        setupComplete: Bool,
+        isRefreshing: Bool,
+        setupCheckFailed: Bool,
+        connectionCheckFailed: Bool,
+        accountsNeedingRepair: Int
+    ) -> Self {
+        if setupCheckFailed { return .setupUnchecked }
+        if connectionCheckFailed { return .connectionsUnchecked }
+        if isRefreshing || !hasHealth { return .checking }
+        if accountsNeedingRepair > 0 { return .connectionsNeedAttention }
+        return setupComplete ? .ready : .finishingSetup
+    }
+}
+
 enum GeoffreyReadinessState: String, Equatable, Sendable {
     case ready
     case needsAttention
@@ -61,10 +85,10 @@ enum GeoffreyReadiness {
             ),
             GeoffreyReadinessItem(
                 id: "github",
-                title: "GitHub backup",
+                title: "GitHub sign-in (optional)",
                 detail: githubReady
-                    ? "Portable, non-secret Geoffrey state can sync to the owner's GitHub account."
-                    : "Connect GitHub so memory and approved workflows remain portable.",
+                    ? "GitHub is connected. Check Memory to see whether a backup has completed."
+                    : "You can use Geoffrey now and connect GitHub backup later in Memory.",
                 state: githubReady ? .ready : .needsAttention,
                 actionTitle: githubReady ? nil : "Connect"
             ),

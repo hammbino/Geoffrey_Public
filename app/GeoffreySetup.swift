@@ -28,10 +28,9 @@ struct GeoffreySetupProgress: Equatable, Sendable {
         accountCount: Int,
         hasEngine: Bool
     ) -> GeoffreySetupProgress {
-        let engineReady = hasEngine
+        let engineReady = hasEngine && health["app"] != "needs_install"
         let claudeReady = health["claude"] == "ready"
         let emailReady = accountCount > 0 && (health["email"] ?? "").contains("connected")
-        let githubReady = health["github"] == "ready"
         let memoryReady = (health["memory"] ?? "").hasPrefix("/")
 
         return GeoffreySetupProgress(steps: [
@@ -50,7 +49,7 @@ struct GeoffreySetupProgress: Equatable, Sendable {
                 detail: claudeReady
                     ? "Signed in and ready to help."
                     : (health["claude"] == "needs_setup"
-                        ? "Install the Geoffrey release that includes its required Claude helper."
+                        ? "The Claude helper is missing. Reinstall the current Geoffrey download."
                         : "Sign in once with the Claude account Geoffrey should use."),
                 actionTitle: health["claude"] == "needs_setup" ? "Repair Geoffrey" : "Sign in to Claude",
                 isComplete: claudeReady
@@ -63,15 +62,6 @@ struct GeoffreySetupProgress: Equatable, Sendable {
                     : "Connect one inbox so Geoffrey can prepare useful briefings.",
                 actionTitle: "Connect an account",
                 isComplete: emailReady
-            ),
-            GeoffreySetupStep(
-                id: .github,
-                title: "Private backup",
-                detail: githubReady
-                    ? "GitHub is connected for portable, non-secret memory."
-                    : "Connect GitHub so your approved memory is recoverable on another Mac.",
-                actionTitle: "Connect GitHub",
-                isComplete: githubReady
             ),
             GeoffreySetupStep(
                 id: .memory,

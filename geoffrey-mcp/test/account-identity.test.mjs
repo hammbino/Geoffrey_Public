@@ -32,3 +32,18 @@ test("missing or invalid provider identity cannot become a saved account", () =>
     assert.throws(() => resolve({ email }), /did not identify/);
   }
 });
+
+test("many Google and Microsoft accounts remain distinct and reconnect targets only the selected mailbox", () => {
+  const accounts = [];
+  for (let index = 0; index < 100; index++) {
+    const provider = index % 2 ? "microsoft" : "google";
+    const email = `mailbox${index}@example.test`;
+    const identity = resolveAccountIdentity({ provider, email, accounts });
+    accounts.push({ ...identity, provider, email });
+  }
+  assert.equal(new Set(accounts.map(account => account.id)).size, 100);
+  const original = structuredClone(accounts);
+  const target = accounts[57];
+  assert.equal(resolveAccountIdentity({ ...target, expectedEmail: target.email, accounts }).id, target.id);
+  assert.deepEqual(accounts, original);
+});

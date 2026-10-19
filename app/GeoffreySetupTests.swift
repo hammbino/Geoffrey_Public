@@ -26,14 +26,14 @@ struct GeoffreySetupTests {
             accountCount: 1,
             hasEngine: true
         )
-        expect(needsBackup.nextStep?.id == .github, "GitHub precedes new memory")
+        expect(needsBackup.nextStep?.id == .memory, "local memory does not require GitHub")
 
         let existingMemoryNeedsBackup = GeoffreySetupProgress.make(
             health: ["claude": "ready", "email": "1 connected", "github": "needs_setup", "memory": "/private/memory"],
             accountCount: 1,
             hasEngine: true
         )
-        expect(existingMemoryNeedsBackup.nextStep?.id == .github, "existing memory does not hide a missing backup connection")
+        expect(existingMemoryNeedsBackup.isComplete, "local memory is usable without optional backup")
 
         let ready = GeoffreySetupProgress.make(
             health: ["claude": "ready", "email": "2 connected", "github": "ready", "memory": "/private/memory"],
@@ -43,6 +43,12 @@ struct GeoffreySetupTests {
         expect(ready.isComplete, "complete first-run state")
         expect(ready.completedCount == ready.steps.count, "all setup steps complete")
 
+        let brokenRuntime = GeoffreySetupProgress.make(health: ["app": "needs_install"], accountCount: 0, hasEngine: true)
+        expect(brokenRuntime.nextStep?.id == .engine, "an executable shell alone is not a working engine")
+        for count in [1, 2, 10, 100] {
+            let multiple = GeoffreySetupProgress.make(health: ["claude": "ready", "email": "\(count) connected", "memory": "/private/memory"], accountCount: count, hasEngine: true)
+            expect(multiple.isComplete, "any positive number of healthy accounts supports setup")
+        }
         print("Geoffrey setup tests passed.")
     }
 

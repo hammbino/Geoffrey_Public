@@ -3,6 +3,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MCP_DIR="$ROOT/geoffrey-mcp"
+# Packaged tools take precedence; source checkouts retain the caller's tools.
+if [ -d "$ROOT/runtime/bin" ]; then
+  export PATH="$ROOT/runtime/bin:$PATH"
+  export GIT_EXEC_PATH="$ROOT/runtime/git-core"
+  export GIT_TEMPLATE_DIR="$ROOT/runtime/git-template"
+fi
 STORE_DIR="$HOME/.geoffrey"
 GEOFFREY_REPO="hammbino/Geoffrey_Public"
 INSTALLER_URL="https://raw.githubusercontent.com/hammbino/Geoffrey_Installer/main/install.sh"
@@ -435,13 +441,11 @@ ensure_node_deps() {
     return 1
   fi
 
-  if ! command -v npm >/dev/null 2>&1; then
-    say "npm is not installed."
-    say "Run ./bin/geoffrey bootstrap so Geoffrey can install Node.js for you."
-    return 1
-  fi
-
   if [ ! -d "$MCP_DIR/node_modules/@modelcontextprotocol" ]; then
+    if ! command -v npm >/dev/null 2>&1; then
+      say "This Geoffrey installation is missing its connector. Reinstall the current download."
+      return 1
+    fi
     say "Installing Geoffrey's local email connector..."
     (cd "$MCP_DIR" && npm install)
   else
@@ -894,9 +898,9 @@ app_add_account() {
 
   cd "$MCP_DIR"
   if [ "$auto_label" = true ]; then
-    exec npm run add-account -- --provider "$provider" --auto-label
+    exec node "$MCP_DIR/bin/add-account.js" --provider "$provider" --auto-label
   fi
-  exec npm run add-account -- --provider "$provider" --id "$id" --purpose "$purpose" --expected-email "$expected_email"
+  exec node "$MCP_DIR/bin/add-account.js" --provider "$provider" --id "$id" --purpose "$purpose" --expected-email "$expected_email"
 }
 
 app_accounts() {
@@ -946,16 +950,24 @@ replace_memory_tokens() {
   business="$3"
   github="$4"
   mailboxes="$5"
-  find "$target" -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
-    sed -i.bak \
-      -e "s/USER_NAME/$name/g" \
-      -e "s/BUSINESS_NAME/$business/g" \
-      -e "s/GITHUB_USER/$github/g" \
-      -e "s/MAILBOX_SUMMARY/$mailboxes/g" \
-      -e "s/SETUP_DATE/$(date +%F)/g" \
-      "$file"
-    rm -f "$file.bak"
-  done
+  node --input-type=module - "$target" "$name" "$business" "$github" "$mailboxes" "$(date +%F)" <<'NODE'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+const [root, ...values] = process.argv.slice(2);
+const tokens = ['USER_NAME', 'BUSINESS_NAME', 'GITHUB_USER', 'MAILBOX_SUMMARY', 'SETUP_DATE'];
+function visit(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) visit(path);
+    else if (entry.isFile() && entry.name.endsWith('.md')) {
+      const text = readFileSync(path, 'utf8').replace(/USER_NAME|BUSINESS_NAME|GITHUB_USER|MAILBOX_SUMMARY|SETUP_DATE/g,
+        token => values[tokens.indexOf(token)]);
+      writeFileSync(path, text);
+    }
+  }
+}
+visit(root);
+NODE
 }
 
 mailbox_summary() {
@@ -971,6 +983,7 @@ memory_repo() {
   target=""
   repo=""
   push="yes"
+  local_only=false
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -994,6 +1007,11 @@ memory_repo() {
       --repo)
         repo="${2:-}"
         shift 2
+        ;;
+      --local)
+        local_only=true
+        push="no"
+        shift
         ;;
       --push)
         push="yes"
@@ -1020,6 +1038,8 @@ memory_repo() {
   if [ "$business_supplied" = false ] && [ "$business" = "Personal" ]; then
     business="$(ask "What business or team should Geoffrey support? (example: JLH Global; use Personal if none)" "$business")"
   fi
+
+  if [ "$local_only" = true ]; then github="Not connected"; fi
 
   if [ -z "$github" ]; then
     say "GitHub is required for Geoffrey's private memory repo."
@@ -1059,6 +1079,7 @@ memory_repo() {
     exit 1
   fi
   mkdir -p "$target"
+  chmod 700 "$target"
   cp -R "$ROOT/memory-template/." "$target/"
 
   mailboxes="$(mailbox_summary)"
@@ -1075,7 +1096,8 @@ memory_repo() {
     git -C "$target" config user.email "geoffrey@local"
   fi
   git -C "$target" add .
-  git -C "$target" commit -m "Create Geoffrey memory" >/dev/null
+  git -C "$target" -c commit.gpgsign=false commit -m "Create Geoffrey memory" >/dev/null
+  git -C "$target" config geoffrey.backupRepository "$repo"
   git -C "$target" branch -M main
 
   # Local creation and cloud backup are separate outcomes. Persist the selected
@@ -1107,6 +1129,11 @@ memory_repo() {
       gh repo create "$repo" --private --source "$target" --remote origin --push
     fi
     say "Pushed Geoffrey memory to GitHub repo: $repo"
+  fi
+
+  if [ "$local_only" = true ]; then
+    ensure_launch_memory_files "$target"
+    return 0
   fi
 
   say ""
@@ -2280,7 +2307,7 @@ app_status() {
   if [ "$mailbox_count" -gt 0 ] 2>/dev/null; then printf 'email\t%s connected\n' "$mailbox_count"; else printf 'email\tneeds_setup\n'; fi
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then printf 'github\tready\n'; else printf 'github\tneeds_setup\n'; fi
   if [ -n "$memory_path" ] && [ -d "$memory_path/memory" ]; then printf 'memory\t%s\n' "$memory_path"; else printf 'memory\tneeds_setup\n'; fi
-  if geoffrey_app_path >/dev/null 2>&1; then printf 'app\tready\n'; else printf 'app\tneeds_install\n'; fi
+  if command -v node >/dev/null 2>&1 && command -v git >/dev/null 2>&1 && node --version >/dev/null 2>&1 && git --version >/dev/null 2>&1; then printf 'app\tready\n'; else printf 'app\tneeds_install\n'; fi
   if [ -f "$STORE_DIR/backups/pre-desktop-v1/accounts.json" ] || [ -f "$STORE_DIR/backups/pre-desktop-v1/current-memory" ]; then
     printf 'migration\tpreserved\n'
   else
@@ -2481,7 +2508,7 @@ app_context() {
   }
 
   say "PRIVATE GEOFFREY CONTEXT"
-  say "This packet was prepared locally from the owner's private GitHub-backed memory."
+  say "This packet was prepared locally from the owner's private memory."
   emit_memory_file "$memory_path/CLAUDE.md" "Geoffrey operating rules"
   emit_memory_file "$memory_path/memory/user.md" "Owner context"
   emit_memory_file "$memory_path/memory/tools.md" "Business tools"
@@ -3450,6 +3477,15 @@ case "${1:-}" in
   uninstall)
     shift
     uninstall_geoffrey "$@"
+    ;;
+  app-login-claude)
+    exec claude auth login
+    ;;
+  app-login-github)
+    exec gh auth login --hostname github.com --git-protocol https --web --clipboard
+    ;;
+  app-backup)
+    exec node "$MCP_DIR/bin/setup-backup.js"
     ;;
   app-status)
     app_status

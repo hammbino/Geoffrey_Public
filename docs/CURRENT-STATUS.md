@@ -4,6 +4,16 @@ Updated: October 19, 2026
 
 The current effort is the native Mac release for Dustin. The terminal interface is not the future product, but its state must be preserved. The authoritative scope, evidence, limitations, and release gate are in [Desktop Release Record](DESKTOP-RELEASE.md).
 
+## Setup stabilization — local build 22
+
+The setup review led to a smaller first-use path: Claude sign-in, one or more healthy email/calendar accounts, and local private memory. Multiple Google and Microsoft accounts remain supported without an app-imposed limit, including an Add another account action immediately after sign-in. GitHub backup is optional and has an explicit, retryable setup action in Memory.
+
+Build 22 packages Node, Claude, Git, GitHub CLI, and their native dependencies instead of depending on tools installed on the owner's Mac. This local runtime set requires macOS 15+, recorded in the built app's minimum OS metadata. Release builders can supply explicit runtime binary paths through `GEOFFREY_RUNTIME_NODE`, `GEOFFREY_RUNTIME_CLAUDE`, `GEOFFREY_RUNTIME_GIT`, and `GEOFFREY_RUNTIME_GH`; runtime dependencies and minimum OS are checked during packaging. No updated public download has been published by this change.
+
+The shared command runner now captures stdout and stderr without pipe deadlocks and bounds cancellation/timeout escalation. Account connection uses the same runner. Setup/account results publish before optional capability, automation, and recovery checks; successful migration runs once per launch. Optional backup results from an older refresh cannot replace a newer memory operation.
+
+New executable checks cover the production command runner, production app-model transitions, failed backup creation through a real local Git push, literal names containing punctuation, missing runtime detection, and the packaged engine creating/reopening local memory with a system-only PATH. These checks do not establish live OAuth, normal Gatekeeper acceptance, or a full UI journey on a clean macOS VM. The existing release gate remains in force.
+
 ## Proven Now
 
 - Build 20 owner acceptance failed: after reconnect and local Keychain approval, the account still reported credential repair. A no-dialog read returned a Keychain authorization failure. Build 21 uses the native helper for reads, writes, and deletes with interaction disabled. Reconnect stages a fresh uniquely keyed credential, verifies its full value, and atomically switches registry metadata without reading the inaccessible old item. Failed registry switches preserve the original connection. A native dummy-store proof now exercises damaged entry → reconnect → fresh-process account status → remove with mocked provider responses and no password dialogs. It reports email/calendar ready and cleans up all dummy items. This does not establish real Google acceptance.
