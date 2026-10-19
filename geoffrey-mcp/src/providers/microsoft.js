@@ -9,7 +9,7 @@ import { accessToken } from "../auth.js";
 
 const API = "https://graph.microsoft.com/v1.0/me";
 
-async function call(account, path, { method = "GET", params, body } = {}) {
+async function call(account, path, { method = "GET", params, body, headers = {} } = {}) {
   const token = await accessToken(account);
 
   // Built by hand rather than with URLSearchParams: that encodes spaces as "+",
@@ -24,6 +24,7 @@ async function call(account, path, { method = "GET", params, body } = {}) {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
+      ...headers,
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -207,23 +208,28 @@ export async function listEvents(account, { calendar_id, time_min, time_max, lim
     ? `/calendars/${calendar_id}/calendarView`
     : "/calendarView";
   const data = await call(account, path, {
+    headers: { Prefer: 'outlook.timezone="UTC"' },
     params: {
       startDateTime: start,
       endDateTime: end,
       $top: Math.min(limit, 25),
       $orderby: "start/dateTime",
-      $select: "id,subject,start,end,location,attendees,organizer",
+      $select: "id,subject,start,end,location,attendees,organizer,isAllDay,isCancelled,responseStatus",
     },
   });
   return {
     account: account.id,
     calendar: calendar_id ?? "primary",
     count: (data.value ?? []).length,
+    has_more: Boolean(data['@odata.nextLink']),
     events: (data.value ?? []).map((e) => ({
       id: e.id,
       summary: e.subject ?? "(no title)",
-      start: e.start?.dateTime,
-      end: e.end?.dateTime,
+      start: calendarInstant(e.start),
+      end: calendarInstant(e.end),
+      all_day: e.isAllDay ?? false,
+      is_cancelled: e.isCancelled ?? false,
+      self_response: e.responseStatus?.response,
       location: e.location?.displayName,
       attendees: (e.attendees ?? []).map((a) => addr(a)),
       organizer: addr(e.organizer),
@@ -233,4 +239,14 @@ export async function listEvents(account, { calendar_id, time_min, time_max, lim
 
 export async function profile(account) {
   return call(account, "", { params: { $select: "mail,userPrincipalName,displayName" } });
+}
+
+function calendarInstant(value) {
+  if (!value?.dateTime) return undefined;
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(value.dateTime)) return value.dateTime;
+  // calendarView explicitly requests UTC. Graph dateTime strings omit the
+  // offset even when timeZone is UTC; retain that instant instead of letting
+  // JavaScript reinterpret it as the owner's local wall time.
+  if (!value.timeZone || ['UTC', 'Etc/UTC'].includes(value.timeZone)) return value.dateTime + 'Z';
+  throw new Error('The calendar returned an unexpected time zone. Its event times could not be verified.');
 }

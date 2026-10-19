@@ -24,9 +24,14 @@ app-sync-status) echo '{"state":"local_only","ahead":0,"behind":0,"dirty":false,
 app-portable-state) exit 1;;
 app-add-account) sleep 1; exit 0;;
 app-login-claude) exit 0;;
+app-item-feedback)
+ if [ -f feedback-fails ]; then echo '{"ok":false,"error":"Fixture write failed"}'; exit 1; fi
+ shift
+ HOME="$PWD" node '__FEEDBACK_SCRIPT__' "$@";;
 esac
 """#
-        try fixture.write(to: script, atomically: true, encoding: .utf8)
+        let feedbackScript = FileManager.default.currentDirectoryPath + "/geoffrey-mcp/bin/item-feedback.js"
+        try fixture.replacingOccurrences(of: "__FEEDBACK_SCRIPT__", with: feedbackScript).write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
         let model = GeoffreyModel(engine: root.path, restoreSession: false)
         let start = Date()
@@ -52,6 +57,37 @@ esac
         model.openClaudeLogin()
         try await wait { !model.isSigningIntoClaude }
         expect(model.health["claude"] == "ready" && !model.showingIssue, "successful login does not display an error")
+        let privateMemory = root.appendingPathComponent("private-memory")
+        try FileManager.default.createDirectory(at: privateMemory.appendingPathComponent("memory"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent(".geoffrey"), withIntermediateDirectories: true)
+        try privateMemory.path.write(to: root.appendingPathComponent(".geoffrey/current-memory"), atomically: true, encoding: .utf8)
+        let context = GeoffreyFeedbackContext(responseID: "daily:1000", source: "Your daily briefing", section: "Open loops", item: "Check the supplier refund.")
+        let anotherSection = GeoffreyFeedbackContext(responseID: context.responseID, source: context.source, section: "Waiting on", item: context.item)
+        expect(context.id != anotherSection.id, "identical prose in separate sections has separate feedback")
+        try await model.saveItemFeedback(context, rating: "good", more: true, note: "")
+        expect(model.itemFeedback[context.id]?.rating == "good" && model.itemFeedback[context.id]?.more == true, "confirmed local saves publish the correct learning signals")
+        let reopened = GeoffreyModel(engine: root.path, restoreSession: false)
+        let loaded = try await reopened.loadItemFeedback(context)
+        expect(loaded == model.itemFeedback[context.id], "feedback survives reopening with its exact context")
+        let unrelated = try await reopened.loadItemFeedback(anotherSection)
+        expect(unrelated == nil, "feedback does not leak between sections")
+        try await model.saveItemFeedback(context, rating: nil, more: false, note: "Already handled yesterday.")
+        expect(model.itemFeedback[context.id]?.rating == nil && model.itemFeedback[context.id]?.note == "Already handled yesterday.", "a note does not require a rating")
+        try "".write(to: root.appendingPathComponent("feedback-fails"), atomically: true, encoding: .utf8)
+        do {
+            try await model.saveItemFeedback(context, rating: "bad", more: false, note: "")
+            fatalError("a failed write cannot report success")
+        } catch {
+            expect(model.itemFeedback[context.id]?.note == "Already handled yesterday.", "failed saves retain previously confirmed feedback")
+        }
+        try FileManager.default.removeItem(at: root.appendingPathComponent("feedback-fails"))
+        try await model.saveItemFeedback(context, rating: nil, more: false, note: "", clear: true)
+        expect(model.itemFeedback[context.id] == nil, "clearing feedback removes the saved indicator")
+        let cleared = try await reopened.loadItemFeedback(context)
+        expect(cleared == nil, "clearing feedback persists")
+        model.feedbackBackupTask?.cancel()
+        reopened.feedbackBackupTask?.cancel()
+        print("Production feedback journeys passed: save, reopen, note-only, failure preservation, clear")
         // Let the optional fixture processes finish before removing their directory.
         try await Task.sleep(for: .seconds(4))
         print("Production app model setup journeys passed")

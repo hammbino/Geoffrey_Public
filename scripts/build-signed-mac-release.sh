@@ -36,6 +36,7 @@ GEOFFREY_CODESIGN_IDENTITY="$GEOFFREY_CODESIGN_IDENTITY" \
 GEOFFREY_UPDATE_PUBLIC_KEY="$GEOFFREY_UPDATE_PUBLIC_KEY" \
   "$ROOT/scripts/build-mac-app.sh"
 
+MINIMUM_MACOS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$ROOT/build/Geoffrey.app/Contents/Info.plist")"
 codesign --verify --deep --strict --verbose=2 "$ROOT/build/Geoffrey.app"
 
 PRE_NOTARY_ARCHIVE="$RELEASE_DIR/Geoffrey-$VERSION.notary.zip"
@@ -67,7 +68,7 @@ ARCHIVE_URL="${GEOFFREY_UPDATE_ARCHIVE_URL:-https://github.com/hammbino/Geoffrey
   --output "$MANIFEST" \
   --version "$VERSION" \
   --build "$BUILD" \
-  --minimum-macos "14.0"
+  --minimum-macos "$MINIMUM_MACOS"
 
 unlink "$SIGNER"
 echo "Signed, notarized Geoffrey release ready in $RELEASE_DIR"

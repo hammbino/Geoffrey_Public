@@ -24,6 +24,7 @@ final class GeoffreyCommand: @unchecked Sendable {
 
     static func environment(engine: String? = nil) -> [String: String] {
         var env = ProcessInfo.processInfo.environment
+        env["TZ"] = TimeZone.current.identifier
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let bundled = engine.map { $0 + "/runtime/bin:" } ?? ""
         env["PATH"] = bundled + home + "/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"

@@ -3,6 +3,7 @@ import Foundation
 @main struct GeoffreyCommandTests {
     static func main() {
         let runner = GeoffreyCommand()
+        expect(GeoffreyCommand.environment()["TZ"] == TimeZone.current.identifier, "child commands use the owner's macOS time zone")
         let large = runner.run(executable: "/bin/sh", arguments: ["-c", "head -c 1048576 /dev/zero; head -c 1048576 /dev/zero >&2"], timeout: 5)
         expect(large.status == 0 && large.output.utf8.count == 1048576 && large.standardError.utf8.count == 1048576, "large stdout and stderr finish without deadlock")
         let failure = runner.run(executable: "/bin/sh", arguments: ["-c", "echo partial; echo explanation >&2; exit 7"])

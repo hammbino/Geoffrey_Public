@@ -1535,6 +1535,8 @@ Give me:
 4. Suggested focus blocks.
 5. The first action Geoffrey can take for me next.
 
+Use the current local date and time zone in the connected-account context. Only verified calendar instances for that date establish today's meetings or meeting-preparation priorities. Email invitations, recurring descriptions, past briefings, and tomorrow's events do not establish a meeting today. Keep supplied end times, label past events as past, and suggest focus blocks only after the current time. If a calendar cannot be read, say its schedule is unverified instead of filling it from memory.
+
 Make this easy to scan in Geoffrey's app. Never use tables. Keep each item to one short sentence, and use short bullets for schedule, follow-ups, and focus blocks. Format every priority exactly like this:
 **Priority 1: Short priority name.** Why it matters today.
 
@@ -2459,7 +2461,7 @@ EOF_BUILD_SKILL
       cat <<EOF_APP_PROMPT
 Use Geoffrey.
 
-Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, and memory/briefing-feedback.md if present, and the relevant files in memory/skills before answering.
+Read CLAUDE.md, memory/tools.md, memory/chief-of-staff.md, memory/briefing-feedback.md, and memory/briefing-reactions.json if present, and the relevant files in memory/skills before answering. Item reactions teach relevance and presentation: Good means useful, Bad means not useful, and More like this requests similar coverage. They are not task completion or permission to change outside records. Keep urgent obligations and verified risks visible.
 
 The owner is asking:
 $request
@@ -2514,6 +2516,7 @@ app_context() {
   emit_memory_file "$memory_path/memory/tools.md" "Business tools"
   emit_memory_file "$memory_path/memory/chief-of-staff.md" "Chief of staff plan"
   emit_memory_file "$memory_path/memory/briefing-feedback.md" "Briefing feedback"
+  node "$MCP_DIR/bin/item-feedback.js" --context || say "Recent item feedback could not be loaded."
   emit_memory_file "$memory_path/memory/priority-feedback.md" "Priority feedback"
   emit_memory_file "$memory_path/memory/completed-items.md" "Items the owner has handled"
 
@@ -3529,6 +3532,10 @@ case "${1:-}" in
   app-feedback)
     shift
     app_feedback "$@"
+    ;;
+  app-item-feedback)
+    shift
+    node "$MCP_DIR/bin/item-feedback.js" "$@"
     ;;
   app-complete-item)
     shift

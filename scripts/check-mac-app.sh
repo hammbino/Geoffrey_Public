@@ -105,7 +105,7 @@ ok "Updater tests cover signatures, versions, HTTPS, digests, and release-signer
   "$ROOT/app/GeoffreyApp.swift" "$ROOT/app/GeoffreyCommand.swift" "$ROOT/app/ClaudeStream.swift" \
   "$ROOT/app/GeoffreyReadiness.swift" "$ROOT/app/GeoffreySetup.swift" "$ROOT/app/GeoffreyConnections.swift" \
   "$ROOT/app/GeoffreyMemory.swift" "$ROOT/app/GeoffreyAutomations.swift" "$ROOT/app/GeoffreyUpdater.swift" \
-  "$ROOT/app/GeoffreyModelTests.swift" -o "$TEST_HOME/model-tests" -framework SwiftUI -framework AppKit -framework Security
+  "$ROOT/app/GeoffreyFeedback.swift" "$ROOT/app/GeoffreyModelTests.swift" -o "$TEST_HOME/model-tests" -framework SwiftUI -framework AppKit -framework Security
 "$TEST_HOME/model-tests"
 
 rg -F '.onSubmit(send)' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Chat must send when the owner presses Return."
@@ -129,7 +129,7 @@ ok "Source structure includes streaming, session storage, stop, and retry contro
 
 rg -F 'OperationalResultDisplay' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results must use the structured renderer."
 rg -F 'ResultEmptyState' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational results need an explicit no-items state."
-rg -F 'Operational result feedback:' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational result sections must support learning feedback."
+rg -F 'OperationalResultSection(section: section, response: response' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Operational result items must support contextual feedback."
 if rg -F 'Text(response.text)' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
   fail "Operational results must not fall back to a raw text wall."
 fi
@@ -258,12 +258,12 @@ rg -F '@Published var runningTask: GeoffreyTask?' "$ROOT/app/GeoffreyApp.swift" 
 rg -F 'prominent: model.runningTask == .inbox' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Inbox must be highlighted while it is running."
 ok "Today highlights the action that is actually running"
 
-rg -F 'Choose one change. Geoffrey will use it next time.' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing feedback must ask for one simple correction."
-rg -F 'Button("Make it shorter")' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing feedback needs one-tap corrections."
-if rg -F 'Text("Choose one").tag("")' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
-  fail "Briefing feedback must not require a menu selection."
+rg -F '.popover(isPresented: $showing' "$ROOT/app/GeoffreyFeedback.swift" >/dev/null || fail "Feedback controls must stay in an optional popover."
+rg -F 'Optional feedback note' "$ROOT/app/GeoffreyFeedback.swift" >/dev/null || fail "An optional note must be available without a required rating."
+if rg -F 'Button("Useful")' "$ROOT/app/GeoffreyApp.swift" >/dev/null; then
+  fail "Persistent section rating buttons must be removed."
 fi
-ok "Briefing feedback reduces owner effort"
+ok "Feedback stays optional and includes quick reactions and a note"
 
 rg -F 'What can I take off your plate?' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Ask Geoffrey needs an outcome-first empty state."
 rg -F 'Ask about a task, decision, or problem you want off your plate' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Ask Geoffrey needs a visible composer prompt."
@@ -306,7 +306,7 @@ ok "Private-memory backup status and conflict recovery are visible"
 
 rg -F 'if task.isDailyBriefing {' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Only the daily briefing may replace the briefing dashboard."
 rg -F 'self.latestBriefing = response' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Daily briefing must retain the dashboard state."
-rg -F 'rateSection: {' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing sections must support learning feedback."
+rg -F 'ItemFeedbackButton(context: response.feedbackContext(section: section.title, item: item))' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Each briefing section item must support contextual feedback."
 rg -F '"Waiting on"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing must support waiting-item context."
 rg -F '"Clarifications"' "$ROOT/app/GeoffreyApp.swift" >/dev/null || fail "Briefing must support clarification context."
 ok "Briefing dashboard keeps rankings and section feedback"

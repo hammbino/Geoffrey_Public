@@ -47,7 +47,7 @@ done
 build_app() {
   CLANG_MODULE_CACHE_PATH="${TMPDIR:-/tmp}/geoffrey-clang-module-cache" \
     "$1" -sdk "$SDK" -target "$ARCH-apple-macosx14.0" -parse-as-library \
-    "$ROOT/app/GeoffreyCommand.swift" "$SOURCE" "$STREAM_SOURCE" "$READINESS_SOURCE" "$SETUP_SOURCE" "$CONNECTIONS_SOURCE" "$MEMORY_SOURCE" "$AUTOMATIONS_SOURCE" "$UPDATER_SOURCE" \
+    "$ROOT/app/GeoffreyCommand.swift" "$SOURCE" "$ROOT/app/GeoffreyFeedback.swift" "$STREAM_SOURCE" "$READINESS_SOURCE" "$SETUP_SOURCE" "$CONNECTIONS_SOURCE" "$MEMORY_SOURCE" "$AUTOMATIONS_SOURCE" "$UPDATER_SOURCE" \
     -o "$APP/Contents/MacOS/Geoffrey" -framework SwiftUI -framework AppKit -framework Security
 }
 
