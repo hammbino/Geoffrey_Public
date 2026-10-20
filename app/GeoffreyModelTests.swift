@@ -21,6 +21,7 @@ app-context)
  printf '%s\n' "$@" > context-arguments
  if [ -f context-fails ]; then echo 'Fixture account reader unavailable'; exit 1; fi
  echo 'PRIVATE GEOFFREY CONTEXT — FRESH_CONNECTED_FIXTURE';;
+app-connected-accounts) echo '[{"id":"work","provider":"google","email":"work@example.test"},{"id":"hotmail","provider":"microsoft","email":"home@hotmail.test"}]';;
 app-accounts)
  if [ -f failed ]; then exit 1; fi
  echo '[{"id":"work","email":"work@example.test","provider":"google","purpose":"","duplicate_count":1,"credential_state":"ready","mail":{"state":"ready","detail":""},"calendar":{"state":"ready","detail":""}},{"id":"home","email":"home@example.test","provider":"microsoft","purpose":"","duplicate_count":1,"credential_state":"ready","mail":{"state":"ready","detail":""},"calendar":{"state":"ready","detail":""}}]';;
@@ -133,6 +134,7 @@ echo '{"type":"result","result":"Fixture task completed and verified.","session_
         expect(followUpArguments.contains("--resume\nfixture-action-session\n") && !followUpArguments.contains("--permission-mode"), "answers to task questions continue the action session with normal tool checks")
         expect(followUpArguments.contains("FRESH_CONNECTED_FIXTURE") && followUpArguments.contains("TODAY'S LOCAL DATE:"), "chat receives fresh account context and the current local clock")
         expect(followUpArguments.contains("--mcp-config\n") && followUpArguments.contains("\"GEOFFREY_READ_ONLY\":\"1\""), "chat uses an isolated read-only account server")
+        expect(followUpArguments.contains("--strict-mcp-config") && followUpArguments.contains("AUTHORITATIVE GEOFFREY CONNECTIONS") && followUpArguments.contains("home@hotmail.test"), "chat excludes separate Claude connectors and gets the current Microsoft account registry")
         expect(followUpArguments.contains("mcp__geoffrey_readonly__search_messages") && !followUpArguments.contains("--dangerously-skip-permissions") && !GeoffreyReadOnlyConnection.toolNames.contains(where: { $0.contains("modify") || $0.contains("draft") || $0.contains("*") }), "only explicit reading tools are allowed without further approval")
         let contextArguments = try String(contentsOf: root.appendingPathComponent("context-arguments"), encoding: .utf8)
         expect(contextArguments.contains("--task\nask"), "Ask Geoffrey prepares live context through the connected-account reader")
@@ -162,6 +164,23 @@ echo '{"type":"result","result":"Fixture task completed and verified.","session_
         try await wait { !model.isRunning }
         expect(model.conversation.count == beforeDenial + 1 && model.conversation.last?.text != "Unsafe historical fallback", "tool denial cannot publish a misleading fallback as a successful answer")
         expect(model.issueMessage.contains("tool-permission problem") && model.canRetryLastRequest, "a blocked tool is reported separately from account sign-in failure with retry")
+        try FileManager.default.removeItem(at: root.appendingPathComponent("tool-denied"))
+        let skillPath = root.appendingPathComponent("SKILL.md")
+        try "# Selected skill\nProvide the fixture review.".write(to: skillPath, atomically: true, encoding: .utf8)
+        let selectedCapability = GeoffreyCapability(id: "skill:fixture", name: "fixture", type: "skill", source: "Geoffrey", enabled: true, state: "ready", repair: nil, description: "Fixture skill", path: skillPath.path)
+        model.runCapability(selectedCapability, request: "Review my launch plan")
+        expect(model.selectedSection == .ask && model.isRunning, "Run capability opens chat and starts the selected task")
+        try await wait { !model.isRunning }
+        let capabilityArguments = try String(contentsOf: root.appendingPathComponent("claude-arguments"), encoding: .utf8)
+        let capabilityPrompt = try String(contentsOf: root.appendingPathComponent("prompt-arguments"), encoding: .utf8)
+        expect(capabilityPrompt.contains("skill:fixture") && capabilityPrompt.contains("Provide the fixture review") && capabilityPrompt.contains("Review my launch plan"), "the exact capability, loaded instructions, and requested result reach prompt preparation")
+        expect(model.conversation.suffix(2).first?.text == "Use Fixture:\n\nReview my launch plan", "capability task messages show the requested outcome without internal paths or instructions")
+        expect(!capabilityArguments.contains("--resume") && !capabilityArguments.contains("--strict-mcp-config"), "selected capabilities start fresh and retain installed plugin connections")
+        expect(!capabilityArguments.contains("--permission-mode"), "running a selected capability uses normal action permission checks")
+        try FileManager.default.removeItem(at: skillPath)
+        let beforeMissingSkill = model.conversation.count
+        model.runCapability(selectedCapability, request: "Run missing instructions")
+        expect(!model.isRunning && model.conversation.count == beforeMissingSkill && model.showingIssue, "missing skill instructions cannot run an unrelated fallback")
         print("Chat email journeys passed: fresh context, current date, read-only tools, failed reads, permission denial")
         // Let the optional fixture processes finish before removing their directory.
         try await Task.sleep(for: .seconds(4))

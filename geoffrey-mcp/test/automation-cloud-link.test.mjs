@@ -79,6 +79,30 @@ test("owner-reviewed run records explicit active evidence", () => {
   }
 });
 
+test("current scheduled-task links retain both daily tasks and reject unrelated URLs", () => {
+  const item = setup();
+  try {
+    const morning = "https://claude.ai/scheduled-task/trig_morning";
+    const afternoon = "https://claude.ai/scheduled-task/trig_afternoon";
+    const output = execFileSync("node", [script, "--payload", payload({
+      routine_url: morning, additional_routine_urls: [morning, afternoon, afternoon],
+    })], { env: { ...process.env, HOME: item.root }, encoding: "utf8" });
+    assert.equal(JSON.parse(output).deployment_state, "connected");
+    const path = join(item.memory, "memory", "automations", "manifest.json");
+    const before = readFileSync(path, "utf8");
+    assert.deepEqual(JSON.parse(before).workflows[0].execution.additional_routine_urls, [afternoon]);
+    for (const url of ["https://claude.ai/code/routines", "https://claude.ai/code/session_test", "https://example.com/scheduled-task/trig_other"]) {
+      const response = spawnSync("node", [script, "--payload", payload({ additional_routine_urls: [url] })], {
+        env: { ...process.env, HOME: item.root }, encoding: "utf8",
+      });
+      assert.notEqual(response.status, 0);
+      assert.equal(readFileSync(path, "utf8"), before);
+    }
+  } finally {
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
 test("unsafe links and unapproved workflows are rejected without overwriting memory", () => {
   const item = setup();
   try {

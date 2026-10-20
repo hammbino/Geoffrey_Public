@@ -32,6 +32,7 @@ function skillMetadata(path, source) {
       state: "ready",
       repair: "none",
       description,
+      path: file,
     });
     seenSkills.add(entry.name);
   }

@@ -18,6 +18,7 @@ import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isAutomationCandidatePath } from "../src/automation-inventory.js";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
@@ -73,7 +74,7 @@ function findAutomationFiles(memoryPath) {
       if (entry.name === ".git" || entry.name === "node_modules") continue;
       const path = join(current, entry.name);
       if (entry.isDirectory()) queue.push(path);
-      if (entry.isFile() && /(automat|routine|schedule|brief)/i.test(entry.name)) {
+      if (entry.isFile() && isAutomationCandidatePath(relative(memoryPath, path))) {
         found.push(relative(memoryPath, path));
       }
     }

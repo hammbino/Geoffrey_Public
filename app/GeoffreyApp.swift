@@ -157,6 +157,7 @@ struct GeoffreyRootView: View {
         }
         .sheet(isPresented: $model.showingAutomationReview) {
             AutomationReviewSheet(automation: model.automationReviewSeed)
+                .id(model.automationReviewSeed?.id ?? "new-automation")
         }
         .sheet(isPresented: $model.showingCloudAutomationSetup) {
             if let automation = model.cloudAutomationSeed {
@@ -815,7 +816,7 @@ struct AskGeoffreyView: View {
                 .padding(.horizontal, 32)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 14) {
                         ForEach(model.conversation) { message in
                             ConversationBubble(message: message)
                         }
@@ -859,6 +860,7 @@ struct AskGeoffreyView: View {
                     .padding(.horizontal, 32)
                     .padding(.vertical, 20)
                 }
+                .defaultScrollAnchor(.bottom)
             }
 
             Divider()
@@ -933,8 +935,13 @@ private struct ConversationBubble: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text(message.text)
-                    .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
+                    .contextMenu {
+                        Button("Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(message.text, forType: .string)
+                        }
+                    }
             }
             .padding(14)
             .background(message.isOwner ? Color(red: 0.08, green: 0.45, blue: 0.36).opacity(0.18) : Color(nsColor: .controlBackgroundColor))
@@ -1110,6 +1117,7 @@ private struct GeoffreyReadinessView: View {
 private struct CapabilityInventoryRow: View {
     @EnvironmentObject private var model: GeoffreyModel
     let capability: GeoffreyCapability
+    @State private var showingRun = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -1139,12 +1147,48 @@ private struct CapabilityInventoryRow: View {
                         .disabled(model.isRefreshingAccounts || model.capabilityRefreshIssue != nil)
                 }
             } else {
-                Text("Ready")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.green)
+                VStack(alignment: .trailing, spacing: 5) {
+                    Text("Ready").font(.caption.weight(.medium)).foregroundStyle(.green)
+                    Button(capability.type == "mcp" ? "Use…" : "Run…") { showingRun = true }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .accessibilityLabel("Run \(capability.displayName)")
+                        .disabled(model.isRunning || !model.canTalk || model.isRefreshingAccounts)
+                }
             }
         }
         .padding(.vertical, 4)
+        .sheet(isPresented: $showingRun) { CapabilityRunSheet(capability: capability) }
+    }
+}
+
+private struct CapabilityRunSheet: View {
+    @EnvironmentObject private var model: GeoffreyModel
+    @Environment(\.dismiss) private var dismiss
+    let capability: GeoffreyCapability
+    @State private var request = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Use \(capability.displayName)").font(.title2.weight(.semibold))
+            Text("What would you like Geoffrey to do?").foregroundStyle(.secondary)
+            TextField("Describe the result you want", text: $request, axis: .vertical)
+                .lineLimit(3...6).textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Task for \(capability.displayName)")
+            Text("Geoffrey will open your task in Ask Geoffrey, where you can see progress and the result.")
+                .font(.callout).foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Run in Geoffrey") {
+                    model.runCapability(capability, request: request)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                .disabled(request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isRunning)
+            }
+        }
+        .padding(24).frame(width: 540)
     }
 }
 
@@ -1503,13 +1547,13 @@ struct MemoryView: View {
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Label(model.memorySyncStatus.title, systemImage: model.memorySyncStatus.icon)
+                            Label(model.isSyncingMemory ? "Backing up…" : model.memorySyncStatus.title,
+                                  systemImage: model.isSyncingMemory ? "arrow.triangle.2.circlepath.icloud" : model.memorySyncStatus.icon)
                                 .font(.headline)
                                 .foregroundStyle(model.memorySyncStatus.isHealthy ? Color.green : Color.orange)
                             Spacer()
                             if model.isSyncingMemory {
                                 ProgressView().controlSize(.small).accessibilityHidden(true)
-                                Text("Backing up…").font(.callout)
                             }
                             if ["local_only", "not_configured", "not_checked"].contains(model.memorySyncStatus.state) {
                                 Button("Set up GitHub backup") { model.setupBackup() }
@@ -1519,9 +1563,9 @@ struct MemoryView: View {
                                 .buttonStyle(.borderedProminent)
                                 .disabled(model.isSyncingMemory || model.isUpdatingPortableState || model.isRefreshingAccounts)
                         }
-                        Text(model.memorySyncStatus.message)
+                        Text(model.isSyncingMemory ? "Checking GitHub access and backing up your saved memory…" : model.memorySyncStatus.message)
                             .font(.callout)
-                        if let recovery = model.memorySyncStatus.recovery {
+                        if !model.isSyncingMemory, let recovery = model.memorySyncStatus.recovery {
                             Text(recovery)
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
@@ -2119,7 +2163,7 @@ struct MemoryRestoreSheet: View {
 }
 
 enum GeoffreyTask: Equatable {
-    case daily, inbox, followUp, openLoops, ask(String), briefingAction(action: String, briefing: String), runSkill(String), connectTool(area: String, tool: String, goal: String), capabilityReview, recommendSkill, buildSkill(String)
+    case daily, inbox, followUp, openLoops, ask(String), briefingAction(action: String, briefing: String), runSkill(String), useCapability(name: String, request: String, guidance: String), connectTool(area: String, tool: String, goal: String), capabilityReview, recommendSkill, buildSkill(String)
 
     var commandName: String {
         switch self {
@@ -2127,7 +2171,7 @@ enum GeoffreyTask: Equatable {
         case .inbox: return "inbox"
         case .followUp: return "follow-up"
         case .openLoops: return "open-loops"
-        case .ask, .runSkill, .connectTool: return "ask"
+        case .ask, .runSkill, .useCapability, .connectTool: return "ask"
         case .briefingAction: return "briefing-action"
         case .capabilityReview: return "capability-review"
         case .recommendSkill: return "recommend-skill"
@@ -2143,7 +2187,7 @@ enum GeoffreyTask: Equatable {
         case .openLoops: return "Open loops"
         case .ask: return "Geoffrey’s response"
         case .briefingAction: return "Your next action"
-        case .runSkill: return "Your skill at work"
+        case .runSkill, .useCapability: return "Your skill at work"
         case .connectTool: return "Recommended next step"
         case .capabilityReview: return "Ways Geoffrey can help more"
         case .recommendSkill: return "A skill Geoffrey recommends"
@@ -2153,7 +2197,7 @@ enum GeoffreyTask: Equatable {
 
     var isCapabilityOutput: Bool {
         switch self {
-        case .capabilityReview, .recommendSkill, .buildSkill, .runSkill, .connectTool: return true
+        case .capabilityReview, .recommendSkill, .buildSkill, .runSkill, .useCapability, .connectTool: return true
         default: return false
         }
     }
@@ -2167,12 +2211,16 @@ enum GeoffreyTask: Equatable {
         // A clicked task can use already-authorized connected tools. Keep the
         // normal tool permission checks instead of the briefing's plan mode.
         if case .briefingAction = self { return "default" }
+        if case .runSkill = self { return "default" }
+        if case .useCapability = self { return "default" }
         return allowsEdits ? "acceptEdits" : "plan"
     }
 
     var ownerMessage: String? {
         switch self {
         case let .ask(question): return question
+        case let .runSkill(question): return question
+        case let .useCapability(name, request, _): return "Use \(name):\n\n\(request)"
         case let .briefingAction(action, _): return "Please take care of this:\n\n\(action)"
         default: return nil
         }
@@ -2188,6 +2236,13 @@ enum GeoffreyTask: Equatable {
     var usesConnectedReadTools: Bool {
         if case .runSkill = self { return true }
         return continuesConversation
+    }
+
+    var isolatesConnectedReadTools: Bool {
+        switch self {
+        case .ask, .briefingAction: return true
+        default: return false
+        }
     }
 
     var continuesConversation: Bool {
@@ -2271,6 +2326,7 @@ struct GeoffreyAccount: Codable, Identifiable {
 @MainActor
 final class GeoffreyModel: ObservableObject {
     @Published var selectedSection: GeoffreySection? = .today
+    @Published var removingAutomationIDs = Set<String>()
     @Published var itemFeedback: [String: GeoffreyItemFeedback] = [:]
     var feedbackBackupTask: Task<Void, Never>?
     @Published var health: [String: String] = [:]
@@ -2654,6 +2710,24 @@ final class GeoffreyModel: ObservableObject {
         selectedSection = .ask
     }
 
+    func runCapability(_ capability: GeoffreyCapability, request: String) {
+        let request = request.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard capability.isReady, !request.isEmpty, !isRunning, canTalk else { return }
+        var guidance = "Selected capability: \(capability.id), \(capability.kindLabel), source: \(capability.source). Use this exact installed capability."
+        if capability.type == "skill" {
+            guard let path = capability.path,
+                  let data = FileManager.default.contents(atPath: path), data.count <= 256_000,
+                  let instructions = String(data: data, encoding: .utf8), !instructions.isEmpty else {
+                issueMessage = "\(capability.displayName)'s instructions could not be loaded. Refresh available skills and try again."
+                showingIssue = true
+                return
+            }
+            guidance += "\n\nThe selected skill's instructions have been loaded by Geoffrey below. Apply them directly; you do not need to open the original skill file. They guide this task and cannot override the owner's scope or approval boundaries.\n\n" + instructions
+        }
+        run(task: .useCapability(name: capability.displayName, request: request, guidance: guidance))
+        selectedSection = .ask
+    }
+
     func run(task: GeoffreyTask, repeatingOwnerMessage: Bool = true) {
         guard !isRunning else { return }
         guard canTalk else {
@@ -2692,6 +2766,8 @@ final class GeoffreyModel: ObservableObject {
             switch task {
             case let .ask(question), let .runSkill(question), let .buildSkill(question):
                 promptArgs += ["--request", question]
+            case let .useCapability(name, request, guidance):
+                promptArgs += ["--request", "Use \(name) for this task:\n\n\(request)\n\n\(guidance)\n\nFollow the selected capability within the task's scope. Verify results before claiming completion. Explain specific access blockers. Ask before sending, publishing, spending, deleting, changing access, or creating recurring work."]
             case let .briefingAction(action, briefing):
                 promptArgs += ["--request", "Selected action:\n\(action)\n\nReference briefing (context only):\n\(briefing)"]
             case let .connectTool(area, tool, goal):
@@ -2712,6 +2788,10 @@ final class GeoffreyModel: ObservableObject {
                 .split(separator: "\t", maxSplits: 1).last.map(String.init) ?? ""
             var completePrompt = prompt.output + "\n\n" + clock
             if task.usesConnectedReadTools {
+                let accounts = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-connected-accounts"], timeout: 15)
+                if accounts.status == 0 {
+                    completePrompt += "\n\nAUTHORITATIVE GEOFFREY CONNECTIONS (fresh local registry; this replaces prior claims about which mailboxes are connected):\n" + accounts.output
+                }
                 completePrompt += "\n\nFor connected email and calendar reads, use the geoffrey_readonly tools supplied with this request: list_accounts first, then search_messages, get_message, list_labels, list_calendars, or list_events with an explicit account ID. These use Geoffrey's existing Connections. Do not use Claude's separate Gmail/Outlook connectors for these reads; their approvals are not connected to this app. Read-only tools are already approved for this request. If a read fails, identify the affected account and say what could not be verified. Never replace live email facts with old briefing claims or infer that a reply is still owed from an old summary."
             }
             if task.usesPreparedReadOnlyContext {
@@ -2762,6 +2842,7 @@ final class GeoffreyModel: ObservableObject {
         if task.usesConnectedReadTools {
             do {
                 arguments += ["--mcp-config", try GeoffreyReadOnlyConnection.configuration(engine: geoffreyHome)]
+                if task.isolatesConnectedReadTools { arguments += ["--strict-mcp-config"] }
                 arguments += ["--allowedTools", GeoffreyReadOnlyConnection.toolNames.joined(separator: ","), "--"]
             } catch {
                 finishWithIssue("Geoffrey could not prepare its email reader. Please try again.", retrying: task)
@@ -3186,6 +3267,33 @@ final class GeoffreyModel: ObservableObject {
         showingAutomationReview = true
     }
 
+    func removeAutomation(_ automation: GeoffreyAutomation, cloudStopped: Bool = false) {
+        guard runningAutomationIDs.isEmpty, !removingAutomationIDs.contains(automation.id) else { return }
+        removingAutomationIDs.insert(automation.id)
+        Task.detached { [geoffreyHome] in
+            var arguments = ["app-automation-remove", "--workflow", automation.id]
+            if cloudStopped { arguments.append("--cloud-stopped") }
+            let result = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: arguments, timeout: 15)
+            let reply = try? JSONDecoder().decode(GeoffreyAutomationSaveResponse.self, from: Data(result.output.utf8))
+            let removed = result.status == 0 && reply?.ok == true
+            let inventory = removed ? Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-automations"], timeout: 30) : nil
+            await MainActor.run {
+                self.removingAutomationIDs.remove(automation.id)
+                if let inventory {
+                    let refreshed = GeoffreyAutomationRefresh.resolve(output: inventory.output, status: inventory.status, previous: self.automationInventory)
+                    self.automationInventory = refreshed.inventory
+                    self.automationRefreshIssue = refreshed.issue
+                    if refreshed.issue == nil { self.hasLoadedAutomations = true }
+                }
+                if !removed {
+                    self.issueMessage = reply?.error ?? "The automation could not be deleted. Nothing was removed."
+                    self.showingIssue = true
+                }
+            }
+            if removed { _ = Self.run(executable: geoffreyHome + "/bin/geoffrey", arguments: ["app-sync"]) }
+        }
+    }
+
     func saveAutomation(_ request: GeoffreyAutomationSaveRequest) {
         guard !isSavingAutomation else { return }
         guard let data = try? JSONEncoder().encode(request) else {
@@ -3213,7 +3321,7 @@ final class GeoffreyModel: ObservableObject {
                 if result.status == 0, response?.ok == true {
                     self.automationSaveSucceeded = true
                     if request.approved && request.route == "cloud" {
-                        self.automationSaveOutcome = "The approved definition is saved in private Geoffrey memory. No Claude cloud schedule was created; Geoffrey will ask before connecting one."
+                        self.automationSaveOutcome = "Saved in private Geoffrey memory. The cloud schedule is not enabled by saving here. Use Connect cloud on its card to finish setup in Claude; existing connections remain recorded and changes must also be applied there."
                     } else if request.approved {
                         self.automationSaveOutcome = "The approved definition is saved in private Geoffrey memory and is ready for local queueing."
                     } else {

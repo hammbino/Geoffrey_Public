@@ -5,10 +5,32 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { queueMissedLocalRuns } from "../src/automation-inventory.js";
+import { buildAutomationInventory, queueMissedLocalRuns } from "../src/automation-inventory.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const script = join(here, "../bin/automation-inventory.js");
+
+test("feedback records and saved results are not imported as recurring workflows", () => {
+  const migration = { private_state: { memory_repository: { automation_candidates: [
+    'memory/briefing-reactions.json', 'memory/briefing-feedback.md', 'memory/priority-feedback.md',
+    'memory/briefings/2026-10-19-daily-briefing.md', 'memory/automations/results/social-briefing.md',
+    'memory/social-briefing.md',
+  ] } } };
+  const inventory = buildAutomationInventory({ migration });
+  assert.deepEqual(inventory.workflows.map(item => item.source.path), ['memory/social-briefing.md']);
+});
+
+test("unconnected cloud definitions report no scheduled execution", () => {
+  const inventory = buildAutomationInventory({ manifest: { workflows: [{
+    id: 'cloud-test', name: 'Cloud test', enabled: true, task: 'Prepare a summary',
+    cadence: { times: ['14:30'], timezone: 'America/Denver' },
+    approval: { state: 'approved' }, requirements: { cloud_compatible: true },
+    execution: { preference: 'cloud', deployment_state: 'not_connected' },
+  }] } });
+  assert.equal(inventory.workflows[0].status.state, 'not_connected');
+  assert.match(inventory.workflows[0].execution.reason, /Not scheduled yet/);
+  assert.equal(inventory.workflows[0].execution.can_run, false);
+});
 
 test("automation inventory discovers migrated work and classifies cloud, local, and review routes", () => {
   const root = mkdtempSync(join(tmpdir(), "geoffrey-automations-"));

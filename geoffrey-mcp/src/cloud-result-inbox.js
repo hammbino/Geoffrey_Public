@@ -100,7 +100,8 @@ export function validateCloudEnvelope(raw, { workflow, sourcePath }) {
   if (provider !== "claude_routine") throw new Error("Envelope source must be claude_routine.");
   const sessionURL = claudeSessionURL(raw.source?.session_url);
   const declaredRoutineURL = cleanText(raw.source?.routine_url);
-  if (declaredRoutineURL && declaredRoutineURL !== cleanText(workflow.execution?.routine_url)) {
+  const routineURLs = [workflow.execution?.routine_url, ...(workflow.execution?.additional_routine_urls ?? [])].map(value => cleanText(value));
+  if (declaredRoutineURL && !routineURLs.includes(declaredRoutineURL)) {
     throw new Error("Envelope routine link does not match the approved workflow.");
   }
 

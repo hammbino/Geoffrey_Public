@@ -136,6 +136,19 @@ test("reports local-only state when no GitHub remote is configured", () => {
   }
 });
 
+test("connected backup supersedes a stale local-only status without network access", () => {
+  const item = setup();
+  try {
+    writeFileSync(join(item.root, ".geoffrey", "memory-sync.json"), JSON.stringify({ state: "local_only", message: "No backup connected" }));
+    const result = run(item, "--status");
+    assert.equal(result.status, 0);
+    const status = JSON.parse(result.stdout);
+    assert.equal(status.state, "not_checked");
+    assert.match(status.message, /backup is connected/);
+    assert.equal(status.branch, "main");
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});
+
 test("refuses credential-like files without committing, pushing, or deleting them", () => {
   const item = setup();
   try {

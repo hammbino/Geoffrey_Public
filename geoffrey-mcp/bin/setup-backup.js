@@ -5,9 +5,11 @@ import { readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnGit } from '../src/git-process.js';
 
 function run(command, args) {
-  return spawnSync(command, args, { encoding: 'utf8', timeout: 45000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const options = { encoding: 'utf8', timeout: 45000, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GH_PROMPT_DISABLED: '1' } };
+  return command === 'git' ? spawnGit(args, options) : spawnSync(command, args, options);
 }
 function fail(message) {
   console.log(JSON.stringify({ schema_version: 1, state: 'local_only', checked_at: new Date().toISOString(),

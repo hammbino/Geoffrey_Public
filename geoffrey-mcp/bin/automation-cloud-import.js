@@ -3,7 +3,7 @@
 // Fetches one workflow's dedicated Claude result branch and imports only
 // validated result envelopes. It never checks out or merges the cloud branch.
 
-import { spawnSync } from "node:child_process";
+import { spawnGit } from "../src/git-process.js";
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -33,7 +33,7 @@ function atomicJson(path, value) {
 }
 
 function git(memoryRoot, parameters, options = {}) {
-  return spawnSync(process.env.GEOFFREY_GIT_BIN || "git", ["-C", memoryRoot, ...parameters], {
+  return spawnGit(["-C", memoryRoot, ...parameters], {
     encoding: "utf8",
     timeout: options.timeout ?? 60_000,
     maxBuffer: options.maxBuffer ?? 2 * 1024 * 1024,

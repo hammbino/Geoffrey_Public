@@ -15,7 +15,9 @@ const store = join(home, ".geoffrey");
 const pointer = join(store, "current-memory");
 
 function readJson(path, fallback) {
-  try { return JSON.parse(readFileSync(path, "utf8")); } catch { return fallback; }
+  if (!existsSync(path)) return fallback;
+  try { return JSON.parse(readFileSync(path, "utf8")); }
+  catch { throw new Error("Saved automations could not be read. Nothing was overwritten."); }
 }
 
 function cleanText(value, maximum, label) {
@@ -85,10 +87,15 @@ try {
   const approved = request.approved === true;
   const manifestPath = join(memoryRoot, "memory", "automations", "manifest.json");
   const manifest = readJson(manifestPath, { schema_version: 1, workflows: [] });
+  if (!Array.isArray(manifest.workflows) || (manifest.schema_version !== undefined && manifest.schema_version !== 1)) throw new Error("Saved automations have an unsupported format. Nothing was overwritten.");
   const workflows = Array.isArray(manifest.workflows) ? manifest.workflows : [];
   const existingIndex = workflows.findIndex((item) => item?.id === id);
   const existing = existingIndex >= 0 ? workflows[existingIndex] : {};
   const now = new Date().toISOString();
+  const cadence = { type: "daily", times, timezone };
+  const sameCloudConfig = route === "cloud" && existing.execution?.preference === "cloud"
+    && existing.name === name && existing.purpose === purpose && existing.task === task
+    && JSON.stringify(existing.cadence) === JSON.stringify(cadence) && existing.enabled === approved;
   const workflow = {
     ...existing,
     id,
@@ -96,11 +103,14 @@ try {
     purpose,
     task,
     enabled: approved,
-    cadence: { type: "daily", times, timezone },
+    cadence,
     execution: {
+      ...(route === "cloud" ? existing.execution : {}),
       preference: route,
-      deployment_state: route === "cloud" ? "not_connected" : route === "local" ? "not_applicable" : "not_connected",
-      verified_at: null,
+      deployment_state: route === "cloud"
+        ? sameCloudConfig ? existing.execution.deployment_state : existing.execution?.routine_url ? "needs_update" : "not_connected"
+        : route === "local" ? "not_applicable" : "not_connected",
+      verified_at: sameCloudConfig ? existing.execution?.verified_at ?? null : null,
     },
     requirements: {
       capabilities: Array.isArray(existing.requirements?.capabilities) ? existing.requirements.capabilities : [],
@@ -125,7 +135,7 @@ try {
 
   mkdirSync(join(memoryRoot, "memory", "automations"), { recursive: true, mode: 0o700 });
   const temporary = manifestPath + ".tmp";
-  writeFileSync(temporary, JSON.stringify({ schema_version: 1, workflows }, null, 2) + "\n", { mode: 0o600 });
+  writeFileSync(temporary, JSON.stringify({ ...manifest, schema_version: 1, workflows }, null, 2) + "\n", { mode: 0o600 });
   chmodSync(temporary, 0o600);
   renameSync(temporary, manifestPath);
   console.log(JSON.stringify({ ok: true, workflow_id: id, approval_state: workflow.approval.state, route }));

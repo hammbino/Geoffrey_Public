@@ -98,6 +98,7 @@ struct GeoffreyAutomationExecution: Codable {
     let deploymentState: String
     let verifiedAt: String?
     let routineURL: String?
+    var additionalRoutineURLs: [String]? = nil
     let resultBranch: String?
     let verificationMethod: String?
     let verificationRunURL: String?
@@ -109,6 +110,7 @@ struct GeoffreyAutomationExecution: Codable {
         case deploymentState = "deployment_state"
         case verifiedAt = "verified_at"
         case routineURL = "routine_url"
+        case additionalRoutineURLs = "additional_routine_urls"
         case resultBranch = "result_branch"
         case verificationMethod = "verification_method"
         case verificationRunURL = "verification_run_url"
@@ -193,6 +195,7 @@ struct GeoffreyAutomationCloudLinkRequest: Codable {
     let scheduleConfirmed: Bool
     let runURL: String
     let runReviewed: Bool
+    var additionalRoutineURLs: [String] = []
 
     enum CodingKeys: String, CodingKey {
         case workflowID = "workflow_id"
@@ -201,6 +204,7 @@ struct GeoffreyAutomationCloudLinkRequest: Codable {
         case scheduleConfirmed = "schedule_confirmed"
         case runURL = "run_url"
         case runReviewed = "run_reviewed"
+        case additionalRoutineURLs = "additional_routine_urls"
     }
 }
 
@@ -245,14 +249,20 @@ struct GeoffreyAutomationRoutePresentation {
     let colorName: String
 
     init(route: String, deploymentState: String, approvalState: String) {
+        if approvalState != "approved" {
+            title = "Needs review"; icon = "checklist"; colorName = "orange"
+            return
+        }
         switch route {
         case "cloud":
             if deploymentState == "active" && approvalState == "approved" {
                 title = "Cloud run reviewed"
             } else if deploymentState == "connected" {
-                title = "Cloud setup recorded"
+                title = "Cloud connected · test needed"
+            } else if deploymentState == "needs_update" {
+                title = "Cloud changes pending"
             } else {
-                title = "Cloud capable"
+                title = "Cloud not connected"
             }
             icon = "cloud.fill"
             colorName = "blue"
@@ -332,7 +342,7 @@ struct AutomationCenterView: View {
                 if model.hasLoadedAutomations {
                     HStack(spacing: 12) {
                         AutomationMetric(value: model.automationInventory.summary.total, label: "Found", icon: "repeat")
-                        AutomationMetric(value: model.automationInventory.summary.cloud, label: "Cloud capable", icon: "cloud.fill")
+                        AutomationMetric(value: model.automationInventory.summary.cloud, label: "Cloud workflows", icon: "cloud.fill")
                         AutomationMetric(value: model.automationInventory.summary.local, label: "Mac required", icon: "desktopcomputer")
                         AutomationMetric(value: model.automationInventory.summary.queuedRuns, label: "Queued", icon: "clock.arrow.circlepath")
                     }
@@ -418,6 +428,7 @@ private struct AutomationMetric: View {
 private struct AutomationCard: View {
     @EnvironmentObject private var model: GeoffreyModel
     let automation: GeoffreyAutomation
+    @State private var confirmingDelete = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
@@ -481,6 +492,11 @@ private struct AutomationCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button("Delete…", role: .destructive) { confirmingDelete = true }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityLabel("Delete \(automation.name)")
+                    .disabled(!model.runningAutomationIDs.isEmpty || model.removingAutomationIDs.contains(automation.id))
                 Button("Edit") { model.presentAutomationReview(automation) }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -548,6 +564,24 @@ private struct AutomationCard: View {
         .padding(20)
         .background(Color(nsColor: .controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .alert("Delete \(automation.name)?", isPresented: $confirmingDelete) {
+            if automation.execution.routineURL != nil {
+                Button("Open cloud schedule") { model.openClaudeRoutines(automation.execution.routineURL) }
+                ForEach(automation.execution.additionalRoutineURLs ?? [], id: \.self) { url in
+                    Button("Open additional cloud schedule") { model.openClaudeRoutines(url) }
+                }
+                Button("I've stopped all cloud schedules — delete", role: .destructive) {
+                    model.removeAutomation(automation, cloudStopped: true)
+                }
+            } else {
+                Button("Delete", role: .destructive) { model.removeAutomation(automation) }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text(automation.execution.routineURL == nil
+                 ? "Remove this workflow and stop its future local runs. Saved feedback, source files, and previous results are kept."
+                 : "First pause or delete every linked schedule in Claude. Removing Geoffrey's record cannot stop cloud schedules. Previous results and source files are kept.")
+        }
     }
 }
 
@@ -572,6 +606,7 @@ struct CloudAutomationSetupSheet: View {
     @Environment(\.dismiss) private var dismiss
     let automation: GeoffreyAutomation
     @State private var routineURL: String
+    @State private var additionalRoutineLinks: String
     @State private var runURL: String
     @State private var connectorsReviewed: Bool
     @State private var scheduleConfirmed: Bool
@@ -582,6 +617,7 @@ struct CloudAutomationSetupSheet: View {
         self.automation = automation
         let hasConnection = automation.execution.routineURL != nil
         _routineURL = State(initialValue: automation.execution.routineURL ?? "")
+        _additionalRoutineLinks = State(initialValue: (automation.execution.additionalRoutineURLs ?? []).joined(separator: "\n"))
         _runURL = State(initialValue: automation.execution.verificationRunURL ?? "")
         _connectorsReviewed = State(initialValue: hasConnection)
         _scheduleConfirmed = State(initialValue: hasConnection)
@@ -673,6 +709,11 @@ struct CloudAutomationSetupSheet: View {
                         Text("2. Record what you approved").font(.headline)
                         TextField("https://claude.ai/code/routines/...", text: $routineURL)
                             .textFieldStyle(.roundedBorder)
+                        TextField("Additional cloud task links, one per line (optional)", text: $additionalRoutineLinks, axis: .vertical)
+                            .lineLimit(2...3)
+                            .textFieldStyle(.roundedBorder)
+                        Text("Claude may need a separate daily task for each run time. Keep all their links here.")
+                            .font(.caption).foregroundStyle(.secondary)
                         Toggle("I confirmed Claude shows the approved times and timezone", isOn: $scheduleConfirmed)
                             .toggleStyle(.checkbox)
                         Toggle("I reviewed the included connectors and removed everything this routine does not need", isOn: $connectorsReviewed)
@@ -725,7 +766,8 @@ struct CloudAutomationSetupSheet: View {
             connectorsReviewed: connectorsReviewed,
             scheduleConfirmed: scheduleConfirmed,
             runURL: runURL.trimmingCharacters(in: .whitespacesAndNewlines),
-            runReviewed: runReviewed
+            runReviewed: runReviewed,
+            additionalRoutineURLs: additionalRoutineLinks.split(whereSeparator: \.isNewline).map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         ))
     }
 }
@@ -789,7 +831,7 @@ struct AutomationReviewSheet: View {
                 } else {
                     Text(name.isEmpty ? "Add an automation" : "Review automation")
                         .font(.title2.weight(.semibold))
-                    Text("Define the recurring result in plain language. Geoffrey saves the approved definition to private memory and will not silently create a cloud schedule.")
+                    Text("Define the recurring result in plain language. For cloud work, saving is the first step; connect the Claude schedule next before it can run.")
                         .foregroundStyle(.secondary)
 
                     VStack(alignment: .leading, spacing: 7) {

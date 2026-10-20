@@ -116,6 +116,7 @@ struct GeoffreyCapability: Codable, Identifiable {
     let state: String?
     let repair: String?
     let description: String
+    var path: String? = nil
 
     var displayName: String { name.replacingOccurrences(of: "-", with: " ").capitalized }
     var isReady: Bool { (state ?? (enabled ? "ready" : "needs_attention")) == "ready" }

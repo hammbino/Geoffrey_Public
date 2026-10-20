@@ -159,6 +159,29 @@ test("rejects an invalid envelope without changing portable history", () => {
   }
 });
 
+test("accepts results from an additional linked daily task", () => {
+  const item = fixture();
+  try {
+    const manifestPath = join(item.memory, "memory", "automations", "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.workflows[0].execution.additional_routine_urls = ["https://claude.ai/scheduled-task/trig_afternoon"];
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+    const path = join(item.cloud, "memory", "automations", "cloud-inbox", "social-briefing", "2026-10-16T14-00-00Z.json");
+    const envelope = JSON.parse(readFileSync(path, "utf8"));
+    envelope.source.routine_url = "https://claude.ai/scheduled-task/trig_afternoon";
+    writeFileSync(path, JSON.stringify(envelope));
+    git(item.cloud, "add", ".");
+    git(item.cloud, "commit", "-m", "Use linked afternoon task");
+    git(item.cloud, "push", "origin", cloudResultBranch("social-briefing"));
+    const response = run(item);
+    assert.equal(response.status, 0, response.stderr || response.stdout);
+    assert.equal(JSON.parse(response.stdout).imported, 1);
+    assert.equal(JSON.parse(response.stdout).rejected, 0);
+  } finally {
+    rmSync(item.root, { recursive: true, force: true });
+  }
+});
+
 test("a missing cloud result branch is a clean no-results state", () => {
   const item = fixture({ publish: false });
   try {

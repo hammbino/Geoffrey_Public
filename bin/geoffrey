@@ -2354,6 +2354,10 @@ app_automation_save() {
   node "$MCP_DIR/bin/automation-save.js" "$@"
 }
 
+app_automation_remove() {
+  node "$MCP_DIR/bin/automation-remove.js" "$@"
+}
+
 app_automation_cloud_link() {
   node "$MCP_DIR/bin/automation-cloud-link.js" "$@"
 }
@@ -3545,6 +3549,10 @@ case "${1:-}" in
     shift
     app_automation_save "$@"
     ;;
+  app-automation-remove)
+    shift
+    app_automation_remove "$@"
+    ;;
   app-automation-cloud-link)
     shift
     app_automation_cloud_link "$@"
@@ -3586,6 +3594,9 @@ case "${1:-}" in
     ;;
   app-sync-status)
     app_sync_status
+    ;;
+  app-connected-accounts)
+    node --input-type=module -e "import { listAccounts } from '$MCP_DIR/src/store.js'; console.log(JSON.stringify(listAccounts()));"
     ;;
   app-portable-state)
     shift

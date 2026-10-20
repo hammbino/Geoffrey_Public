@@ -4,7 +4,7 @@
 // Diverged histories are rebased only when Git can do so cleanly. A conflict
 // is aborted immediately, leaving the owner's local branch and files intact.
 
-import { spawnSync } from "node:child_process";
+import { spawnGit } from "../src/git-process.js";
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve, sep } from "node:path";
@@ -22,7 +22,7 @@ function cleanText(value, fallback = "") {
 }
 
 function git(memoryRoot, parameters, options = {}) {
-  return spawnSync(process.env.GEOFFREY_GIT_BIN || "git", ["-C", memoryRoot, ...parameters], {
+  return spawnGit(["-C", memoryRoot, ...parameters], {
     encoding: "utf8",
     timeout: options.timeout ?? 60_000,
     maxBuffer: options.maxBuffer ?? 2 * 1024 * 1024,
@@ -179,6 +179,9 @@ if (!memoryRoot || !existsSync(join(memoryRoot, "memory")) || !existsSync(join(m
   if (git(memoryRoot, ["remote", "get-url", "origin"]).status !== 0) {
     stored = { state: "local_only", message: "Memory is saved on this Mac. GitHub backup is optional.",
       recovery: "Choose Set up GitHub backup in Memory when you are ready." };
+  } else if (["local_only", "not_configured"].includes(stored?.state)) {
+    stored = { state: "not_checked", message: "A GitHub backup is connected, but its latest sync has not been checked.",
+      recovery: "Choose Sync now to verify and back up this Mac's memory." };
   }
   const status = stored && typeof stored === "object" ? {
     ...fallback,

@@ -6,6 +6,7 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { spawnGit } from "../src/git-process.js";
 import {
   chmodSync,
   copyFileSync,
@@ -43,13 +44,14 @@ function fail(message, recovery, exitCode = 1) {
 }
 
 function run(executable, parameters, options = {}) {
-  return spawnSync(executable, parameters, {
+  const optionsForRun = {
     encoding: "utf8",
     env: { ...process.env, GH_PROMPT_DISABLED: "1", GIT_TERMINAL_PROMPT: "0" },
     timeout: options.timeout ?? 120_000,
     maxBuffer: options.maxBuffer ?? 6 * 1024 * 1024,
     stdio: ["ignore", "pipe", "pipe"],
-  });
+  };
+  return executable === "git" ? spawnGit(parameters, optionsForRun) : spawnSync(executable, parameters, optionsForRun);
 }
 
 function atomicJson(path, object) {

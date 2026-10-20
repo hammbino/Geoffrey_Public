@@ -4,6 +4,14 @@ import { cloudResultBranch } from "./cloud-result-inbox.js";
 
 const ROUTES = new Set(["cloud", "local", "review"]);
 
+export function isAutomationCandidatePath(path) {
+  if (typeof path !== "string" || !path.trim()) return false;
+  const normalized = path.replaceAll("\\", "/");
+  if (/(^|\/)(briefings|results|cloud-inbox)(\/|$)/i.test(normalized)) return false;
+  if (/^(briefing[-_](reactions|feedback)|priority[-_]feedback|completed[-_]items|history|manifest|queue)\.(json|md)$/i.test(basename(normalized))) return false;
+  return /(automat|routine|schedule|brief)/i.test(basename(normalized));
+}
+
 function cleanText(value, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
@@ -102,6 +110,7 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns
   const latestRun = latestRuns.get(id);
   const canRun = enabled && classification.route === "local" && Boolean(cleanText(raw.task));
   const state = !enabled ? "needs_review"
+    : classification.route === "cloud" && deploymentState !== "active" ? deploymentState
     : stats.running ? "running"
       : stats.failed ? "failed"
         : cleanText(raw.status?.state, "ready");
@@ -120,10 +129,15 @@ function normalizeWorkflow(raw, index, readyCapabilities, queueStats, latestRuns
     execution: {
       route: classification.route,
       preference,
-      reason: classification.reason,
+      reason: classification.route === "cloud" && deploymentState === "not_connected"
+        ? "Not scheduled yet. Connect this workflow to a Claude cloud task before these times can run."
+        : classification.route === "cloud" && deploymentState === "needs_update"
+          ? "The saved instructions or schedule changed. Update the connected Claude task; it still uses its previous configuration until you do."
+          : classification.reason,
       deployment_state: deploymentState,
       verified_at: verifiedAt || null,
       routine_url: routineURL || null,
+      additional_routine_urls: cleanList(raw.execution?.additional_routine_urls),
       result_branch: classification.route === "cloud" && /^[a-z0-9][a-z0-9._-]{2,83}$/.test(id)
         ? cloudResultBranch(id)
         : null,
@@ -193,14 +207,17 @@ export function buildAutomationInventory({ manifest, migration, queue, history, 
   }
 
   const declared = Array.isArray(manifest?.workflows) ? manifest.workflows : [];
+  const removed = Array.isArray(manifest?.removed_workflows) ? manifest.removed_workflows : [];
+  const removedIDs = new Set(removed.map(item => item.id));
+  const removedPaths = new Set(removed.map(item => item.source?.path).filter(Boolean));
   const knownPaths = new Set(declared.map((item) => cleanText(item?.source?.path)).filter(Boolean));
   const candidates = Array.isArray(migration?.private_state?.memory_repository?.automation_candidates)
     ? migration.private_state.memory_repository.automation_candidates
     : [];
   const imported = candidates
-    .filter((path) => typeof path === "string" && path.trim() && !knownPaths.has(path.trim()))
+    .filter((path) => isAutomationCandidatePath(path) && !knownPaths.has(path.trim()) && !removedPaths.has(path.trim()))
     .map((path) => migratedWorkflow(path.trim()));
-  const workflows = [...declared, ...imported]
+  const workflows = [...declared, ...imported].filter(item => !removedIDs.has(item.id))
     .map((item, index) => normalizeWorkflow(item, index, readyCapabilities, queueStats, latestRuns))
     .sort((a, b) => a.name.localeCompare(b.name));
 

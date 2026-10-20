@@ -84,3 +84,29 @@ test("draft stays disabled and credentials are rejected without overwriting it",
     rmSync(item.root, { recursive: true, force: true });
   }
 });
+
+test("unchanged cloud saves retain connection evidence; changed instructions require a cloud update", () => {
+  const item = setup();
+  try {
+    const env = { ...process.env, HOME: item.root };
+    execFileSync('node', [script, '--payload', payload()], { env });
+    const path = join(item.memory, 'memory/automations/manifest.json');
+    const manifest = JSON.parse(readFileSync(path, 'utf8'));
+    Object.assign(manifest.workflows[0].execution, { deployment_state: 'active', verified_at: '2026-10-19T12:00:00Z', routine_url: 'https://claude.ai/scheduled-task/trig_example' });
+    manifest.removed_workflows = [{ id: 'removed-before', source: { path: 'memory/old-briefing.md' } }];
+    writeFileSync(path, JSON.stringify(manifest));
+    execFileSync('node', [script, '--payload', payload()], { env });
+    let saved = JSON.parse(readFileSync(path, 'utf8'));
+    assert.equal(saved.workflows[0].execution.deployment_state, 'active');
+    assert.equal(saved.workflows[0].execution.verified_at, '2026-10-19T12:00:00Z');
+    assert.equal(saved.removed_workflows[0].id, 'removed-before');
+    execFileSync('node', [script, '--payload', payload({ task: 'Updated read-only summary instructions.' })], { env });
+    saved = JSON.parse(readFileSync(path, 'utf8'));
+    assert.equal(saved.workflows[0].execution.routine_url, 'https://claude.ai/scheduled-task/trig_example');
+    assert.equal(saved.workflows[0].execution.deployment_state, 'needs_update');
+    assert.equal(saved.workflows[0].execution.verified_at, null);
+    writeFileSync(path, '{broken');
+    assert.notEqual(spawnSync('node', [script, '--payload', payload()], { env }).status, 0);
+    assert.equal(readFileSync(path, 'utf8'), '{broken');
+  } finally { rmSync(item.root, { recursive: true, force: true }); }
+});

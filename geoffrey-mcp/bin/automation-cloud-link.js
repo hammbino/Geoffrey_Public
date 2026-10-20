@@ -33,7 +33,9 @@ function claudeURL(value, kind) {
   }
   const isSession = /^\/code\/session_[A-Za-z0-9_-]+\/?$/.test(url.pathname);
   if (kind === "run" && !isSession) throw new Error("Paste the Claude session link for the reviewed test run.");
-  if (kind === "routine" && (isSession || !url.pathname.startsWith("/code/"))) {
+  const isScheduledTask = /^\/scheduled-task\/trig_[A-Za-z0-9_-]+\/?$/.test(url.pathname);
+  const isRoutine = /^\/code\/routines\/[^/]+\/?$/.test(url.pathname);
+  if (kind === "routine" && !isScheduledTask && !isRoutine) {
     throw new Error("Paste the Claude Routine detail link, not a run session link.");
   }
   return url.toString();
@@ -55,6 +57,8 @@ try {
 
   const workflowID = cleanText(request.workflow_id, 84, "Workflow ID").toLowerCase();
   const routineURL = claudeURL(request.routine_url, "routine");
+  const additionalRoutineURLs = [...new Set((Array.isArray(request.additional_routine_urls) ? request.additional_routine_urls : []).map(value => claudeURL(value, "routine")))].filter(value => value !== routineURL);
+  if (additionalRoutineURLs.length > 2) throw new Error("Record no more than three cloud task links.");
   if (request.connectors_reviewed !== true) throw new Error("Review the routine's included connectors before recording the connection.");
   if (request.schedule_confirmed !== true) throw new Error("Confirm that Claude shows the approved schedule before recording the connection.");
 
@@ -83,6 +87,7 @@ try {
     execution: {
       ...workflow.execution,
       routine_url: routineURL,
+      additional_routine_urls: additionalRoutineURLs,
       deployment_state: active ? "active" : "connected",
       verified_at: active ? now : null,
       verification: {
